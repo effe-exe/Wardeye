@@ -400,7 +400,11 @@ def event_view(frame: Image.Image, box: Sequence[float], min_side: float, long_s
     x0, y0, x1, y1 = box
     cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
     half = max(min_side, (x1 - x0) * 2.2, (y1 - y0) * 2.2) / 2
-    region = (round(cx - half * 1.2), round(cy - half), round(cx + half * 1.2), round(cy + half))
+    hw, hh = min(half * 1.2, frame.width / 2), min(half, frame.height / 2)
+    # Keep the view inside the frame (shifted, not padded) so boxes near an edge show no black band.
+    cx = min(max(cx, hw), frame.width - hw)
+    cy = min(max(cy, hh), frame.height - hh)
+    region = (round(cx - hw), round(cy - hh), round(cx + hw), round(cy + hh))
     view = frame.crop(region)
     d = ImageDraw.Draw(view)
     d.rectangle((x0 - region[0] - 4, y0 - region[1] - 4, x1 - region[0] + 4, y1 - region[1] + 4), outline=ACCENT, width=3)

@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from rifteye_ml.reviewpack import (apply_answers, card_scores, data_uri, fit_temperature, frame_time, hms,
-                                   link_tracks, option_label, review_order, softmax, view_to_frame, wilson)
+from rifteye_ml.reviewpack import (apply_answers, card_scores, data_uri, event_view, fit_temperature, frame_time,
+                                   hms, link_tracks, option_label, review_order, softmax, view_to_frame, wilson)
 
 
 def test_frame_time_and_hms():
@@ -121,3 +121,11 @@ def test_apply_answers_for_events():
     assert [(r["proposed"], r["verdict"], r["kind"]) for r in rows] == [("appeared", "correct", "appeared"),
                                                                         ("changed", "wrong", "none")]
     json.dumps(rows)  # plain data
+
+
+def test_event_view_stays_inside_the_frame():
+    frame = Image.new("RGB", (1920, 1080), (200, 30, 60))
+    view = event_view(frame, (900, 5, 960, 60), min_side=400, long_side=10_000)
+    px = np.asarray(view)
+    assert (px.reshape(-1, 3).min(axis=0) > 0).all()  # no black padding anywhere
+    assert view.height == 400 and view.width == 480

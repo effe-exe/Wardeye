@@ -86,6 +86,7 @@ class ChangeGate:
         self.prev: np.ndarray | None = None
         self.still = None                # frames each pixel has been still
         self.last_same = None            # last time each pixel matched the still table
+        self.startup_hand = None         # hands in the frame the still table was first taken from
         self.events: list[ChangeEvent] = []
         self.snapshots: list[tuple[np.ndarray, np.ndarray]] = []  # (still table before, frame after) per event
         self.mat: np.ndarray | None = None
@@ -106,6 +107,8 @@ class ChangeGate:
             self.background, self.prev = frame.copy(), frame.copy()
             self.still = np.zeros(frame.shape[:2], np.int32)
             self.last_same = np.full(frame.shape[:2], t, np.float64)
+            # A hand in this first frame is not part of the table; when it leaves, that is not a change.
+            self.startup_hand = self.nd.binary_dilation(skin(frame), iterations=6)
             return []
         if self.off_table:  # back on the table: the old still table stays, so changes made meanwhile are found
             self.off_table = 0
@@ -159,7 +162,9 @@ class ChangeGate:
             kind = ("noise" if weak or (before > 0.6 and after > 0.6) else
                     "appeared" if before > 0.6 and after < 0.4 else
                     "disappeared" if before < 0.4 and after > 0.6 else "changed")
-            if area >= min_area and kind != "noise":  # bare mat before and after: light or codec, absorb it
+            was_hand = bool(self.startup_hand[sl][region].mean() > 0.3)
+            self.startup_hand[sl][region] = False
+            if area >= min_area and kind != "noise" and not was_hand:  # otherwise absorb it silently
                 # When the region last looked like the still table: about when the hand arrived.
                 t_before = float(np.median(self.last_same[sl][region]))
                 new.append(ChangeEvent(t, (int(x0), int(y0), int(x1), int(y1)), kind, area, float(before), float(after),
@@ -217,6 +222,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--table", default="0,0,1,1")
     ap.add_argument("--fps", type=float, default=5.0)
     ap.add_argument("--mat", help="bare playmat colour R,G,B (estimated from the first frame if omitted)")
+    ap.add_argument("--card-long", type=float, default=131.0, help="a card's long side in px at 1080p")
     ap.add_argument("--ignore", action="append", default=[],
                     help="repeatable x0,y0,x1,y1 box in fractions of the *frame* to never watch (overlays)")
     ap.add_argument("--out", required=True)
@@ -229,6 +235,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         bx0, by0, bx1, by1 = (float(v) for v in box.split(","))
         ignore.append(((bx0 - tx0) / (tx1 - tx0), (by0 - ty0) / (ty1 - ty0), (bx1 - tx0) / (tx1 - tx0), (by1 - ty0) / (ty1 - ty0)))
     s = GateSettings(fps=a.fps, mat_rgb=tuple(int(v) for v in a.mat.split(",")) if a.mat else None,
+                     card_long_frac=a.card_long / 1080,
                      ignore=tuple(tuple(min(1.0, max(0.0, v)) for v in b) for b in ignore))
     gate = run(video_frames(a.video, a.start, a.duration, table, s), s)
     events = gate.events

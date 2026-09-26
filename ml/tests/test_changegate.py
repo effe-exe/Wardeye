@@ -58,3 +58,15 @@ def test_cutaway_frames_are_skipped_and_changes_meanwhile_found():
     for i, f in enumerate(seq):
         kinds += [e.kind for e in gate.feed(i / 5, f)]
     assert kinds == ["appeared"]  # the card played during the cutaway, and no event for the cam itself
+
+
+def test_a_hand_in_the_first_frame_leaving_is_not_a_change():
+    s = GateSettings(fps=5, width=320, mat_rgb=MAT)
+    gate = ChangeGate(s)
+    seq = [_frame(hand=(100, 60))] * 2 + [_frame()] * 8          # the window starts with a hand on the table
+    seq += [_frame(cards=[(200, 90, (30, 30, 200))])] * 8         # then a real card is played
+    t = 0.0
+    for f in seq:
+        gate.feed(t, f)
+        t += 1 / s.fps
+    assert [e.kind for e in gate.events] == ["appeared"]
