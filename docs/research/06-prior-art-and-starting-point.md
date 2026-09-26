@@ -48,7 +48,7 @@ The synthetic-data recipe comes from a small canon: *Cut, Paste and Learn* (arXi
 
 RiftEye does not start from zero. The Maintainer's TCG pre-grading app, [Gradeon](https://gradeon.ai), already recognises single cards in phone photos across several games, Riftbound included. From that work, RiftEye inherits, re-published here under the AGPL as each piece is ported ([ROADMAP](../ROADMAP.md)):
 
-- **Catalogue tooling:** bulk sync, image caching and incremental refresh. For RiftEye, card data and art must come from Riot's API ([08](08-legal-and-policy.md)).
+- **Catalogue tooling:** bulk sync, image caching and incremental refresh. For RiftEye the source is Riot's public card gallery, and nothing is redistributed ([D-015](../decisions.md#d-015-no-riot-api-no-riot-assets-distributed)).
 - **A metric-learning trainer** for card-specific embeddings: contrastive loss with a negatives queue, augmentations modelled on the real domain gap, and model selection on real data every epoch.
 - **A corner-heatmap rectifier** (soft-argmax) that exports to ONNX. It will be retrained from a permissive initialisation ([03 §3.3](03-models-and-licensing.md#33-rectification)).
 - **Detector-training wrappers** around permissively licensed real-time DETRs.

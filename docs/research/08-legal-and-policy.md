@@ -6,10 +6,10 @@
 
 | Area | Constraint | RiftEye's response |
 |---|---|---|
-| **Riot: registration and key** | Apps need a written licence **or** an approved, app-specific Riot API key. Products that serve players must register "regardless of whether or not your product uses official documented APIs" | Register and apply **in M0**. Queues of 5–6+ months are reported; a mock-up is enough to apply |
-| **Riot: assets** | "Your App may only use Riftbound assets (including cards) provided by the Riot API. No external or unofficial materials." | The catalogue and art come from the Riot API through a small server that holds the key. No scraped images, no re-hosting in the repo |
+| **Riot: registration and key** | Apps need a written licence **or** an approved, app-specific Riot API key. Products that serve players must register "regardless of whether or not your product uses official documented APIs" RiftEye does **not** use the Riot API ([D-015](../decisions.md#d-015-no-riot-api-no-riot-assets-distributed)). It stays free and non-commercial for Riftbound, carries the notice, and acts on any request from Riot |
+| **Riot: assets** | "Your App may only use Riftbound assets (including cards) provided by the Riot API. No external or unofficial materials." RiftEye **distributes no card images or text**. The extension loads them from Riot's public card gallery in the viewer's browser; releases carry only models and a vector index keyed by collector code |
 | **Riot: metagame data** | Apps that "publish or retain metagame-defining data" will not be approved: play rates and win rates of decks or cards, matchup differentials | **No cross-match statistics.** Per-match timelines only. Ask Riot before any aggregate feature |
-| **Riot: monetisation** | Needs an Approved key, a free tier, and transformative paid content. Subscriptions, donations and crowdfunding are accepted; no "middle-man" resale of API data to third parties | Free core. Paid features only after approval and only if transformative. Selling to organisers needs written confirmation |
+| **Riot: monetisation** | Needs an Approved key, a free tier, and transformative paid content. Subscriptions, donations and crowdfunding are accepted; no "middle-man" resale of API data to third parties **No paid Riftbound features.** Any commercial Riftbound use, including tools for organisers, needs a written licence from Riot first |
 | **Riot: integrity and brand** | No unfair advantage to players; no implied endorsement; the LJJ §6 notice; no Riot logos; no Riot trademarks, trade names or character names in domains or social handles | Public-information-only rule; notices in [NOTICE](../../NOTICE); name review (§8.2) |
 | **Broadcast footage** | Twitch's terms exclude downloading and scraping "except as expressly permitted". YouTube's developer policies forbid storing content without written approval | Recordings only **directly from organisers or Riot**, with written permission. No bulk platform downloading |
 | **Embedding players** | Twitch: nothing may be overlaid on the embedded player. YouTube: the player may not be modified or built upon | The web app puts the timeline **beside** the player |
@@ -136,10 +136,10 @@ Three documents apply together: the **Legal Jibber Jabber** (LJJ, Riot's fan-con
 
 ## 8.8 Checklist
 
-- [ ] **M0:** register the product on the Riot Developer Portal and apply for a Riftbound API key. Include a mock-up of the timeline and hover UX, and state the spectator framing and the public-information rule.
-- [ ] **M0:** ask Riot, through the Developer Support Platform, about (a) spectator tools that identify cards in broadcasts, (b) whether per-match timelines are acceptable and where the "metagame-defining data" line sits, and (c) the name.
+- [x] **M0:** decided not to use the Riot API ([D-015](../decisions.md#d-015-no-riot-api-no-riot-assets-distributed)). No Riot assets are distributed, and the project stays free and non-commercial for Riftbound.
 - [ ] **M0:** settle the name after a trademark search ([07 §7.4](07-licensing-and-governance.md#74-trademark)).
 - [ ] **M0–M1:** written footage agreements with organisers; `sources.yaml`; face-blurring in the ingest pipeline.
-- [ ] **M2:** build the catalogue server with the key held server-side; the extension fetches from it; show the LJJ notice in the extension's about page and the store listing.
+- [ ] **M2:** a gallery adapter that loads card data from Riot's public gallery at display time, with nothing cached beyond the browser. Show the LJJ notice in the extension's about page and the store listing.
 - [ ] **M3:** privacy policy, store disclosures and data-retention settings before the public beta.
-- [ ] **Before any paid feature:** an Approved key status, confirmation that the feature is transformative, and written confirmation from Riot for anything sold to organisers.
+- [ ] **Before any commercial Riftbound feature:** a written licence from Riot.
+- [ ] **Always:** act promptly on any request from Riot, organisers or broadcasters.

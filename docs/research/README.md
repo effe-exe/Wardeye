@@ -37,11 +37,11 @@ How to build an open-source tool that watches Riftbound streams, logs every card
    - a trademark policy;
    - permissive-only dependencies.
 8. **Riot's policies are the biggest constraint** ([08](08-legal-and-policy.md)):
-   - An app-specific **Riot API key** is required, and **card data and art may only come from the Riot API**.
+   - Riot's Riftbound policies ask apps for an app-specific Riot API key or a written licence, and allow only card assets that come from the API.
    - No cross-match "metagame" statistics.
-   - Monetisation only with an approved key, a free tier and transformative paid content.
+   - Monetisation only with an approved key or a licence, a free tier and transformative paid content.
    - Riot also receives a broad licence to fan projects (LJJ §7).
-   - **Apply in M0**: queues of months are reported.
+   - **RiftEye does not use the Riot API** ([D-015](../decisions.md#d-015-no-riot-api-no-riot-assets-distributed)). It distributes no card images or text: the extension loads them from Riot's public card gallery in the viewer's browser. For Riftbound the project stays free and non-commercial.
 9. **Competition exists**:
    - RiftSight already does hover, at a self-reported ~80% on in-person streams.
    - Riftbound Vision is in beta for OBS and Twitch.

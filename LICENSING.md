@@ -22,4 +22,4 @@ Source files carry an SPDX header, for example:
 **Not covered by any of these licences:**
 
 - The RiftEye name and logo. See [TRADEMARKS.md](TRADEMARKS.md).
-- Riot Games' intellectual property: card names, text, artwork and Riftbound itself. RiftEye loads card data at runtime from sources Riot allows and redistributes none of it. See [NOTICE](NOTICE).
+- Riot Games' intellectual property: card names, text, artwork and Riftbound itself. RiftEye redistributes none of it; the extension loads card data from Riot's public card gallery in the viewer's browser. See [NOTICE](NOTICE).

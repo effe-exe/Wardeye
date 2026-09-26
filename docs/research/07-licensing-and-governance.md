@@ -87,8 +87,8 @@ Code, weights and data are licensed separately.
 No software licence or CLA overrides Riot's terms for using its IP. Three points matter directly for "control" and "sell it later" (details in [08](08-legal-and-policy.md)):
 
 1. **Riot gets a licence to the project.** Legal Jibber Jabber §7 lets Riot use, copy, modify and distribute fan projects "on a royalty-free, non-exclusive, irrevocable, transferable, sub-licensable, worldwide basis, for any purpose", and that applies regardless of the AGPL.
-2. **Monetising requires an approved Riot API key**, a free tier, and transformative paid content. Selling data obtained through the API to third parties is a "middle-man" use Riot says it will not approve. Selling to tournament organisers therefore needs Riot's written approval or a licence.
-3. **Keys are revocable** at Riot's discretion, and with them the right to operate commercially.
+2. **Monetising a Riftbound app requires an approved Riot API key or a written licence**, a free tier, and transformative paid content. Selling API data to third parties is a "middle-man" use Riot says it will not approve.
+3. **RiftEye does not use the Riot API** ([D-015](../decisions.md#d-015-no-riot-api-no-riot-assets-distributed)). So for Riftbound it stays **free and non-commercial**. Any paid Riftbound feature, including tools sold to organisers, would first need a written licence from Riot.
 
 **Structural consequence.** The durable, sellable asset is the **game-agnostic engine** plus the brand and the data engine ([D-008](../decisions.md)). Riftbound is its first game pack, operated within Riot's rules and ideally in partnership with Riot or its organisers.
 

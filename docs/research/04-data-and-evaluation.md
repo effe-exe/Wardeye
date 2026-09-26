@@ -6,7 +6,7 @@ The models are the easy part to write down. The data engine that keeps improving
 
 | Source | Gives us | Labels | Rights and handling |
 |---|---|---|---|
-| **Catalogue art** | Every printing, clean | Identity, free | Riot Games IP, obtained through the Riot API. Used to build the index and to train. Never re-hosted in this repo ([08](08-legal-and-policy.md)) |
+| **Catalogue art** | Every printing, clean | Identity, free | Riot Games IP, from Riot's public card gallery. Used by the Maintainer to build the index and to train. Never re-hosted or redistributed ([D-015](../decisions.md#d-015-no-riot-api-no-riot-assets-distributed)) |
 | **Synthetic boards** | Unlimited, varied scenes | Boxes, quads, identity, zone, orientation, all free | The generator is open source. Generated images contain card art, so they are regenerated locally, not published as a dataset |
 | **Stream footage** | The real target domain | Pseudo-labels, then human verification | Broadcasts belong to their organisers. Used **only with permission**, stored privately, purgeable per source |
 | **Opt-in corrections** from extension users | Hard cases from the wild | Identity corrections | Opt-in, minimal payload, documented in the privacy policy ([§4.10](#410-opt-in-corrections-from-the-extension)) |
@@ -14,7 +14,12 @@ The models are the easy part to write down. The data engine that keeps improving
 ## 4.2 Catalogue
 
 - **Content:** every printing of every released set, including alt arts, overnumbered cards, promos and tokens. Localised printings are grouped under the same card.
-- **Source:** the **Riot API** (`riftbound-content-v1`), fetched by the catalogue server that holds RiftEye's key. Riot's policy allows apps to use only Riftbound assets provided by that API ([D-011](../decisions.md#d-011-card-data-and-art-come-only-from-the-riot-api), [08 §8.2](08-legal-and-policy.md#82-riot-games-policies)). Community databases and marketplace catalogues may serve as cross-checks during internal research. Nothing from them ships.
+- **Source:** **Riot's public card gallery**, which carries names, types, domains, costs, text, orientation and 744 × 1039 images. RiftEye does not use the Riot API ([D-015](../decisions.md#d-015-no-riot-api-no-riot-assets-distributed)).
+- **Who fetches it, and when:**
+  - The Maintainer's build machine fetches it to train models and build the vector index. The images stay on that machine.
+  - The extension fetches it in the viewer's browser at display time.
+  - Nothing is re-hosted.
+- **Offline research:** `ml/` also reads community mirrors of the gallery that use the same JSON shape. Promos missing from the gallery can come from marketplace catalogues, for internal research only.
 - **Shape:** the `Card` / `Printing` schema in [ARCHITECTURE §6](../ARCHITECTURE.md#6-data-contracts), released as versioned files, with a changelog entry per set release.
 - **New-set readiness:** when a new set is revealed, its printings enter the catalogue as soon as images exist. The embedder then recognises them zero-shot from art, before any real footage exists.
 

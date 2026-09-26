@@ -155,15 +155,16 @@ flowchart LR
     IH -->|JSON results| CS
   end
   CS <--> SP[Side panel<br/>timeline, board, deck]
-  IH <--> IDB[(IndexedDB<br/>catalogue + index cache)]
-  IDB <-.->|versioned download| CAT[RiftEye catalogue server<br/>holds the Riot API key]
+  IH <--> IDB[(IndexedDB<br/>card data + index cache)]
+  IDB <-.->|card names, text, images| GAL[Riot's public card gallery]
+  IDB <-.->|models + vector index,<br/>keyed by card code| REL[RiftEye releases]
 ```
 
 - **All inference is local.** No video leaves the user's machine. Models and the WASM runtime ship inside the extension package. Store policy details are in [05](research/05-delivery-surfaces.md).
 - **Why an iframe.** Extension messaging carries JSON only, so frames cannot reach an offscreen document without copies, and content scripts live under the host page's CSP. A web-accessible extension iframe runs under the extension's own CSP, can be cross-origin isolated for WASM threads, and receives frames zero-copy. It is prototyped against the alternatives in M2 ([05 §5.2](research/05-delivery-surfaces.md#52-browser-extension-manifest-v3)).
-- **Card data and art come from the RiftEye catalogue server,** which builds them from the Riot API. The key never ships in client code ([D-011](decisions.md#d-011-card-data-and-art-come-only-from-the-riot-api)).
+- **RiftEye distributes no card images or card text** ([D-015](decisions.md#d-015-no-riot-api-no-riot-assets-distributed)). The extension reads names, text and images from Riot's public card gallery at display time, in the viewer's browser. RiftEye's own releases carry only models and a vector index keyed by collector code. A small adapter isolates the gallery format, so a change on Riot's side is a one-file fix.
 - The overlay is attached inside the player container, so it survives theatre mode and fullscreen. It maps intrinsic video coordinates to CSS pixels, accounting for letterboxing.
-- The catalogue and embedding index are versioned data files downloaded from a CDN and cached. Forks can point to their own catalogue URL.
+- The embedding index is a versioned data file downloaded from RiftEye's releases and cached. Forks can point to their own index URL.
 - Inference pauses when the tab is hidden or the video is paused. An eco mode caps detection at 1 Hz.
 
 ### 5.2 VOD pipeline (research engine, later a hosted service)
@@ -193,7 +194,7 @@ interface Printing {
   collectorNumber: string;
   variant: 'standard' | 'alt_art' | 'overnumbered' | 'showcase' | 'signature' | 'promo' | 'token';
   language: string;          // BCP-47, "en", "zh-Hans", ...
-  imageUrl: string;          // served by the catalogue server from Riot API assets (D-011); never stored in this repo
+  imageUrl: string;          // Riot's gallery URL, loaded by the viewer's browser (D-015); never stored or re-hosted by RiftEye
   orientation: 'portrait' | 'landscape';
 }
 
@@ -282,5 +283,5 @@ A lesson from earlier card-recognition work: an index built by one encoder and q
 
 - **No hidden information, ever.** Hand cams, face-down cards and deck tops are masked out by the scene router and never processed, even when a broadcast shows them. RiftEye must not become a stream-sniping aid, and tournament organisers need to be able to trust that.
 - **No gameplay automation.** No rules engine that plays for anyone, no online play client, no simulator.
-- **No card images in this repository.** Art is loaded at runtime from allowed sources ([08](research/08-legal-and-policy.md)).
+- **No card images or card text in this repository or in any RiftEye release.** The viewer's browser loads them from Riot's public card gallery ([D-015](decisions.md#d-015-no-riot-api-no-riot-assets-distributed)).
 - v1 targets 1v1 (the organised-play format). Team and free-for-all formats come later.

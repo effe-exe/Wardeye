@@ -61,12 +61,12 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 ### D-010: RiftEye is a working name
 
 - **Date:** 2026-09-26. **Status:** accepted.
-- **Decision:** "RiftEye" is used until a final, game-agnostic name has cleared a trademark search. The final name is chosen before the Riot API application and before any public launch.
+- **Decision:** "RiftEye" is used until a final, game-agnostic name has cleared a trademark search. The final name is chosen before any public launch.
 - **Why:** "Rift" leans on Riot's marks, a competing tool is called RiftSight, and an unrelated "RiftEye" already exists ([08 §8.2](research/08-legal-and-policy.md#82-riot-games-policies)).
 
 ### D-011: Card data and art come only from the Riot API
 
-- **Date:** 2026-09-26. **Status:** accepted.
+- **Date:** 2026-09-26. **Status:** superseded by [D-015](#d-015-no-riot-api-no-riot-assets-distributed).
 - **Decision:** The product catalogue (card data, text and art) is built from the Riot API. A small server holds the app-specific key, and clients fetch from that server. Scraped galleries and third-party image mirrors are never shipped.
 - **Why:** Riot's Riftbound policies allow only "Riftbound assets (including cards) provided by the Riot API". They require an app-specific key, and the key may not be in distributed code ([08 §8.2](research/08-legal-and-policy.md#82-riot-games-policies)).
 
@@ -87,3 +87,13 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 - **Date:** 2026-09-26. **Status:** accepted.
 - **Decision:** The kit talks to OBS through obs-websocket and delivers graphics as a Browser Source.
 - **Why:** OBS and its plugin template are GPL, and a native plugin would have to be GPL-compatible, which conflicts with D-001's dual licensing ([05 §5.4](research/05-delivery-surfaces.md#54-broadcaster-kit)).
+
+### D-015: No Riot API; no Riot assets distributed
+
+- **Date:** 2026-09-26. **Status:** accepted. Supersedes D-011.
+- **Decision:** RiftEye does not use the Riot API.
+  - **What RiftEye distributes:** its own code and models, plus an embedding index of vectors keyed by public collector codes (`OGN-001`, …).
+  - **What it never distributes:** card images or card text.
+  - **At display time:** the extension reads card names, text and images from Riot's public card gallery, in the viewer's browser.
+  - **For Riftbound:** the project stays free and non-commercial, carries the Legal Jibber Jabber notice, and will act on any request from Riot.
+- **Why:** the Maintainer's decision. Keeping every Riot asset out of RiftEye's distribution also keeps Riot's official gallery the single source of card data, which means official text and new sets on release day.
