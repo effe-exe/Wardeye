@@ -81,3 +81,13 @@ def test_gallery_cache_reuses_levels(tmp_path):
     assert all((first.levels[x] == again.levels[x]).all() for x in (40, 80))
     spike._gallery(enc, images, [], cache=tmp_path, key="k")
     assert len(list(tmp_path.glob("*.npy"))) == 3  # plus the sharp gallery
+
+
+def test_strip_views_are_scored_and_labeled(tmp_path):
+    out = tmp_path / "m0-demo.csv"
+    args = ["demo", "--cards", "12", "--heights", "120", "--bitrates", "3000", "--strips", "top:0.4,left:0.5",
+            "--out", str(out)]
+    assert spike.main(args) == 0
+    rows = list(csv.DictReader(open(out, encoding="utf-8")))
+    assert [r["view"] for r in rows] == ["full", "full", "top:0.4", "left:0.5"]
+    assert {r["gallery"] for r in rows[2:]} == {"px:120"} and {r["rotation"] for r in rows[2:]} == {"oracle"}

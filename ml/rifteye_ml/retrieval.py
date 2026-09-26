@@ -24,6 +24,24 @@ def at_long_side(im: Image.Image, side: int) -> Image.Image:
     return im.convert("RGB").resize((max(2, round(im.width * scale)), max(2, round(im.height * scale))), Image.BOX)
 
 
+EDGES = ("top", "bottom", "left", "right")
+
+
+def band(im: Image.Image, view: str) -> Image.Image:
+    """The part of an upright card a stack leaves visible: 'top:0.25' is the top quarter.
+    'full' (or '') is the whole card."""
+    if view in ("", "full"):
+        return im
+    edge, _, frac = view.partition(":")
+    f = float(frac)
+    if edge not in EDGES or not 0 < f <= 1:
+        raise ValueError(f"bad view {view!r}; expected <top|bottom|left|right>:<fraction>")
+    w, h = im.size
+    bw, bh = max(2, round(w * f)), max(2, round(h * f))
+    box = {"top": (0, 0, w, bh), "bottom": (0, h - bh, w, h), "left": (0, 0, bw, h), "right": (w - bw, 0, w, h)}[edge]
+    return im.crop(box)
+
+
 class Pyramid:
     """Gallery embeddings of the clean art at a few on-screen sizes.
 

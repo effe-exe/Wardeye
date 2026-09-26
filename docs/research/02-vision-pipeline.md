@@ -65,7 +65,7 @@ The alternative is a single detector with one class per card. It fails for four 
 - **Classes:** `card` (face-up) and `card_back` (face-down piles and cards). Exhausted versus ready, and whose side a card is on, come from geometry and layout. Fewer classes means cleaner labels.
 - **Label convention:** boxes and quads follow the **printed card**, not the sleeve. A sleeve adds about 2 mm per side, roughly 3 px at 120 px card height. The rectifier learns to find the card inside it.
 - **Hard negatives:** playmat art (it often contains illustrated rectangles), deck boxes, dice and counters, phones, sleeve packets, score trackers.
-- **Overlap:** cards on battlefields and in the base can overlap, and attached equipment is tucked under units by rule. Set-prediction detectors (the DETR family) handle crowded, overlapping objects without NMS tuning, which is one reason to prefer them.
+- **Overlap and stacks:** cards on battlefields and in the base overlap, runes lie in overlapping rows, and attached equipment is tucked under units by rule. Set-prediction detectors (the DETR family) handle crowded, overlapping objects without NMS tuning, which is one reason to prefer them. The detector is **amodal**: it predicts a covered card's full quad plus its visible fraction and edge, trained on synthetic stacks with full-quad ground truth ([ARCHITECTURE §3.8](../ARCHITECTURE.md#38-stacks-and-covered-cards)).
 - **Model:** in the browser, RT-DETRv2-OBB-S (native oriented boxes) or D-FINE-S; on the server and as the labeling teacher, RF-DETR keypoint with four corners. All Apache-2.0 ([03 §3.2](03-models-and-licensing.md#32-detectors)).
 - **Resolution:** detect on the overhead ROI resized to 640 px on the long side. At 1080p full-screen that keeps cards around 40 px, comfortably detectable. For windowed 720p layouts, tile the ROI in two.
 
@@ -85,6 +85,7 @@ The alternative is a single detector with one class per card. It fails for four 
 - **Positives** for a printing's catalogue art:
   1. Synthetic degradations of that art: downscale to 40–160 px, **real H.264 re-encode through ffmpeg** at stream bitrates with 4:2:0 chroma, sleeve border and glare, stage-light colour casts, motion blur, partial occlusion by hands and other cards, and small perspective.
   2. Real stream crops that the data engine has labeled ([04](04-data-and-evaluation.md)).
+- **Partial views.** Covered cards show only a band along one edge. Training covers a random part of each crop, and the index stores strip views of every card (the band along each edge at a few visible fractions), so a covered card is matched on the part that shows.
 - **Hard negatives.** Riftbound prints several cards around the same champion (legend, champion units, signature cards), with shared palettes and character designs. Mine them explicitly: they are the confusions that matter.
 - **Model selection:** on the real held-out stream test set, every epoch. Never on loss.
 
@@ -117,6 +118,7 @@ score(c)    = log p_vis(c) + λ₁·log p_zone(c) + λ₂·log p_domain(c)
 - **Association:** two-pass IoU (high-score detections first, then low-score ones), ByteTrack-style. The overhead camera is static, so IoU alone handles almost all frames.
 - **Re-ID for moves:** when a committed track vanishes and a new track appears elsewhere within a few seconds with the same identity (or a close embedding), stitch them together and emit `card_moved`.
 - **Occlusion:** tracks persist through short occlusion by hands (a few seconds) without re-identification.
+- **Covered cards:** a card covered by another card keeps its track, identity and last full quad for as long as its pile exists, and is re-confirmed whenever part of it shows. Zones hold ordered piles, so gear moves with its unit and a card vanishing from the middle of a pile is a removal ([ARCHITECTURE §3.8](../ARCHITECTURE.md#38-stacks-and-covered-cards)).
 - **Camera cuts and zoom changes:** on a detected cut, all tracks freeze. When the overhead view returns, frozen tracks are re-associated by position and identity. If the framing changed (zoom or pan), the layout is re-estimated first.
 
 ## 2.10 Event engine
@@ -150,6 +152,7 @@ Audio runs **server-side first** (VOD pipeline). ASR with vocabulary biasing tow
 |---|---|
 | Sleeve glare wipes out part of the art | Glare fraction lowers observation weight; aggregation over frames; glare in augmentation |
 | Hands cover cards while playing | Track persistence; identity is committed after the hand leaves |
+| Cards stacked or fanned on top of each other | Amodal detection, strip views in the index, covered-card persistence and piles in the board model ([ARCHITECTURE §3.8](../ARCHITECTURE.md#38-stacks-and-covered-cards)) |
 | Low rendition (viewer on 480p or auto) | Prompt to switch; identity falls back to priors; overlay says "low quality" |
 | Auto-exposure or focus hunting on the camera | Quality weight uses sharpness; skip frames below a floor |
 | Picture-in-picture layout changes mid-event | Presets carry `validFrom`; auto-discovery re-runs after cuts |

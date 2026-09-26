@@ -73,6 +73,7 @@ python -m rifteye_ml.spike synthetic --catalog ~/rifteye-data/catalog/catalog.js
 - `--embed-cache DIR` keeps gallery embeddings between runs (private `.npy` files).
 - `--queries 300` degrades a seeded sample of 300 printings; the gallery stays complete. Pretrained ViTs embed about 10–40 images per second on a laptop CPU, and `rotation=search` embeds every query 4 times.
 - `--query-catalog catalog-zh-Hans.jsonl` degrades another language's printings of the same cards instead. For example, Chinese crops searched against the English gallery.
+- `--strips top:0.25,top:0.4,left:0.3` also scores every card from only the band a stack leaves visible, against the same band of every catalogue card (CSV column `view`).
 - The simulation takes about a minute per setting for the whole catalogue at 1080p. The H.264 pass runs single-threaded so results are bit-exact between runs.
 
 **Quick fine-tune.** A linear head on the frozen backbone, trained on synthetic crops of some sets and evaluated on the others. It asks whether a trained embedder will close the camera gap for cards it never saw:

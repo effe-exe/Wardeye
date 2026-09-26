@@ -84,3 +84,15 @@ def test_timm_spec_parsing():
     assert parse_timm_spec("vit_small_patch14_dinov2.lvd142m@168/avg") == ("vit_small_patch14_dinov2.lvd142m", 168, "avg")
     with pytest.raises(ValueError):
         parse_timm_spec("@224")
+
+
+def test_band_views():
+    from rifteye_ml.retrieval import band
+
+    im = synthetic_card(3).resize((72, 100))
+    assert band(im, "full") is im and band(im, "") is im
+    assert band(im, "top:0.25").size == (72, 25) and band(im, "left:0.5").size == (36, 100)
+    assert band(im, "bottom:0.3").size == (72, 30) and band(im, "right:1").size == (72, 100)
+    for bad in ("middle:0.5", "top:0", "top:1.5"):
+        with pytest.raises(ValueError):
+            band(im, bad)

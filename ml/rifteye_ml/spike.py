@@ -39,9 +39,9 @@ from . import catalog as cat
 from .degrade import REALISM, StreamSettings, simulate, with_realism
 from .encoders import Encoder, get_encoder
 from .fixtures import load_fixture_image, synthetic_catalog
-from .retrieval import Gallery, Pyramid, accuracy, at_long_side, ranked_labels, search
+from .retrieval import Gallery, Pyramid, accuracy, at_long_side, band, ranked_labels, search
 
-FIELDS = ["mode", "realism", "queries", "gallery", "encoder", "frame", "card_h", "bitrate_kbps", "rotation", "n",
+FIELDS = ["mode", "realism", "queries", "gallery", "view", "encoder", "frame", "card_h", "bitrate_kbps", "rotation", "n",
           "top1_printing", "top5_printing", "top1_card", "top5_card", "seconds"]
 HEIGHT_BUCKETS = [(0, 50), (50, 80), (80, 120), (120, 10_000)]
 
@@ -52,14 +52,16 @@ def catalog_key(rows: Sequence[dict], max_side: int) -> str:
 
 
 def _gallery(encoder: Encoder, images: Sequence[Image.Image], scales: Sequence[int],
-             cache: Path | None = None, key: str = "") -> Gallery:
-    """The gallery once from the sharp art, or a `Pyramid` at `scales`. With `cache`, each level
-    is stored as .npy under a key of encoder, scale and image set, and reused by later runs."""
+             cache: Path | None = None, key: str = "", view: str = "full") -> Gallery:
+    """The gallery once from the sharp art, or a `Pyramid` at `scales`. `view` embeds only a band
+    of each card (see `band`). With `cache`, each level is stored as .npy under a key of encoder,
+    scale, view and image set, and reused by later runs."""
     def level(scale: int | None) -> np.ndarray:
-        views = images if scale is None else [at_long_side(im, scale) for im in images]
+        views = [band(im if scale is None else at_long_side(im, scale), view) for im in images]
         if cache is None:
             return encoder.embed(views)
-        tag = hashlib.sha1(f"{encoder.name}|{scale or 'sharp'}|{key}".encode()).hexdigest()[:24]
+        vtag = "" if view in ("", "full") else f"|{view}"
+        tag = hashlib.sha1(f"{encoder.name}|{scale or 'sharp'}{vtag}|{key}".encode()).hexdigest()[:24]
         f = cache / f"{tag}.npy"
         if f.exists():
             return np.load(f)
@@ -88,12 +90,16 @@ def run_synthetic(rows: Sequence[dict], load_image: Callable[[dict], Image.Image
                   heights: Sequence[int], bitrates: Sequence[int], base: StreamSettings,
                   mode: str = "synthetic", queries: int = 0, realism: str = "codec",
                   query_set: tuple[str, list[Image.Image], list[int]] | None = None,
-                  gallery_scales: Sequence[int] = (), cache: Path | None = None, cache_key: str = "") -> list[dict]:
+                  gallery_scales: Sequence[int] = (), cache: Path | None = None, cache_key: str = "",
+                  strips: Sequence[str] = ()) -> list[dict]:
     """Degrade the catalogue (or a seeded sample of `queries` printings) and search the full gallery.
 
     `query_set` = (label, images, gallery index of each image) degrades other printings of the
     gallery's cards instead, such as another language's printings. `gallery_scales` embeds the
-    gallery at those on-screen sizes (a `Pyramid`) instead of once from the sharp art."""
+    gallery at those on-screen sizes (a `Pyramid`) instead of once from the sharp art.
+
+    `strips` (e.g. "top:0.25") also scores each card from only that band of its upright crop,
+    against the same band of every gallery card at the crop's height: what a stack leaves visible."""
     images = [load_image(r) for r in rows]
     galleries = [_gallery(enc, images, gallery_scales, cache, cache_key) for enc in encoders]
     label, q_images, q_truth = query_set or ("same", images, list(range(len(rows))))
@@ -114,10 +120,20 @@ def run_synthetic(rows: Sequence[dict], load_image: Callable[[dict], Image.Image
                     batch = [c.image if rot_mode == "search" else c.upright() for c in crops]
                     m = _score(enc, gallery, rows, batch, truth, rot_mode == "search")
                     results.append({"mode": mode, "realism": realism, "queries": label,
-                                    "gallery": _gallery_label(gallery_scales), "encoder": enc.name,
+                                    "gallery": _gallery_label(gallery_scales), "view": "full", "encoder": enc.name,
                                     "frame": f"{s.frame_w}x{s.frame_h}", "card_h": h,
                                     "bitrate_kbps": br, "rotation": rot_mode, **m,
                                     "seconds": round(time.time() - t1 + sim_seconds, 1)})
+                    _print_row(results[-1])
+                for view in strips:
+                    t1 = time.time()
+                    g = _gallery(enc, images, [h], cache, cache_key, view=view)
+                    batch = [band(c.upright(), view) for c in crops]
+                    m = _score(enc, g, rows, batch, truth, False)
+                    results.append({"mode": mode, "realism": realism, "queries": label, "gallery": f"px:{h}",
+                                    "view": view, "encoder": enc.name, "frame": f"{s.frame_w}x{s.frame_h}",
+                                    "card_h": h, "bitrate_kbps": br, "rotation": "oracle", **m,
+                                    "seconds": round(time.time() - t1, 1)})
                     _print_row(results[-1])
     return results
 
@@ -145,6 +161,7 @@ def run_real(rows: Sequence[dict], load_image: Callable[[dict], Image.Image], en
             t0 = time.time()
             m = _score(enc, gallery, rows, [im for im, _ in sel], [i for _, i in sel], True)
             results.append({"mode": "real", "realism": "", "queries": "real", "gallery": _gallery_label(gallery_scales),
+                            "view": "full",
                             "encoder": enc.name, "frame": "",
                             "card_h": f"{lo}-{hi if hi < 10_000 else ''}",
                             "bitrate_kbps": "", "rotation": "search", **m, "seconds": round(time.time() - t0, 1)})
@@ -153,7 +170,8 @@ def run_real(rows: Sequence[dict], load_image: Callable[[dict], Image.Image], en
 
 
 def _print_row(r: dict) -> None:
-    print(f"  {r['encoder']:<28} h={str(r['card_h']):>7} br={str(r['bitrate_kbps']):>5} {r['rotation']:<6} "
+    view = "" if r.get("view", "full") == "full" else f" [{r['view']}]"
+    print(f"  {r['encoder'] + view:<28} h={str(r['card_h']):>7} br={str(r['bitrate_kbps']):>5} {r['rotation']:<6} "
           f"n={r['n']:<5} printing top1={r['top1_printing']:.3f} top5={r['top5_printing']:.3f}  "
           f"card top1={r['top1_card']:.3f} top5={r['top5_card']:.3f}", flush=True)
 
@@ -210,6 +228,9 @@ def main(argv: list[str] | None = None) -> int:
                            help="degrade a seeded sample of N printings; the gallery stays complete (0 = all)")
             p.add_argument("--realism", default="codec", choices=list(REALISM),
                            help="codec: perfect crops, codec only; camera: adds camera, occluders and detector error")
+        if name != "real":
+            p.add_argument("--strips", default="",
+                           help="also score cards from one band only, e.g. top:0.25,top:0.4,left:0.3 (stacked cards)")
         if name == "synthetic":
             p.add_argument("--query-catalog",
                            help="degrade this catalogue's printings (e.g. another language) instead of the gallery's; "
@@ -266,7 +287,7 @@ def main(argv: list[str] | None = None) -> int:
         results = run_synthetic(rows, loader, encoders, _ints(a.heights), _ints(a.bitrates), base,
                                 mode="demo" if a.mode == "demo" else "synthetic", queries=a.queries,
                                 realism=a.realism, query_set=query_set, gallery_scales=_ints(a.gallery_scales),
-                                cache=cache, cache_key=cache_key)
+                                cache=cache, cache_key=cache_key, strips=[v for v in a.strips.split(",") if v.strip()])
     write_csv(results, Path(a.out))
     print(f"{len(results)} rows appended to {a.out}")
     return 0

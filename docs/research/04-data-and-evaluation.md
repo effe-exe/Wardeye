@@ -90,8 +90,9 @@ Frames from the same match are near-duplicates. Frames from the same broadcast s
 
 | Level | Metrics |
 |---|---|
-| Detection | AP50; recall per card-height bucket (< 50, 50–80, 80–120, > 120 px) |
-| Identification | Top-1 and top-5 at card level and printing level, per bucket; precision–coverage curve of the commit rule |
+| Detection | AP50; recall per card-height bucket (< 50, 50–80, 80–120, > 120 px) and per visible fraction for covered cards |
+| Identification | Top-1 and top-5 at card level and printing level, per bucket; the same for covered cards by visible fraction; precision–coverage curve of the commit rule |
+| Tracking | Identity kept while covered (share of covered time with the right identity); false removals (tracks ended while the card was still on the table); ID switches |
 | Timeline | Event F1 per event type at ±5 s; board-state accuracy (share of visible cards correctly named at sampled instants) |
 | Runtime | Detection Hz, embedding latency, dropped video frames, per reference machine ([ARCHITECTURE §9](../ARCHITECTURE.md#9-performance-targets-to-be-validated-in-m2)) |
 

@@ -43,7 +43,7 @@ flowchart LR
 | 3 | **Rectifier** | Warp to a canonical upright crop: affine from the oriented box, or a homography from 4 corners when the camera is tilted | Optional corner heatmap refiner ([06](research/06-prior-art-and-starting-point.md#64-starting-point-the-maintainers-card-recognition-work)) | New or moved tracks only |
 | 4 | **Embedder** | Crop to an L2-normalised vector | DINOv2-S/14 or Perception Encoder S16, fine-tuned with Sub-center ArcFace | New or unresolved tracks, plus periodic re-checks |
 | 5 | **Matcher** | Cosine search over every printing, re-ranked with game priors, aggregated per track | Brute force (the gallery is a few thousand vectors) | Per embedding |
-| 6 | **Tracker** | Keeps one identity per physical card across frames, occlusions and moves | IoU association plus embedding re-ID | Every detection pass |
+| 6 | **Tracker** | Keeps one identity per physical card across frames, occlusions, stacks and moves | IoU association, embedding re-ID, covered-card persistence ([§3.8](#38-stacks-and-covered-cards)) | Every detection pass |
 | 7 | **Event engine** | Turns track changes into game events, per zone and per player | Rules and state machine; learned later | Every detection pass |
 
 Two principles set the compute budget:
@@ -109,6 +109,7 @@ A track's identity is **committed** when the top score stays ahead of the runner
 - ByteTrack-style two-pass IoU association. The overhead cam is static, so plain IoU does most of the work.
 - **Embedding re-ID** stitches a track that vanished in one zone to a new one in another: the same card moved from base to a battlefield. That produces `card_moved`, not `card_left_play` plus `card_played`.
 - Tracks survive short occlusions (hands) for a few seconds, and survive camera cuts (see 3.1).
+- Tracks of cards covered by other cards survive as long as the stack does ([§3.8](#38-stacks-and-covered-cards)).
 
 ### 3.7 Event engine
 
@@ -131,6 +132,21 @@ A per-match state machine over a board model. For each player, a board model hol
 **Take-backs.** Players may reverse their most recent action (Tournament Rules 509). If a just-played card leaves the board within a few seconds without reaching the trash, the engine emits a retraction for the earlier event instead of `card_left_play`.
 
 In **VOD mode**, the engine is non-causal. It can look ahead and back, pick each track's best frame for identity and back-fill earlier events. In **live mode**, it holds events in a 2–3 s confirmation buffer before showing them.
+
+### 3.8 Stacks and covered cards
+
+Cards on a Riftbound table overlap all the time. Units bunch up at a battlefield or in the base, often fanned so that each card shows a strip of the one below. Runes lie in an overlapping row. Equipment is tucked under the unit it is attached to, by rule. On the M0 reference broadcast, stacked and overlapping cards were the most common reason a card could not be measured on its own. A recogniser that works frame by frame loses a card the moment another card covers it. RiftEye keeps it, in four parts:
+
+1. **Amodal detection.** The detector predicts each card's *full* quad even when part of it is covered, plus the fraction and the edge that are visible. It is trained first on synthetic stacks (fanned piles, rune rows, attached gear, piles where only the top card shows) with ground-truth full quads, then on labeled real frames. A card that shows only a strip still gets a box.
+2. **Identification from the visible part.** The embedder is trained with random covering: a band along any edge stays visible. The index also stores **strip views** of every card, the bands along each edge at a few visible fractions, so the matcher compares the visible part with the same part of each candidate. Priors carry more weight here: the zone, the pile's controller, and the cards already seen in this match.
+3. **Object permanence in the tracker.** A card's identity is committed when it is seen well, usually as it is played, and on broadcasts with a featured-card graphic the graphic confirms it. When another card covers it, the track does not end. It becomes *covered*: it keeps its identity and its last full quad, and it is re-confirmed whenever part of it shows. It ends only on evidence: its visible part disappears while the pile shrinks, the area empties, or re-ID finds it elsewhere (`card_moved`).
+4. **Piles in the board model.** Each zone holds ordered piles, not just a set of tracks. A new card joins a pile on top with an offset, and attached gear is linked to its unit. The event engine reasons over piles: a unit moves together with its gear, removing the top card reveals the one below, and a card that disappears from the middle of a pile is a removal (`card_left_play`), not a detection glitch.
+
+Covered cards are public information, since they were face up when they were played. Face-down cards are not: `card_hidden` never gets an identity, covered or not.
+
+Some productions draw the board state themselves. The M0 reference broadcast keeps an operator-updated strip listing every card in each zone. Where such a strip exists, the scene router reads it as a production graphic: evidence for the fusion and weak labels for training, never a dependency.
+
+Stacks get their own metrics in the evaluation suite ([04](research/04-data-and-evaluation.md#47-metrics-and-the-leaderboard)): identity kept while covered (the share of covered time with the right identity) and false removals (tracks ended while their card was still on the table).
 
 ## 4. Identity model: gameplay card vs printing
 

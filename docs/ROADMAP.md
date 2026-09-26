@@ -20,7 +20,7 @@ flowchart LR
 - [x] Timeline logger v0 (`apps/logger`)
 - [ ] First 5 matches logged with it
 - [x] Feasibility spike tooling (`ml/`: stream simulator with a real H.264 pass, encoders, retrieval metrics)
-- [ ] **Feasibility spike run**: accuracy-vs-card-height curves, synthetic and real ([04 §4.8](research/04-data-and-evaluation.md#48-the-m0-feasibility-spike))
+- [ ] **Feasibility spike run**: accuracy-vs-card-height curves, synthetic and real ([04 §4.8](research/04-data-and-evaluation.md#48-the-m0-feasibility-spike)), plus identification from a visible strip for stacked cards
 - [ ] Choose the embedder base model (DINOv2-S vs Perception Encoder S) and the browser detector (RT-DETRv2-OBB vs D-FINE) from the spike ([03](research/03-models-and-licensing.md))
 
 **Exit:** the M0 report is published in `docs/reports/`, with a go / adjust decision per broadcast framing (full-screen vs picture-in-picture, 1080p vs 720p).
@@ -28,9 +28,10 @@ flowchart LR
 ## M1: Recognition core and VOD runner (about 4–6 weeks)
 
 - [ ] `ml/synth` v0: synthetic boards with the real codec pass
-- [ ] Detector v0 (`card`, `card_back`): synthetic data plus about 500 verified real frames
+- [ ] Synthetic stacks: fanned piles, rune rows, attached gear and piles, with full-quad ground truth
+- [ ] Detector v0 (`card`, `card_back`), amodal (full quad plus visible fraction): synthetic data plus about 500 verified real frames
 - [ ] Rectifier: corner heatmap network retrained on stream crops
-- [ ] Embedder v0: fine-tuned, exported to ONNX (fp16 and int8), float16 index plus manifest
+- [ ] Embedder v0: fine-tuned with random covering, exported to ONNX (fp16 and int8), float16 index plus manifest, with strip views and a gallery pyramid
 - [ ] `ml/evalsuite` v0: frozen real test sets, the leaderboard, per-bucket metrics
 - [ ] Python VOD runner: board per sampled frame, naive timeline JSON
 
@@ -48,14 +49,14 @@ flowchart LR
 
 ## M3: Timeline v1 and public beta (about 6–8 weeks)
 
-- [ ] Tracker with re-ID and cut handling; event engine v1 (played, cast, moved, exhausted/readied, turn start)
+- [ ] Tracker with re-ID and cut handling, and covered cards that keep their identity while stacked; event engine v1 over piles (played, cast, moved, exhausted/readied, turn start)
 - [ ] Priors: zone and type, legend domains, decklist import, seen-before
 - [ ] Layout presets for the main broadcasters (`layouts/*.json`); auto-discovery fallback
 - [ ] Opt-in "Wrong card?" corrections into the active-learning queue
 - [ ] Data engine running: about 2,000 verified frames and 5,000 identity crops
 - [ ] Chrome Web Store public beta, privacy policy, contributor docs for presets and labeling
 
-**Exit:** `card_played` F1 ≥ 0.85 at ±5 s and committed-identity precision ≥ 98% on the out-of-domain test set. Privacy policy and the Legal Jibber Jabber notice in the store listing.
+**Exit:** `card_played` F1 ≥ 0.85 at ±5 s and committed-identity precision ≥ 98% on the out-of-domain test set, with identity kept while covered and false removals reported for stacked cards. Privacy policy and the Legal Jibber Jabber notice in the store listing.
 
 ## M4: RiftEye Web and more evidence (later)
 
