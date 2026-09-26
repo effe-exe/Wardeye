@@ -40,7 +40,7 @@ def test_realism_levels():
     assert with_realism(base, "codec") == base
     cam = with_realism(base, "camera")
     assert cam.occlusion_prob > 0 and cam.box_jitter > 0 and cam.card_h == base.card_h
-    assert set(REALISM) == {"codec", "camera"}
+    assert set(REALISM) == {"codec", "camera", "foil"}
     with pytest.raises(ValueError):
         with_realism(base, "cinematic")
 
@@ -69,3 +69,18 @@ def test_camera_level_changes_the_crops_but_keeps_one_per_card():
     assert all(min(c.image.size) >= 2 for c in camera)
     assert any(a.image.size != b.image.size or not np.array_equal(np.asarray(a.image), np.asarray(b.image))
                for a, b in zip(codec, camera))
+
+
+def test_foil_level_adds_colour_shifts_without_touching_other_levels():
+    import numpy as np
+    from rifteye_ml.degrade import REALISM, StreamSettings, _add_foil, with_realism
+
+    assert with_realism(StreamSettings(), "camera").foil_prob == 0.0
+    assert with_realism(StreamSettings(), "foil").foil_prob == 0.2
+    assert REALISM["foil"]["tilt_deg"] == REALISM["camera"]["tilt_deg"]
+    card = np.full((131, 95, 3), 120, np.uint8)
+    a = _add_foil(card, np.random.default_rng(3))
+    b = _add_foil(card, np.random.default_rng(3))
+    assert np.array_equal(a, b)  # seeded
+    hue_spread = a.reshape(-1, 3).astype(int).std(axis=0)
+    assert hue_spread.max() > 5  # colours now vary across a flat grey card

@@ -9,7 +9,8 @@ writes an upright crop per card. Stacked and light-bordered cards are missed by 
 the crops seed the real test set, and a person labels them (`rifteye_ml.label`).
 
 The default border rule, dark and not red, fits the red mat of the M0 reference broadcast:
-R < 90, R − G < 45 and R − B < 45.
+R < 90, R − G < 45 and R − B < 45. For other mats, `--mask notmat` takes everything far from
+the mat's colour instead (estimated from the table area, or given with `--mat R,G,B`).
 
     python -m rifteye_ml.matcrops --frames frames/seg-*/ --table 0.17,0.09,0.86,0.884 \\
         --long 131 --every 24 --out real-crops/
@@ -45,6 +46,20 @@ def border_mask(rgb: np.ndarray, r_max: int = 90, rg: int = 45, rb: int = 45) ->
     return (r < r_max) & (r - g < rg) & (r - b < rb)
 
 
+def mat_colour(rgb: np.ndarray) -> np.ndarray:
+    """The playmat's colour: the most common colour of the table area (coarse 3-D histogram peak)."""
+    q = (rgb.reshape(-1, 3) // 16).astype(np.int32)
+    keys = q[:, 0] * 256 + q[:, 1] * 16 + q[:, 2]
+    peak = np.bincount(keys).argmax()
+    sel = rgb.reshape(-1, 3)[keys == peak]
+    return np.median(sel, axis=0).astype(np.int16)
+
+
+def notmat_mask(rgb: np.ndarray, mat: np.ndarray, tol: int = 60) -> np.ndarray:
+    """Pixels far from the mat colour (max channel difference over `tol`): cards, whatever their border."""
+    return np.abs(rgb.astype(np.int16) - mat.astype(np.int16)).max(axis=2) > tol
+
+
 def min_area_rect(points: np.ndarray) -> tuple[tuple[float, float], float, float, float]:
     """Minimum-area rectangle of 2-D points (x, y): centre, long side, short side, long-side angle."""
     from scipy.spatial import ConvexHull
@@ -70,11 +85,12 @@ def min_area_rect(points: np.ndarray) -> tuple[tuple[float, float], float, float
 
 
 def find_cards(rgb: np.ndarray, long_px: float, tol: float = 0.12, aspect: tuple[float, float] = (1.33, 1.46),
-               min_fill: float = 0.88) -> list[CardBox]:
-    """Isolated single cards whose long side is within `tol` of `long_px`."""
+               min_fill: float = 0.88, mask: np.ndarray | None = None) -> list[CardBox]:
+    """Isolated single cards whose long side is within `tol` of `long_px`. `mask` replaces the
+    default dark-border rule (see `notmat_mask`)."""
     from scipy import ndimage
 
-    mask = ndimage.binary_closing(border_mask(rgb), structure=np.ones((3, 3)))
+    mask = ndimage.binary_closing(border_mask(rgb) if mask is None else mask, structure=np.ones((3, 3)))
     mask = ndimage.binary_fill_holes(mask)
     mask = ndimage.binary_opening(mask, structure=np.ones((3, 3)))
     labels, n = ndimage.label(mask)
@@ -121,6 +137,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--long", type=float, required=True, help="expected long side of a card in px")
     ap.add_argument("--every", type=int, default=1, help="use every Nth frame")
     ap.add_argument("--pad", type=float, default=0.0)
+    ap.add_argument("--mask", choices=["border", "notmat"], default="border",
+                    help="border: dark, not-red card borders (the M0 red mat); notmat: anything unlike the mat")
+    ap.add_argument("--mat", help="R,G,B of the bare mat for --mask notmat (default: estimated per frame)")
+    ap.add_argument("--mat-tol", type=int, default=60)
     ap.add_argument("--out", required=True)
     a = ap.parse_args(argv)
 
@@ -135,7 +155,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         W, H = frame.size
         x0, y0 = round(fx0 * W), round(fy0 * H)
         roi = np.asarray(frame)[y0:round(fy1 * H), x0:round(fx1 * W)]
-        for k, b in enumerate(find_cards(roi, a.long)):
+        mask = None
+        if a.mask == "notmat":
+            mat = np.array([int(v) for v in a.mat.split(",")], np.int16) if a.mat else mat_colour(roi)
+            mask = notmat_mask(roi, mat, a.mat_tol)
+        for k, b in enumerate(find_cards(roi, a.long, mask=mask)):
             b.centre = (b.centre[0] + x0, b.centre[1] + y0)
             name = f"{f.stem}_{k:02d}.png"
             upright_crop(frame, b, a.pad).save(out / name)

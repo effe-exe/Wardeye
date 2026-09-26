@@ -66,6 +66,7 @@ class StreamSettings:
     defocus_px: float = 0.0         # extra blur radius at the card's on-screen scale
     occlusion_prob: float = 0.0     # a finger, counter or overlapping card covers part of the card
     box_jitter: float = 0.0         # detector error: crop offset and scale, as a fraction of the box
+    foil_prob: float = 0.0          # holographic foil under stage light: a rainbow sheen that shifts colours
 
 
 REALISM: dict[str, dict[str, float]] = {
@@ -74,6 +75,9 @@ REALISM: dict[str, dict[str, float]] = {
                "exposure_jitter": 0.25, "gamma_jitter": 0.15, "light_jitter": 0.15, "defocus_px": 0.6,
                "occlusion_prob": 0.3, "box_jitter": 0.06},
 }
+# Foil printings were the colour grid's main misses on real footage (M0 report §5.2). A separate
+# level, so runs at the other levels stay bit-exact.
+REALISM["foil"] = {**REALISM["camera"], "foil_prob": 0.2}
 
 
 def with_realism(s: StreamSettings, level: str) -> StreamSettings:
@@ -137,6 +141,26 @@ def _add_glare(card: np.ndarray, rng: np.random.Generator) -> np.ndarray:
     mask = np.clip(1.0 - np.sqrt((xs - cx) ** 2 + (ys - cy) ** 2) / rad, 0, 1) ** 2 * rng.uniform(0.15, 0.45)
     a = card.astype(np.float32)
     return np.clip(a + (255 - a) * mask[..., None], 0, 255).astype(np.uint8)
+
+
+def _rainbow(hue: np.ndarray) -> np.ndarray:
+    """Fully saturated RGB in [0, 1] for hues in [0, 1)."""
+    h6 = hue[..., None] * 6.0
+    return np.clip(np.concatenate([np.abs(h6 - 3) - 1, 2 - np.abs(h6 - 2), 2 - np.abs(h6 - 4)], axis=-1), 0, 1)
+
+
+def _add_foil(card: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    """A holographic foil lit from above: a rainbow whose hue drifts across the card along a random
+    direction, strongest in a bright band where the light catches it."""
+    h, w = card.shape[:2]
+    theta = rng.uniform(0, np.pi)
+    ys, xs = np.mgrid[0:h, 0:w].astype(np.float32)
+    u = (xs * np.cos(theta) + ys * np.sin(theta)) / max(w, h)
+    sheen = _rainbow((u * rng.uniform(0.8, 2.5) + rng.uniform(0, 1)) % 1.0)
+    band = np.exp(-(((u - rng.uniform(-0.2, 1.2)) / rng.uniform(0.1, 0.35)) ** 2))
+    a = (rng.uniform(0.12, 0.3) * (0.5 + band))[..., None]
+    out = card.astype(np.float32) * (1 - a) + sheen * 255 * a + 40 * band[..., None] * a
+    return np.clip(out, 0, 255).astype(np.uint8)
 
 
 SKIN = [(236, 188, 160), (224, 172, 138), (198, 140, 106), (160, 110, 80), (112, 76, 56), (74, 52, 40)]
@@ -217,6 +241,8 @@ def card_on_screen(card: Image.Image, s: StreamSettings, rng: np.random.Generato
     img = img.resize(size, Image.BOX)  # optics average light over each pixel
     img = img.filter(ImageFilter.GaussianBlur(radius=float(rng.uniform(0.2, 0.7 + s.defocus_px))))
     arr = np.asarray(img)
+    if s.foil_prob > 0 and rng.random() < s.foil_prob:  # no draw at all when off: other levels stay bit-exact
+        arr = _add_foil(arr, rng)
     if rng.random() < s.glare_prob:
         arr = _add_glare(arr, rng)
     rotation = int(rng.choice([0, 90, 180, 270])) if s.rotate else 0

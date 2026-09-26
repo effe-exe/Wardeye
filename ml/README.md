@@ -5,13 +5,13 @@ Research, training and evaluation tools for RiftEye (Python 3.11+). Right now th
 | Module | What it does |
 |---|---|
 | `catalog` | Saves Riot's public card gallery feed, normalises it into `catalog.jsonl` and caches the card images **locally** |
-| `degrade` | The stream simulator: cards on a table at a target on-screen height, sleeves, glare, sensor noise, then a **real libx264 encode and decode** at stream bitrates. The `camera` realism level adds tilt, lighting, defocus, occluders and detector box error |
+| `degrade` | The stream simulator: cards on a table at a target on-screen height, sleeves, glare, sensor noise, then a **real libx264 encode and decode** at stream bitrates. The `camera` realism level adds tilt, lighting, defocus, occluders and detector box error; `foil` adds a holographic sheen to 20% of cards on top of that |
 | `encoders` | `colorgrid` and `dhash` baselines, plus any pretrained `timm:` backbone (e.g. DINOv2) |
 | `retrieval` | Brute-force gallery search with 4-rotation matching; printing-level and card-level top-k |
 | `spike` | Accuracy vs card height × bitrate (synthetic), or vs crop height (real labeled crops) |
 | `report` | Markdown tables and an SVG accuracy-vs-height chart from spike CSVs (numbers only) |
 | `changegate` | Layer 1: when and where the table changed (settled changes vs a still-table model; hands and light ignored), from a VOD window |
-| `matcrops` | A classical bootstrap detector for M0: isolated cards on a known playmat, straightened into upright crops (not the product detector) |
+| `matcrops` | A classical bootstrap detector for M0: isolated cards on a known playmat, straightened into upright crops (not the product detector). `--mask notmat` works on any mat colour |
 | `label` | Model-assisted labeling of real crops: ranked candidates and verification sheets; a person decides |
 | `demo` | A preview bundle for `apps/viewer`: the M0 pipeline run offline on a VOD window (detector, identifier, tracks, change gate), so a recorded match can be hovered |
 | `reviewpack` | Review packs for `apps/reviewer`: the model's guesses, one per track of the same card, least confident first plus a random audit; and exported answers back into labels |
