@@ -101,7 +101,7 @@ def main(argv: list[str] | None = None) -> int:
                        key=catalog_key(rows, 512))
     files = crop_files(Path(a.crops))
     crops = [Image.open(f).convert("RGB") for f in files]
-    idx, scores, _ = search(enc, gallery, crops, k=min(60, len(rows)), rotation_invariant=True)
+    idx, scores, rots = search(enc, gallery, crops, k=min(60, len(rows)), rotation_invariant=True)
 
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -110,16 +110,19 @@ def main(argv: list[str] | None = None) -> int:
         sheets.mkdir(parents=True, exist_ok=True)
     with open(out, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["file", "rank", "printing_id", "card_id", "language", "score"])
+        w.writerow(["file", "rank", "printing_id", "card_id", "language", "score", "rotation"])
         for n, (file, crop) in enumerate(zip(files, crops)):
             ranked = candidates(idx[n], rows, a.k)
             for rank, i in enumerate(ranked, 1):
                 pos = list(idx[n]).index(i)
                 w.writerow([file.name, rank, rows[i]["printing_id"], rows[i]["card_id"], rows[i]["language"],
-                            f"{float(scores[n][pos]):.4f}"])
+                            f"{float(scores[n][pos]):.4f}", int(rots[n][pos])])
             if sheets:
                 cands = [(f"{rows[i]['printing_id']} {rows[i]['language']}", images[i]) for i in ranked]
-                sheet(crop, cands, f"{file.name}  ({crop.width}x{crop.height} px)").save(sheets / f"{file.stem}.jpg", quality=88)
+                # Show the crop the way the top candidate matched it, so the two can be compared directly.
+                r0 = int(rots[n][list(idx[n]).index(ranked[0])]) if ranked else 0
+                shown = crop.rotate(r0, expand=True) if r0 else crop
+                sheet(shown, cands, f"{file.name}  ({crop.width}x{crop.height} px)").save(sheets / f"{file.stem}.jpg", quality=88)
     print(f"{len(files)} crops, {len(rows)} gallery rows -> {out}" + (f", sheets in {sheets}" if sheets else ""))
     return 0
 

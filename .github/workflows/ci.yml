@@ -44,5 +44,7 @@ jobs:
           cache: pip
           cache-dependency-path: ml/pyproject.toml
       - run: pip install -e '.[dev]'
+      # CPU-only torch for the quick fine-tune test; the PyPI build would pull in gigabytes of CUDA.
+      - run: pip install --index-url https://download.pytorch.org/whl/cpu torch
       - run: pytest -q
       - run: python -m rifteye_ml.spike demo --cards 24 --heights 40,120 --bitrates 2000 --out /tmp/m0-demo.csv

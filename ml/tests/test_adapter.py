@@ -1,11 +1,14 @@
 import csv
 
+import pytest
+
 from rifteye_ml import adapter
 from rifteye_ml import catalog as cat
 from rifteye_ml.fixtures import load_fixture_image, synthetic_catalog
 
 
 def test_adapter_trains_and_reports_both_splits(tmp_path):
+    pytest.importorskip("torch", reason="the optional torch extra; CI installs the CPU build")
     rows = synthetic_catalog(16, seed=0)
     for i, r in enumerate(rows):
         r["set_code"] = "FAK" if i < 10 else "NEW"
