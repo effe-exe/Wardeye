@@ -87,6 +87,8 @@ python -m rifteye_ml.adapter --catalog ~/rifteye-data/catalog/catalog.jsonl --ca
   --train-sets OGN,OGS,SFD --out reports/m0-adapter.csv
 ```
 
+Add `--real-crops <folder> --real-labels <labels.csv>` to score the same head on real stream crops too: orientation unknown, per crop, one crop per track, and split by whether the card's set was in training. That is the question that matters for M1: does training on synthetic crops alone transfer to footage?
+
 Encoder specs take a pooling suffix: `timm:vit_small_patch14_dinov2.lvd142m@224/avg` averages the patch tokens instead of using the class token.
 
 Turn a CSV into tables and a chart:
