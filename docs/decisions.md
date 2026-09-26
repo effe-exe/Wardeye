@@ -97,3 +97,15 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
   - **At display time:** the extension reads card names, text and images from Riot's public card gallery, in the viewer's browser.
   - **For Riftbound:** the project stays free and non-commercial, carries the Legal Jibber Jabber notice, and will act on any request from Riot.
 - **Why:** the Maintainer's decision. Keeping every Riot asset out of RiftEye's distribution also keeps Riot's official gallery the single source of card data, which means official text and new sets on release day.
+
+### D-016: A change gate decides when and where the heavy stages run
+
+- **Date:** 2026-09-26. **Status:** accepted. The prototype is in `ml/rifteye_ml/changegate.py`; M2 ports it to the extension.
+- **Decision:** A layer-1 change gate watches a small view of the table against a model of the still table and reports settled changes with a box and a kind ([ARCHITECTURE §3.1.1](ARCHITECTURE.md#311-change-gate-layer-1)). The detector and embedder run on those boxes; full detection passes run only at the start, after cuts and periodically as a safety net.
+- **Why:** Proposed by the Maintainer. Most frames change nothing, and the gate costs a tiny fraction of a detection pass. It also times events to the moment a card settles. On 10 minutes of the M0 reference VOD it reported 57 events, and a visual check of 40 found nearly all of them to be real board changes.
+
+### D-017: The embedding index holds a gallery pyramid
+
+- **Date:** 2026-09-26. **Status:** accepted for pretrained encoders. Revisit after the M1 fine-tune.
+- **Decision:** The index stores each printing's embedding at several on-screen sizes (for example 40–160 px long side), and the matcher searches the level nearest each crop's size. The detector already knows the size.
+- **Why:** In the M0 spike, frozen DINOv2-S found 13% of clean 40 px cards against a single sharp gallery and 62% against the gallery rendered at 40 px. A fine-tuned embedder may shrink the gap. The pyramid costs a few extra MB of float16.

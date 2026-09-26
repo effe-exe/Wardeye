@@ -22,7 +22,8 @@
 ```mermaid
 flowchart LR
   F[Video frame] --> R[Scene router<br/>layout + cut detection]
-  R -->|overhead ROI| D[Detector<br/>oriented card / card_back boxes]
+  R -->|overhead ROI| G[Change gate<br/>where did the table change?]
+  G -->|changed regions| D[Detector<br/>oriented card / card_back boxes]
   R -->|close-up / graphic| C[Close-up path]
   D --> Q[Rectifier<br/>affine or 4-corner warp]
   Q --> E[Embedder<br/>crop -> 256-d vector]
@@ -39,6 +40,7 @@ flowchart LR
 | # | Stage | What it does | Model | Runs how often |
 |---|---|---|---|---|
 | 1 | **Scene router** | Finds the region of the frame that holds the overhead table camera, a card close-up, or a production graphic. Detects camera cuts. | Layout preset per broadcast, plus a tiny frame classifier | Every sampled frame (cheap) |
+| 1b | **Change gate** | Says when and where the table changed: a region that differs from the still table and has settled. Hands and light changes are ignored. | Pixel differences on a ~320 px view, no learned model ([§3.1.1](#311-change-gate-layer-1)) | 5–10 fps (very cheap) |
 | 2 | **Detector** | Oriented boxes for `card` (face-up) and `card_back` inside the overhead ROI | Browser: RT-DETRv2-OBB-S or D-FINE-S. Server: RF-DETR keypoint. All Apache-2.0 ([03](research/03-models-and-licensing.md), [D-013](decisions.md#d-013-browser-detector-is-a-small-cnn-or-obb-model-rf-detr-runs-on-the-server)) | 2–5 Hz |
 | 3 | **Rectifier** | Warp to a canonical upright crop: affine from the oriented box, or a homography from 4 corners when the camera is tilted | Optional corner heatmap refiner ([06](research/06-prior-art-and-starting-point.md#64-starting-point-the-maintainers-card-recognition-work)) | New or moved tracks only |
 | 4 | **Embedder** | Crop to an L2-normalised vector | DINOv2-S/14 or Perception Encoder S16, fine-tuned with Sub-center ArcFace | New or unresolved tracks, plus periodic re-checks |
@@ -50,6 +52,7 @@ Two principles set the compute budget:
 
 - **Detect at low resolution, identify at native resolution.** The detector sees a downscaled ROI, where it only has to find rectangles. Identification crops come from the full-resolution frame, where every pixel of card art counts.
 - **Identify once per card, not once per frame.** Cards on a table barely move. Once a track has a confident identity, later frames only confirm it. The embedder runs when something is new, has moved or is still uncertain.
+- **Look only where something changed.** Most frames change nothing on the table. The change gate runs on every sampled frame, and the detector and embedder run on the regions it reports ([D-016](decisions.md#d-016-a-change-gate-decides-when-and-where-the-heavy-stages-run)).
 
 ## 3. Stage details
 
@@ -61,6 +64,20 @@ Tournament broadcasts are composites. The overhead cam usually sits in a sub-win
 - **Auto-discovery** is the fallback. Detections accumulate into a heatmap over a few seconds, and the dense region is the table.
 - **Cut detection** uses frame-difference plus histogram distance. On a cut, tracks are frozen rather than dropped, and re-associated when the table view returns.
 - **Close-ups and production graphics** (a full-screen card when it is played) go straight to the embedder. These are the highest-confidence identifications RiftEye will ever get.
+
+#### 3.1.1 Change gate (layer 1)
+
+A cheap first layer that answers one question in real time: did the table change, and where? It keeps a model of the still table in a small view of the overhead ROI (about 320 px wide, 5–10 fps).
+
+- A region **fires** when it differs from the still table and has stopped moving for about 0.6 s. The change must also be strong: a card changes pixels a lot, while light drift and codec noise barely cross the threshold.
+- **Hands are not changes.** Skin-coloured regions, and regions touching the table edges where arms come in, wait until the hand has gone. Resting hands are never absorbed into the still table.
+- Each event has a box and a kind:
+  - `appeared`: bare mat before, covered after;
+  - `disappeared`: the reverse;
+  - `changed`: covered before and after, such as a card turned, replaced or stacked on.
+- The detector and embedder then run on the event's box. A full detection pass still runs at the start, after cuts, and every few seconds as a safety net.
+- The event engine uses the gate's timestamps for events, so a play is timed to the moment the card settled rather than to the next detection pass. Cutaways to player cams are skipped: the still table is kept, so changes made while the camera was away are found when it returns.
+- Measured on 10 minutes of the M0 reference VOD, 5 fps: 57 events, and a visual check of 40 found nearly all of them to be real board changes. Recall is next, against a logged timeline. Prototype: `ml/rifteye_ml/changegate.py`.
 
 ### 3.2 Detector
 

@@ -16,7 +16,7 @@ flowchart LR
 - [x] Repository, licence, CLA, contribution rules, architecture and research docs
 - [ ] **Final name** chosen after a trademark search ([D-010](decisions.md#d-010-rifteye-is-a-working-name))
 - [ ] Footage: written agreements requested from 3–5 organisers; our own consented recording sessions planned; `sources.yaml` started
-- [ ] Catalogue v0: every printing from Riot's public card gallery in the `Card` / `Printing` schema, built on the Maintainer's machine and never redistributed ([D-015](decisions.md#d-015-no-riot-api-no-riot-assets-distributed))
+- [x] Catalogue v0: every printing from Riot's public card gallery in the `Card` / `Printing` schema, built on the Maintainer's machine and never redistributed ([D-015](decisions.md#d-015-no-riot-api-no-riot-assets-distributed)). 1,189 printings (936 cards) on 2026-09-26, plus Simplified and Traditional Chinese and Korean printings of Origins
 - [x] Timeline logger v0 (`apps/logger`)
 - [ ] First 5 matches logged with it
 - [x] Feasibility spike tooling (`ml/`: stream simulator with a real H.264 pass, encoders, retrieval metrics)
@@ -33,7 +33,8 @@ flowchart LR
 - [ ] Rectifier: corner heatmap network retrained on stream crops
 - [ ] Embedder v0: fine-tuned with random covering, exported to ONNX (fp16 and int8), float16 index plus manifest, with strip views and a gallery pyramid
 - [ ] `ml/evalsuite` v0: frozen real test sets, the leaderboard, per-bucket metrics
-- [ ] Python VOD runner: board per sampled frame, naive timeline JSON
+- [ ] Change gate evaluated against logged timelines: recall and precision of board changes ([D-016](decisions.md#d-016-a-change-gate-decides-when-and-where-the-heavy-stages-run))
+- [ ] Python VOD runner: change gate, then detection and identification on changed regions, naive timeline JSON
 
 **Exit:** detection recall ≥ 95% for cards ≥ 50 px on the out-of-domain test set. Card-level top-1 reported per size bucket. The VOD runner works end to end on 5 matches.
 
@@ -41,6 +42,7 @@ flowchart LR
 
 - [ ] Manifest V3 extension for Chrome and Edge: overlay hitboxes and hover card on Twitch and YouTube, in theatre mode and fullscreen
 - [ ] Inference host prototype (extension iframe vs content-script worker vs `tabCapture` + offscreen document), then ONNX Runtime Web in a worker (WebGPU, WASM fallback), eco mode, pause when hidden
+- [ ] Change gate in the extension (canvas or WebGL differences on a small table view) driving detection
 - [ ] Side panel: live board and a simple timeline
 - [ ] Gallery adapter (card data loaded from Riot's public gallery at display time); index download with versioning and the model/index guard
 - [ ] Benchmarks on the reference machines ([ARCHITECTURE §9](ARCHITECTURE.md#9-performance-targets-to-be-validated-in-m2))
