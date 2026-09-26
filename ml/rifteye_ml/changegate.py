@@ -85,6 +85,7 @@ class ChangeGate:
         self.background: np.ndarray | None = None
         self.prev: np.ndarray | None = None
         self.still = None                # frames each pixel has been still
+        self.last_same = None            # last time each pixel matched the still table
         self.events: list[ChangeEvent] = []
         self.snapshots: list[tuple[np.ndarray, np.ndarray]] = []  # (still table before, frame after) per event
         self.mat: np.ndarray | None = None
@@ -104,6 +105,7 @@ class ChangeGate:
         if self.background is None:
             self.background, self.prev = frame.copy(), frame.copy()
             self.still = np.zeros(frame.shape[:2], np.int32)
+            self.last_same = np.full(frame.shape[:2], t, np.float64)
             return []
         if self.off_table:  # back on the table: the old still table stays, so changes made meanwhile are found
             self.off_table = 0
@@ -115,6 +117,7 @@ class ChangeGate:
         self.prev = frame
         dist = _dist(frame, self.background)
         changed = dist > s.diff
+        self.last_same[~changed] = t
         h, w = changed.shape
         for fx0, fy0, fx1, fy1 in s.ignore:
             changed[round(fy0 * h):round(fy1 * h), round(fx0 * w):round(fx1 * w)] = False
@@ -125,6 +128,7 @@ class ChangeGate:
             self.snapshots.append((self.background.copy(), frame.copy()))
             self.background = frame.copy()
             self.still[:] = 0
+            self.last_same[:] = t
             self.events += new
             return new
         settle = max(1, round(s.settle_s * s.fps))
@@ -156,7 +160,10 @@ class ChangeGate:
                     "appeared" if before > 0.6 and after < 0.4 else
                     "disappeared" if before < 0.4 and after > 0.6 else "changed")
             if area >= min_area and kind != "noise":  # bare mat before and after: light or codec, absorb it
-                new.append(ChangeEvent(t, (int(x0), int(y0), int(x1), int(y1)), kind, area, float(before), float(after)))
+                # When the region last looked like the still table: about when the hand arrived.
+                t_before = float(np.median(self.last_same[sl][region]))
+                new.append(ChangeEvent(t, (int(x0), int(y0), int(x1), int(y1)), kind, area, float(before), float(after),
+                                       {"t_before": t_before}))
                 cy, cx = slice(max(0, y0 - 12), y1 + 12), slice(max(0, x0 - 12), x1 + 12)
                 self.snapshots.append((self.background[cy, cx].copy(), frame[cy, cx].copy()))
             self.background[sl][region] = frame[sl][region]  # absorb the change (small ones silently)

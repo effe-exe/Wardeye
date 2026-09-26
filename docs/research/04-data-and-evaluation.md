@@ -53,7 +53,7 @@ flowchart TD
   S[sources.yaml<br/>permission per broadcaster] --> I[Ingest VOD<br/>private EU bucket]
   I --> F[Sample frames<br/>0.5–1 fps + scene changes + audio mentions,<br/>near-duplicates removed]
   F --> PL[Pseudo-label<br/>current models + larger server-side teachers]
-  PL --> H[Human verification in CVAT<br/>fix boxes and quads, pick identity from top-5]
+  PL --> H[Human review<br/>identity and events: correct / wrong in apps/reviewer<br/>boxes and quads: fix in CVAT]
   H --> AL[Active learning queue<br/>low margin, disagreement, new cards]
   AL --> PL
   H --> DS[Versioned dataset<br/>sha256 manifest]
@@ -64,8 +64,10 @@ flowchart TD
 1. **Permission first.** A private `sources.yaml` lists every broadcaster or organiser, the permission status, its scope and a contact. Nothing without a "granted" entry is ingested. A takedown is `registry purge --source <id>`: frames, crops, labels and manifests, everywhere.
 2. **Sampling:** 0.5–1 fps, plus every scene change, plus a window around each caster mention of a card name. Perceptual-hash dedup drops the long static stretches.
 3. **Pseudo-labels** come from the current models plus larger server-side teachers: a bigger detector, and a VLM for close-ups and graphics. That way humans *correct* rather than draw from scratch.
-4. **Human verification** happens in CVAT. Identity is assigned by picking from the top-5 suggestions or by name search, never by typing free text.
-5. **Active learning** prioritises frames where the margin is small, where models disagree, or where a newly released card appears.
+4. **Human review, not labelling from scratch.** People never label from scratch. The model proposes, and a person answers correct or wrong ([D-018](../decisions.md#d-018-labels-come-from-reviewing-model-proposals)):
+   - **Identity and events** go through [apps/reviewer](../../apps/reviewer). Each item is a guess: *is this the card?*, or *what happened in this box?* <kbd>Y</kbd> confirms it. A number key picks one of the next guesses. <kbd>N</kbd> then a typed name corrects it (names come from the catalogue, never free text). <kbd>S</kbd> means can't tell. One identity item is one **track**: the same physical card at the same place over consecutive frames, so a single answer labels every crop of it. On the M0 reference VOD, 3,157 crops from 669 overhead frames form 862 tracks, and a 400-item pack covers 960 crops. At about two seconds an answer, that is 15–20 minutes of work.
+   - **Boxes and quads** (detector labels) are still fixed in CVAT, starting from the detector's own boxes.
+5. **Active learning** decides what goes into a pack. The least confident items go first: a small margin, models that disagree, a newly released card. A seeded random share of the confident rest (10% of each pack) is mixed in as an **audit**. The audit measures how often the unchecked guesses are right, with a 95% interval, and that tells us when confident guesses can be taken as labels without review. `rifteye_ml.reviewpack apply` reports both numbers.
 
 A rough first target: **2,000 verified overhead frames** (about 20–40k card instances) across at least 8 broadcasters for detector domain adaptation, and **5,000 verified identity crops** spread across size buckets for the embedder. The M0 spike ([§4.8](#48-the-m0-feasibility-spike)) will refine both numbers.
 

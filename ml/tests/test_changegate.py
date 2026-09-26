@@ -34,6 +34,7 @@ def test_card_played_moved_and_hand_ignored():
     first = next(e for e in gate.events if e.kind == "appeared")
     x0, y0, x1, y1 = first.box
     assert 95 <= x0 <= 101 and 15 <= x1 - x0 <= 18 and 20 <= y1 - y0 <= 24
+    assert abs(first.extra["t_before"] - 12 / s.fps) < 1e-6  # the last empty frame before the hand came back
     assert len(gate.snapshots) == len(gate.events)
 
 

@@ -13,6 +13,7 @@ Research, training and evaluation tools for RiftEye (Python 3.11+). Right now th
 | `changegate` | Layer 1: when and where the table changed (settled changes vs a still-table model; hands and light ignored), from a VOD window |
 | `matcrops` | A classical bootstrap detector for M0: isolated cards on a known playmat, straightened into upright crops (not the product detector) |
 | `label` | Model-assisted labeling of real crops: ranked candidates and verification sheets; a person decides |
+| `reviewpack` | Review packs for `apps/reviewer`: the model's guesses, one per track of the same card, least confident first plus a random audit; and exported answers back into labels |
 | `adapter` | The M0 "quick fine-tune": a linear head on a frozen backbone, trained on synthetic camera-level crops, evaluated on held-out sets |
 | `index` | Writes the shipped index (float16 matrix + manifest) and refuses to load it with a different encoder |
 | `fixtures` | Procedural fake cards for tests and demos. No Riot content |
@@ -117,6 +118,28 @@ python -m rifteye_ml.spike real --catalog ~/rifteye-data/catalog/catalog.jsonl -
 ```
 
 Crops stay private. The CSV results can be shared, and are what goes into `docs/reports/`.
+
+**5. More labels by review.** Naming crops one by one does not scale. `reviewpack identity` crops every overhead frame's cards ahead of time with `matcrops`, links the crops of one physical card across frames into a *track*, and writes a review pack of the model's guesses for [apps/reviewer](../apps/reviewer): one item per track, the least confident first, plus a random 10% of the confident rest as an audit. The reviewer answers correct or wrong, and `apply` gives every crop of each answered track its label:
+
+```bash
+python -m rifteye_ml.matcrops --frames ~/rifteye-data/vods/<vod>/frames/seg-*/ --only overhead-frames.txt \
+  --table 0.17,0.09,0.86,0.884 --long 131 --out ~/rifteye-data/real-crops/v2/crops
+python -m rifteye_ml.reviewpack identity --crops ~/rifteye-data/real-crops/v2/crops \
+  --catalog ~/rifteye-data/catalog/catalog.jsonl --cache ~/rifteye-data/art --embed-cache ~/rifteye-data/embed-cache \
+  --labels ~/rifteye-data/real-crops/v1/labels.csv --out ~/rifteye-data/packs/identity-v2a.json
+# ... the reviewer answers in apps/reviewer and exports identity-v2a.answers.json ...
+python -m rifteye_ml.reviewpack apply --pack ~/rifteye-data/packs/identity-v2a.json \
+  --answers identity-v2a.answers.json --out ~/rifteye-data/real-crops/v2/labels-review.csv
+```
+
+`--labels` does two things: it fits the softmax temperature that turns match scores into the confidence shown, and it leaves out tracks that already have a label. `apply` also prints how often the model was right, on the reviewed items and on the audit, with 95% intervals. The pack is a single JSON file with its pictures embedded (about 17 MB for 400 items). A sidecar `*.meta.json` next to it maps items to crops and never leaves the machine.
+
+`reviewpack events` does the same for change-gate events: the table before and after each change, and the gate's guess of its kind. The gate records when each changed region last matched the still table (`extra.t_before`, about when the hand arrived), which is where the "before" picture is taken:
+
+```bash
+python -m rifteye_ml.changegate --video seg.mp4 --start 90 --duration 600 --table 0.15,0.10,0.88,0.884 --out events.json
+python -m rifteye_ml.reviewpack events --events events.json --video seg.mp4 --out ~/rifteye-data/packs/events.json
+```
 
 **Reading the results.**
 

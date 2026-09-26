@@ -109,3 +109,10 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 - **Date:** 2026-09-26. **Status:** accepted for pretrained encoders. Revisit after the M1 fine-tune.
 - **Decision:** The index stores each printing's embedding at several on-screen sizes (for example 40–160 px long side), and the matcher searches the level nearest each crop's size. The detector already knows the size.
 - **Why:** In the M0 spike, frozen DINOv2-S found 13% of clean 40 px cards against a single sharp gallery and 62% against the gallery rendered at 40 px. A fine-tuned embedder may shrink the gap. The pyramid costs a few extra MB of float16.
+
+### D-018: Labels come from reviewing model proposals
+
+- **Date:** 2026-09-26. **Status:** accepted. Tools: `apps/reviewer` and `ml/rifteye_ml/reviewpack.py`.
+- **Decision:** Identity and event labels are made by a person answering correct or wrong to the model's guess, with the next guesses and a catalogue name search for corrections. Nobody labels from scratch. Items are tracks of one physical card, so one answer labels many crops. Each pack puts the least confident items first and mixes in a random 10% audit of the confident rest. Bulk training data stays synthetic ([04 §4.3](research/04-data-and-evaluation.md#43-synthetic-board-generator-mlsynth)). Reviewed real labels are for evaluation, calibration and a small real share in fine-tuning.
+- **Why:** Proposed by the Maintainer, who asked for thousands of labels without labelling thousands of crops. Confirming a guess takes about two seconds. On the M0 reference VOD the colour-grid matcher is right on 97.5% of already-labelled tracks, so most answers are a single key. The audit measures the accuracy of the guesses nobody checks, which is what allows skipping review for confident items later. Jev (closed, hosted) and Laya Vision (non-commercial weights) cannot be the proposer ([03 §3.9](research/03-models-and-licensing.md#39-evaluated-typed-decision-models-laya)). The proposer is RiftEye's own pipeline, and it improves as the answers come back.
+

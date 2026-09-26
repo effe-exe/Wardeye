@@ -19,6 +19,8 @@ flowchart LR
 - [x] Catalogue v0: every printing from Riot's public card gallery in the `Card` / `Printing` schema, built on the Maintainer's machine and never redistributed ([D-015](decisions.md#d-015-no-riot-api-no-riot-assets-distributed)). 1,189 printings (936 cards) on 2026-09-26, plus Simplified and Traditional Chinese and Korean printings of Origins
 - [x] Timeline logger v0 (`apps/logger`)
 - [ ] First 5 matches logged with it
+- [x] Reviewer v0 (`apps/reviewer`): correct/wrong review of model guesses, and `reviewpack` to build packs and merge answers ([D-018](decisions.md#d-018-labels-come-from-reviewing-model-proposals))
+- [ ] First review packs answered and merged: 400 identity tracks and 57 change-gate events from the M0 reference VOD
 - [x] Feasibility spike tooling (`ml/`: stream simulator with a real H.264 pass, encoders, retrieval metrics)
 - [ ] **Feasibility spike run**: accuracy-vs-card-height curves, synthetic and real ([04 §4.8](research/04-data-and-evaluation.md#48-the-m0-feasibility-spike)), plus identification from a visible strip for stacked cards. Synthetic curves and the first real set (one broadcast, cards about 130 px) are done: [M0 report](reports/m0-spike.md). Still needed: real crops at smaller sizes and of stacked cards, from a second broadcast
 - [ ] Choose the embedder base model (DINOv2-S vs Perception Encoder S) and the browser detector (RT-DETRv2-OBB vs D-FINE) from the spike ([03](research/03-models-and-licensing.md)). **Embedder: DINOv2-S**, which beats PE-S frozen in every setting ([report](reports/m0-spike.md)). The detector choice moves to M1 benchmarks

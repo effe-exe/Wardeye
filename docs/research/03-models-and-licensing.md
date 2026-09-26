@@ -120,7 +120,10 @@ Suggested by the Maintainer as a "layer 1" decision on whether a card was added 
 | Model | What it is | Licence | Fit |
 |---|---|---|---|
 | Laya (github.com/NandhaKishorM/laya, Convai Innovations) | Non-autoregressive "System 1" decision engine: `choice`, `score` and `noul` (calibrated yes/no) in one forward pass. ModernBERT-large or mmBERT, 322–421M. PyTorch and ONNX, no browser runtime | Apache-2.0, code and weights | Text only. The README says base checkpoints are near chance on specialised tasks until fine-tuned |
+| Jev (TypeSafe AI) | The hosted, closed-weights typed-decision API that Laya is the open counterpart of. Early access, priced per input token | Proprietary service | ✖ Closed weights and a network call per decision: cannot run in the extension or be retrained on our data |
 | Laya Vision (github.com/r33drichards/laya-vision, independent fork, experimental) | The same API over an image plus text: SmolVLM-256M-Instruct cut to 20 layers, 201M. About 41 ms per question on an L4 GPU | Code Apache-2.0. **Weights CC BY-NC-SA 4.0** (training data includes ScienceQA and CrisisMMD) | ✖ The published weights cannot ship. Our own checkpoint can: SmolVLM-256M (Apache-2.0) as the base, the Apache-2.0 code, and our own training data |
+
+Neither can label for us either ([D-018](../decisions.md#d-018-labels-come-from-reviewing-model-proposals)). Labels come from a person reviewing RiftEye's own guesses.
 
 Verdict: not layer 1. The pixel change gate ([ARCHITECTURE §3.1.1](../ARCHITECTURE.md#311-change-gate-layer-1)) does that job at almost no cost and already works on real footage. A Laya-style model is a candidate **verifier of the gate's events** in M2, trained on labeled events, and it must beat the gate plus detector rules.
 
@@ -134,6 +137,7 @@ Verdict: not layer 1. The pixel change gate ([ARCHITECTURE §3.1.1](../ARCHITECT
 - MobileCLIP licences and the 2025-08-29 change: github.com/apple/ml-mobileclip (`LICENSE_MODELS`, commit `e15d36e`)
 - DINOv2: github.com/facebookresearch/dinov2 ; DINOv3: github.com/facebookresearch/dinov3 ; Perception Encoder: github.com/facebookresearch/perception_models ; SigLIP 2: github.com/google-research/big_vision ; RADIO: github.com/NVlabs/RADIO ; timm licences: github.com/huggingface/pytorch-image-models#licenses
 - pytorch-metric-learning: github.com/KevinMusgrave/pytorch-metric-learning ; ArcFace arXiv:1801.07698 ; SupCon arXiv:2004.11362
+- Jev vs Laya comparison (Laya's authors' framing, third-party Jev numbers): jev-ai.pro/compare/jev-vs-laya ; laya.convaiinnovations.com
 - Laya: github.com/NandhaKishorM/laya ; Laya Vision: github.com/r33drichards/laya-vision and huggingface.co/thaitea/laya-vision (model card licence field `cc-by-nc-sa-4.0`) ; SmolVLM: huggingface.co/HuggingFaceTB/SmolVLM-256M-Instruct
 - ONNX Runtime Web: npmjs.com/package/onnxruntime-web ; v1.29.0 release notes ; WebGPU operator table (`js/web/docs/webgpu-operators.md`)
 - Transformers.js v4: github.com/huggingface/transformers.js ; LiteRT.js: github.com/google-ai-edge/LiteRT (`litert/js`) ; WebGPU status: github.com/gpuweb/gpuweb/wiki/Implementation-Status

@@ -2,7 +2,7 @@
 
 **Open-source computer vision for Riftbound streams.** A timeline of every card played, and hover-to-inspect cards on Twitch and YouTube.
 
-> **Status: M0 (foundations and feasibility).** Research, architecture and roadmap are written. So far the code covers the data formats (`packages/schema`), a timeline logger for ground truth (`apps/logger`) and the feasibility-spike toolkit (`ml/`). The extension comes in M2 ([roadmap](docs/ROADMAP.md)). "RiftEye" is a working name ([why](docs/decisions.md#d-010-rifteye-is-a-working-name)).
+> **Status: M0 (foundations and feasibility).** Research, architecture and roadmap are written. So far the code covers the data formats (`packages/schema`), a timeline logger for ground truth (`apps/logger`), a correct/wrong reviewer that turns model guesses into labels (`apps/reviewer`) and the feasibility-spike toolkit (`ml/`). The extension comes in M2 ([roadmap](docs/ROADMAP.md)). "RiftEye" is a working name ([why](docs/decisions.md#d-010-rifteye-is-a-working-name)).
 
 ## What it will do
 
@@ -58,6 +58,7 @@ Details in [ARCHITECTURE.md](docs/ARCHITECTURE.md) and the [research](docs/resea
 ```
 apps/extension     Chrome/Edge extension: overlay, inference host, side panel   (M2)
 apps/logger        timeline logger for ground-truth match logs               (now)
+apps/reviewer      correct/wrong review of model guesses, turned into labels  (now)
 apps/web           VOD library with synced timelines            (later)
 apps/broadcaster   OBS sidecar for organisers                   (later)
 packages/core      tracker, event engine, fusion, shared types

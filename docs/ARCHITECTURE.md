@@ -297,6 +297,29 @@ interface LayoutPreset {
   playerA: 'bottom' | 'top' | 'left' | 'right';
   validFrom?: string;        // broadcasts change layouts between events
 }
+
+/** Model proposals a person marks correct or wrong (apps/reviewer, D-018). Private: holds crops and art. */
+interface ReviewPack {
+  id: string;
+  kind: 'identity' | 'event';
+  question: string;          // "Is this the card?"
+  items: {
+    id: string;
+    images: string[];        // the evidence: a crop and its surroundings, or before and after
+    proposal: ReviewOption;  // { value: "OGN-066", label: "Ahri, Alluring · OGN-066", image? }
+    confidence?: number;     // the model's, 0..1
+    alternatives: ReviewOption[];  // the next guesses, keys 1-9
+    note?: string;
+  }[];
+  vocabulary?: ReviewOption[];     // what a reviewer may type when no option fits
+  files?: Record<string, string>;  // embedded data: URIs, so a pack is one file
+}
+
+interface ReviewAnswers {
+  packId: string;
+  reviewer?: string;
+  answers: { itemId: string; verdict: 'correct' | 'wrong' | 'unsure'; value?: string; ms?: number }[];
+}
 ```
 
 ## 7. Clocks and synchronisation
