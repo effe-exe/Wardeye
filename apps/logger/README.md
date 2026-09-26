@@ -16,7 +16,7 @@ open apps/logger/dist/index.html    # or double-click it; no server needed
 
 1. **Open video:** a match recording you have permission to use, for example a file from the organiser.
 2. **Load cards:** the `catalog.jsonl` from `ml/`, generated on your machine, for name autocomplete. See [ml/README.md](../../ml/README.md).
-3. Fill in the title, the players and the legends (Player A sits at the bottom of the table camera).
+3. Fill in the title, the players and the legends. Player A is the player at the bottom of the table camera, or on the left when the players sit left and right (as the layout preset's `playerA` says).
 4. Play the video and press a key the moment something happens. The video pauses and a small form opens with the timestamp already captured.
    - **Card events** (<kbd>P</kbd> played, <kbd>C</kbd> spell cast, <kbd>M</kbd> moved, <kbd>X</kbd> left play, <kbd>R</kbd> revealed): type part of the name, <kbd>Enter</kbd> picks the suggestion, <kbd>Enter</kbd> again saves.
    - **Other events** (<kbd>T</kbd> turn start, <kbd>U</kbd> runes channeled, <kbd>S</kbd> score, <kbd>G</kbd>/<kbd>E</kbd> game start/end, <kbd>H</kbd> card hidden): <kbd>Enter</kbd> saves straight away.
