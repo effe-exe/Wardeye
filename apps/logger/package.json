@@ -1,0 +1,14 @@
+{
+  "name": "@rifteye/logger",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Timeline logger: record ground-truth match events against a video, exported as a RiftEye timeline",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@rifteye/schema": "0.1.0"
+  }
+}

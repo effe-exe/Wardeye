@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RiftEye timeline logger</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>RiftEye <span>timeline logger</span></h1>
+      <div class="actions">
+        <label class="button">Open video<input id="open-video" type="file" accept="video/*" hidden /></label>
+        <label class="button">Load cards<input id="open-cards" type="file" accept=".jsonl,.json,application/json" hidden /></label>
+        <label class="button">Import<input id="open-timeline" type="file" accept=".json,application/json" hidden /></label>
+        <button id="export" type="button" disabled>Export</button>
+        <button id="show-help" type="button" aria-label="Keyboard shortcuts">?</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="stage">
+        <div id="empty" class="empty">
+          <p>Open a match recording to start logging.</p>
+          <p class="muted">Use recordings you have permission to use. Nothing leaves this page: events are saved in this browser until you export them.</p>
+        </div>
+        <video id="video" controls hidden></video>
+        <div id="status" aria-live="polite">
+          <span id="clock">0:00.0</span>
+          <span id="player-chip" title="Active player (A / B keys)">Player A</span>
+          <span id="card-count" class="muted">no cards loaded</span>
+        </div>
+      </section>
+
+      <aside id="side">
+        <form id="match" autocomplete="off">
+          <label>Title <input id="match-title" placeholder="Barcelona top 8, game 1" /></label>
+          <div class="pair">
+            <label>Player A <input id="player-a" placeholder="bottom of the table" /></label>
+            <label>Player B <input id="player-b" placeholder="top of the table" /></label>
+          </div>
+          <div class="pair">
+            <label>Legend A <input id="legend-a" class="card-input" data-role="legend" /></label>
+            <label>Legend B <input id="legend-b" class="card-input" data-role="legend" /></label>
+          </div>
+        </form>
+
+        <form id="entry" hidden autocomplete="off">
+          <div class="entry-head">
+            <strong id="entry-type"></strong>
+            <span id="entry-time" class="muted"></span>
+          </div>
+          <div class="pair">
+            <label>Player
+              <select id="entry-player">
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="">none</option>
+              </select>
+            </label>
+            <label>Zone <select id="entry-zone"></select></label>
+          </div>
+          <label id="entry-card-row">Card
+            <input id="entry-card" class="card-input" placeholder="type a name, Enter to pick" />
+          </label>
+          <label id="entry-unknown-row" class="inline"><input id="entry-unknown" type="checkbox" /> card not identifiable</label>
+          <div id="entry-score-row" class="pair" hidden>
+            <label>Score A <input id="score-a" type="number" min="0" max="20" value="0" /></label>
+            <label>Score B <input id="score-b" type="number" min="0" max="20" value="0" /></label>
+          </div>
+          <label>Note <input id="entry-note" /></label>
+          <div class="buttons">
+            <button type="submit">Save <kbd>Enter</kbd></button>
+            <button type="button" id="entry-cancel">Cancel <kbd>Esc</kbd></button>
+          </div>
+        </form>
+
+        <ul id="suggestions" class="suggestions" hidden></ul>
+
+        <ol id="events"></ol>
+      </aside>
+    </main>
+
+    <dialog id="help">
+      <h2>Keyboard shortcuts</h2>
+      <table>
+        <tbody>
+          <tr><td><kbd>Space</kbd></td><td>play / pause</td></tr>
+          <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>back / forward 2 s (<kbd>Shift</kbd>: 10 s)</td></tr>
+          <tr><td><kbd>,</kbd> <kbd>.</kbd></td><td>one frame back / forward</td></tr>
+          <tr><td><kbd>A</kbd> <kbd>B</kbd></td><td>active player</td></tr>
+          <tr><td><kbd>P</kbd></td><td>card played</td></tr>
+          <tr><td><kbd>C</kbd></td><td>spell cast</td></tr>
+          <tr><td><kbd>M</kbd></td><td>card moved</td></tr>
+          <tr><td><kbd>H</kbd> / <kbd>R</kbd></td><td>card hidden / revealed</td></tr>
+          <tr><td><kbd>X</kbd></td><td>card left play</td></tr>
+          <tr><td><kbd>T</kbd></td><td>turn start</td></tr>
+          <tr><td><kbd>U</kbd></td><td>runes channeled</td></tr>
+          <tr><td><kbd>S</kbd></td><td>score changed</td></tr>
+          <tr><td><kbd>G</kbd> / <kbd>E</kbd></td><td>game start / end</td></tr>
+          <tr><td><kbd>Z</kbd></td><td>undo the last event you logged</td></tr>
+        </tbody>
+      </table>
+      <p class="muted">Log hidden cards (H) without naming them: RiftEye never records hidden information.</p>
+      <form method="dialog"><button>Close</button></form>
+    </dialog>
+
+    <footer>
+      RiftEye was created under Riot Games' "Legal Jibber Jabber" policy using assets owned by Riot Games. Riot Games does not endorse or sponsor this project.
+    </footer>
+    <script src="app.js"></script>
+  </body>
+</html>
