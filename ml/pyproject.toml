@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rifteye-ml"
+version = "0.1.0"
+description = "RiftEye research, training and evaluation tools"
+license = "AGPL-3.0-only"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=1.26",
+  "pillow>=10",
+  "imageio-ffmpeg>=0.5",  # dev-time ffmpeg binary for the H.264 pass; never shipped
+]
+
+[project.optional-dependencies]
+# Pretrained encoders for the M0 spike. torch is BSD-3-Clause, timm is Apache-2.0;
+# the DINOv2 weights are Apache-2.0 (see docs/research/03-models-and-licensing.md).
+torch = ["torch>=2.4", "timm>=1.0"]
+dev = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+include = ["rifteye_ml*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
