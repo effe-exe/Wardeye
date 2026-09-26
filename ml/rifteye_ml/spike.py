@@ -14,8 +14,8 @@ Results are appended to a CSV and printed as a table. Accuracy is reported at pr
 level and at card level (printings rolled up to gameplay cards).
 
     python -m rifteye_ml.spike synthetic --catalog catalog.jsonl --cache ~/.cache/rifteye/art \
-        --encoder colorgrid --encoder timm:vit_small_patch14_dinov2.lvd142m \
-        --heights 40,60,80,120,160 --bitrates 2000,4000,6000 --out reports/m0-synthetic.csv
+        --encoder colorgrid --encoder timm:vit_small_patch14_dinov2.lvd142m --realism camera \
+        --heights 40,60,80,120,160 --bitrates 2000,4000,6000 --queries 300 --out reports/m0-synthetic.csv
     python -m rifteye_ml.spike real --catalog catalog.jsonl --cache ~/.cache/rifteye/art \
         --crops crops/ --labels crops/labels.csv --encoder colorgrid --out reports/m0-real.csv
     python -m rifteye_ml.spike demo
@@ -34,12 +34,12 @@ import numpy as np
 from PIL import Image
 
 from . import catalog as cat
-from .degrade import StreamSettings, simulate
+from .degrade import REALISM, StreamSettings, simulate, with_realism
 from .encoders import Encoder, get_encoder
 from .fixtures import load_fixture_image, synthetic_catalog
 from .retrieval import accuracy, ranked_labels, search
 
-FIELDS = ["mode", "encoder", "frame", "card_h", "bitrate_kbps", "rotation", "n",
+FIELDS = ["mode", "realism", "queries", "encoder", "frame", "card_h", "bitrate_kbps", "rotation", "n",
           "top1_printing", "top5_printing", "top1_card", "top5_card", "seconds"]
 HEIGHT_BUCKETS = [(0, 50), (50, 80), (80, 120), (120, 10_000)]
 
@@ -56,23 +56,33 @@ def _score(encoder: Encoder, gallery: np.ndarray, rows: Sequence[dict], queries:
 
 def run_synthetic(rows: Sequence[dict], load_image: Callable[[dict], Image.Image], encoders: Sequence[Encoder],
                   heights: Sequence[int], bitrates: Sequence[int], base: StreamSettings,
-                  mode: str = "synthetic") -> list[dict]:
+                  mode: str = "synthetic", queries: int = 0, realism: str = "codec",
+                  query_set: tuple[str, list[Image.Image], list[int]] | None = None) -> list[dict]:
+    """Degrade the catalogue (or a seeded sample of `queries` printings) and search the full gallery.
+
+    `query_set` = (label, images, gallery index of each image) degrades other printings of the
+    gallery's cards instead, such as another language's printings."""
     images = [load_image(r) for r in rows]
     galleries = [enc.embed(images) for enc in encoders]
+    label, q_images, q_truth = query_set or ("same", images, list(range(len(rows))))
+    picked = list(range(len(q_images)))
+    if 0 < queries < len(q_images):
+        picked = sorted(np.random.default_rng(base.seed).choice(len(q_images), size=queries, replace=False).tolist())
     results = []
     for h in heights:
         for br in bitrates:
             s = replace(base, card_h=h, bitrate_kbps=br)
             t0 = time.time()
-            crops = simulate(images, s)  # once per setting, shared by every encoder
+            crops = simulate([q_images[i] for i in picked], s)  # once per setting, shared by every encoder
             sim_seconds = time.time() - t0
-            truth = [c.card_index for c in crops]
+            truth = [q_truth[picked[c.card_index]] for c in crops]
             for enc, gallery in zip(encoders, galleries):
                 for rot_mode in ("search", "oracle"):
                     t1 = time.time()
-                    queries = [c.image if rot_mode == "search" else c.upright() for c in crops]
-                    m = _score(enc, gallery, rows, queries, truth, rot_mode == "search")
-                    results.append({"mode": mode, "encoder": enc.name, "frame": f"{s.frame_w}x{s.frame_h}", "card_h": h,
+                    batch = [c.image if rot_mode == "search" else c.upright() for c in crops]
+                    m = _score(enc, gallery, rows, batch, truth, rot_mode == "search")
+                    results.append({"mode": mode, "realism": realism, "queries": label, "encoder": enc.name,
+                                    "frame": f"{s.frame_w}x{s.frame_h}", "card_h": h,
                                     "bitrate_kbps": br, "rotation": rot_mode, **m,
                                     "seconds": round(time.time() - t1 + sim_seconds, 1)})
                     _print_row(results[-1])
@@ -100,7 +110,8 @@ def run_real(rows: Sequence[dict], load_image: Callable[[dict], Image.Image], en
                 continue
             t0 = time.time()
             m = _score(enc, gallery, rows, [im for im, _ in sel], [i for _, i in sel], True)
-            results.append({"mode": "real", "encoder": enc.name, "frame": "", "card_h": f"{lo}-{hi if hi < 10_000 else ''}",
+            results.append({"mode": "real", "realism": "", "queries": "real", "encoder": enc.name, "frame": "",
+                            "card_h": f"{lo}-{hi if hi < 10_000 else ''}",
                             "bitrate_kbps": "", "rotation": "search", **m, "seconds": round(time.time() - t0, 1)})
             _print_row(results[-1])
     return results
@@ -115,6 +126,11 @@ def _print_row(r: dict) -> None:
 def write_csv(results: list[dict], out: Path) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     new = not out.exists()
+    if not new:
+        with open(out, newline="", encoding="utf-8") as f:
+            header = next(csv.reader(f), [])
+        if header != FIELDS:
+            raise SystemExit(f"{out} has different columns ({','.join(header)}); write to a new file")
     with open(out, "a", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=FIELDS)
         if new:
@@ -123,9 +139,16 @@ def write_csv(results: list[dict], out: Path) -> None:
             w.writerow({k: (f"{v:.4f}" if isinstance(v, float) else v) for k, v in r.items()})
 
 
-def _cached_loader(cache: str) -> Callable[[dict], Image.Image]:
+def _cached_loader(cache: str, max_side: int = 0) -> Callable[[dict], Image.Image]:
+    """Load cached card images, optionally shrunk so the long side is at most `max_side`.
+
+    Shrinking changes nothing measurable: cards are rendered at most 160 px tall and
+    encoders read 224 px inputs, but a full-size gallery would hold gigabytes in memory."""
     def load(row: dict) -> Image.Image:
-        return Image.open(cat.cache_path(cache, row["image_url"])).convert("RGB")
+        im = Image.open(cat.cache_path(cache, row["image_url"])).convert("RGB")
+        if max_side and max(im.size) > max_side:
+            im.thumbnail((max_side, max_side), Image.LANCZOS)
+        return im
     return load
 
 
@@ -145,10 +168,19 @@ def main(argv: list[str] | None = None) -> int:
             p.add_argument("--bitrates", default="2000,4000,6000" if name == "synthetic" else "3000")
             p.add_argument("--frame", default="1920x1080" if name == "synthetic" else "1280x720")
             p.add_argument("--seed", type=int, default=0)
+            p.add_argument("--queries", type=int, default=0,
+                           help="degrade a seeded sample of N printings; the gallery stays complete (0 = all)")
+            p.add_argument("--realism", default="codec", choices=list(REALISM),
+                           help="codec: perfect crops, codec only; camera: adds camera, occluders and detector error")
+        if name == "synthetic":
+            p.add_argument("--query-catalog",
+                           help="degrade this catalogue's printings (e.g. another language) instead of the gallery's; "
+                                "rows are matched to the gallery by printing_id and must have a different image")
         if name != "demo":
             p.add_argument("--catalog", required=True)
             p.add_argument("--cache", required=True, help="image cache written by `catalog download`")
             p.add_argument("--limit", type=int, default=0, help="use only the first N printings (0 = all)")
+            p.add_argument("--max-side", type=int, default=512, help="shrink cached images to this long side (0 = off)")
         else:
             p.add_argument("--cards", type=int, default=60)
         if name == "real":
@@ -161,7 +193,7 @@ def main(argv: list[str] | None = None) -> int:
         rows, loader = synthetic_catalog(a.cards, seed=a.seed), load_fixture_image
     else:
         rows = cat.read_catalog(a.catalog)
-        loader = _cached_loader(a.cache)
+        loader = _cached_loader(a.cache, a.max_side)
         rows = [r for r in rows if cat.cache_path(a.cache, r["image_url"]).exists()]
         if a.limit:
             rows = rows[: a.limit]
@@ -169,14 +201,27 @@ def main(argv: list[str] | None = None) -> int:
             ap.error("no cached images found; run `python -m rifteye_ml.catalog download` first")
     print(f"{len(rows)} printings, {len({r['card_id'] for r in rows})} cards; encoders: {', '.join(e.name for e in encoders)}")
 
+    query_set = None
+    if a.mode == "synthetic" and a.query_catalog:
+        by_pid = {r["printing_id"]: i for i, r in enumerate(rows)}
+        qrows = [q for q in cat.read_catalog(a.query_catalog)
+                 if q["printing_id"] in by_pid and q["image_url"] != rows[by_pid[q["printing_id"]]]["image_url"]
+                 and cat.cache_path(a.cache, q["image_url"]).exists()]
+        if not qrows:
+            ap.error("no query printings with their own cached image; run `catalog download` on the query catalogue")
+        languages = sorted({q["language"] for q in qrows})
+        query_set = ("+".join(languages), [loader(q) for q in qrows], [by_pid[q["printing_id"]] for q in qrows])
+        print(f"queries: {len(qrows)} {query_set[0]} printings from {a.query_catalog}")
+
     if a.mode == "real":
         results = run_real(rows, loader, encoders, Path(a.crops), Path(a.labels))
     else:
         fw, fh = (int(x) for x in a.frame.lower().split("x"))
-        base = StreamSettings(frame_w=fw, frame_h=fh, seed=a.seed)
+        base = with_realism(StreamSettings(frame_w=fw, frame_h=fh, seed=a.seed), a.realism)
         print("stream settings:", {k: v for k, v in asdict(base).items() if k not in ("card_h", "bitrate_kbps")})
         results = run_synthetic(rows, loader, encoders, _ints(a.heights), _ints(a.bitrates), base,
-                                mode="demo" if a.mode == "demo" else "synthetic")
+                                mode="demo" if a.mode == "demo" else "synthetic", queries=a.queries,
+                                realism=a.realism, query_set=query_set)
     write_csv(results, Path(a.out))
     print(f"{len(results)} rows appended to {a.out}")
     return 0

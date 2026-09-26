@@ -12,3 +12,48 @@ def test_demo_spike_end_to_end(tmp_path):
     top1 = {(r["card_h"], r["rotation"]): float(r["top1_card"]) for r in rows}
     assert top1[("160", "oracle")] >= top1[("40", "oracle")]
     assert top1[("160", "oracle")] >= 0.9  # large, upright, fake cards are easy
+
+
+def test_query_sample_keeps_the_full_gallery(tmp_path):
+    out = tmp_path / "m0-demo.csv"
+    args = ["demo", "--cards", "24", "--queries", "10", "--heights", "160", "--bitrates", "3000", "--out", str(out)]
+    assert spike.main(args) == 0
+    rows = list(csv.DictReader(open(out, encoding="utf-8")))
+    assert [int(r["n"]) for r in rows] == [10, 10]  # 10 queries, searched against all 24 cards
+    assert float(rows[1]["top1_card"]) >= 0.9
+
+
+def test_camera_realism_is_labeled_and_harder(tmp_path):
+    out = tmp_path / "m0-demo.csv"
+    for level in ("codec", "camera"):
+        args = ["demo", "--cards", "24", "--heights", "60", "--bitrates", "3000", "--realism", level, "--out", str(out)]
+        assert spike.main(args) == 0
+    rows = list(csv.DictReader(open(out, encoding="utf-8")))
+    assert [r["realism"] for r in rows] == ["codec", "codec", "camera", "camera"]
+    top1 = {(r["realism"], r["rotation"]): float(r["top1_printing"]) for r in rows}
+    assert top1[("camera", "oracle")] <= top1[("codec", "oracle")]
+
+
+def test_write_csv_refuses_a_file_with_other_columns(tmp_path):
+    import pytest
+
+    out = tmp_path / "old.csv"
+    out.write_text("mode,encoder\nsynthetic,colorgrid16\n")
+    with pytest.raises(SystemExit):
+        spike.write_csv([], out)
+
+
+def test_query_set_searches_other_printings_against_the_gallery():
+    from rifteye_ml.degrade import StreamSettings
+    from rifteye_ml.encoders import get_encoder
+    from rifteye_ml.fixtures import load_fixture_image, synthetic_catalog
+
+    rows = synthetic_catalog(12, seed=0)
+    images = [load_fixture_image(r) for r in rows]
+    # "Other printings": the same cards, slightly recoloured, pointing at gallery rows 0..5.
+    other = [im.point(lambda v: min(255, v + 12)) for im in images[:6]]
+    base = StreamSettings(frame_w=640, frame_h=360, frames_per_board=4, seed=1)
+    results = spike.run_synthetic(rows, load_fixture_image, [get_encoder("colorgrid")], [120], [3000], base,
+                                  query_set=("xx", other, list(range(6))))
+    assert {r["queries"] for r in results} == {"xx"} and {r["n"] for r in results} == {6}
+    assert max(r["top1_card"] for r in results) >= 0.8

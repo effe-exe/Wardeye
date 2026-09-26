@@ -4,11 +4,12 @@ Research, training and evaluation tools for RiftEye (Python 3.11+). Right now th
 
 | Module | What it does |
 |---|---|
-| `catalog` | Normalises a card list into `catalog.jsonl` and caches the card images **locally** |
-| `degrade` | The stream simulator: cards on a table at a target on-screen height, sleeves, glare, sensor noise, then a **real libx264 encode and decode** at stream bitrates |
+| `catalog` | Saves Riot's public card gallery feed, normalises it into `catalog.jsonl` and caches the card images **locally** |
+| `degrade` | The stream simulator: cards on a table at a target on-screen height, sleeves, glare, sensor noise, then a **real libx264 encode and decode** at stream bitrates. The `camera` realism level adds tilt, lighting, defocus, occluders and detector box error |
 | `encoders` | `colorgrid` and `dhash` baselines, plus any pretrained `timm:` backbone (e.g. DINOv2) |
 | `retrieval` | Brute-force gallery search with 4-rotation matching; printing-level and card-level top-k |
 | `spike` | Accuracy vs card height × bitrate (synthetic), or vs crop height (real labeled crops) |
+| `report` | Markdown tables and an SVG accuracy-vs-height chart from spike CSVs (numbers only) |
 | `index` | Writes the shipped index (float16 matrix + manifest) and refuses to load it with a different encoder |
 | `fixtures` | Procedural fake cards for tests and demos. No Riot content |
 
@@ -21,41 +22,59 @@ cd ml
 python3 -m venv .venv && . .venv/bin/activate
 pip install -e '.[dev]'           # numpy, pillow, a bundled ffmpeg with libx264, pytest
 pip install -e '.[torch]'         # optional: torch + timm, for pretrained encoders
-pytest -q                         # ~5 s, fake cards only
+pytest -q                         # ~15 s, fake cards only
 ```
 
 `imageio-ffmpeg` provides an ffmpeg binary for the H.264 pass. It is a development tool and is never shipped.
 
 ## Run the spike on real cards
 
-**1. Get a card list** in the official gallery's shape. The public mirror at `github.com/slimtreble/Riftbound-card-data` works:
+**1. Save the card gallery feed.** This is the public JSON behind the card gallery on playriftbound.com: about 1,200 printings in 6 pages. No API key, and not the Riot API.
 
 ```bash
-mkdir -p ~/rifteye-data && cd ~/rifteye-data
-curl -L -o gallery.json https://raw.githubusercontent.com/slimtreble/Riftbound-card-data/main/cards.json
+mkdir -p ~/rifteye-data/catalog
+python -m rifteye_ml.catalog fetch-feed --out ~/rifteye-data/catalog/feed
 ```
 
-Check the mirror's README for the current file name if that URL moves.
-
-**2. Build the catalogue and cache the images locally.** The images come from Riot's public CDN; about 1,200 files.
+**2. Build the catalogue and cache the images locally.** The images come from Riot's public CDN: about 1,200 PNGs, 1.1 GB.
 
 ```bash
-python -m rifteye_ml.catalog build --gallery ~/rifteye-data/gallery.json --out ~/rifteye-data/catalog.jsonl
-python -m rifteye_ml.catalog download --catalog ~/rifteye-data/catalog.jsonl --cache ~/rifteye-data/art
+python -m rifteye_ml.catalog build --feed ~/rifteye-data/catalog/feed --out ~/rifteye-data/catalog/catalog.jsonl
+python -m rifteye_ml.catalog download --catalog ~/rifteye-data/catalog/catalog.jsonl --cache ~/rifteye-data/art
 ```
 
-A TCGplayer/TCGCSV-style JSONL (fields `name`, `number`, `image`) can be merged in with `--jsonl` to add promos the gallery lacks.
+Other sources can fill gaps: `--gallery` takes a mirror's flattened `cards.json` (e.g. `github.com/slimtreble/Riftbound-card-data`), `--jsonl` a TCGplayer/TCGCSV-style file (fields `name`, `number`, `image`) with promos.
 
-**3. Synthetic curve.** Every card at 40–160 px and 2–6 Mbps. Start with the baselines, then add DINOv2:
+**Localised printings.** The feed also serves other locales. `zh_CN` has the Simplified Chinese printings of Origins (OGN) and the Origins starter decks (OGS), with the same art and frame and Chinese text; other sets come back in English for now. Localised rows take their `card_id` from the English catalogue:
 
 ```bash
-python -m rifteye_ml.spike synthetic --catalog ~/rifteye-data/catalog.jsonl --cache ~/rifteye-data/art \
+python -m rifteye_ml.catalog fetch-feed --out ~/rifteye-data/catalog/feed-zh_CN --locale zh_CN
+python -m rifteye_ml.catalog build --feed ~/rifteye-data/catalog/feed-zh_CN --language zh-Hans \
+  --card-ids ~/rifteye-data/catalog/catalog.jsonl --out ~/rifteye-data/catalog/catalog-zh-Hans.jsonl
+python -m rifteye_ml.catalog download --catalog ~/rifteye-data/catalog/catalog-zh-Hans.jsonl --cache ~/rifteye-data/art
+```
+
+**3. Synthetic curve.** Cards at 40–160 px and 2–6 Mbps, identified against the whole gallery. Two realism levels:
+
+- `--realism codec`: perfect crops, downscaling and the codec only. This is an upper bound.
+- `--realism camera`: adds camera tilt, white balance, exposure and stage light, defocus, occluders (fingers, counters, overlapping cards) and detector box error. The magnitudes are assumptions until real footage calibrates them (`REALISM` in `degrade.py`).
+
+```bash
+python -m rifteye_ml.spike synthetic --catalog ~/rifteye-data/catalog/catalog.jsonl --cache ~/rifteye-data/art \
   --encoder colorgrid --encoder dhash \
-  --encoder timm:vit_small_patch14_dinov2.lvd142m \
-  --heights 40,60,80,120,160 --bitrates 2000,4000,6000 --out reports/m0-synthetic.csv
+  --encoder timm:vit_small_patch14_dinov2.lvd142m --encoder timm:vit_pe_core_small_patch16_384.fb@224 \
+  --realism camera --queries 300 --heights 40,60,80,120,160 --bitrates 2000,4000,6000 --out reports/m0-camera.csv
 ```
 
-This runs about 15 settings. The simulation costs roughly 1–2 minutes per setting for the whole catalogue at 1080p on a laptop CPU; a GPU speeds up the DINOv2 part. Use `--limit 300` for a quick first look.
+- `--queries 300` degrades a seeded sample of 300 printings; the gallery stays complete. Pretrained ViTs embed about 10–40 images per second on a laptop CPU, and `rotation=search` embeds every query 4 times.
+- `--query-catalog catalog-zh-Hans.jsonl` degrades another language's printings of the same cards instead. For example, Chinese crops searched against the English gallery.
+- The simulation takes about a minute per setting for the whole catalogue at 1080p. The H.264 pass runs single-threaded so results are bit-exact between runs.
+
+Turn a CSV into tables and a chart:
+
+```bash
+python -m rifteye_ml.report --csv reports/m0-camera.csv --svg reports/m0-camera.svg --bitrate 6000 --realism camera
+```
 
 **4. Real curve** (the one that decides). Put hand-labeled crops from real, permitted footage in a folder, with a `labels.csv`:
 
@@ -66,7 +85,7 @@ vod1_00123_card4.png,SFD-012a
 ```
 
 ```bash
-python -m rifteye_ml.spike real --catalog ~/rifteye-data/catalog.jsonl --cache ~/rifteye-data/art \
+python -m rifteye_ml.spike real --catalog ~/rifteye-data/catalog/catalog.jsonl --cache ~/rifteye-data/art \
   --crops ~/rifteye-data/real-crops --labels ~/rifteye-data/real-crops/labels.csv \
   --encoder colorgrid --encoder timm:vit_small_patch14_dinov2.lvd142m --out reports/m0-real.csv
 ```
@@ -77,7 +96,8 @@ Crops stay private. The CSV results can be shared, and are what goes into `docs/
 
 - `rotation=search` is the realistic setting: all four rotations are tried.
 - `rotation=oracle` isolates the codec's effect by undoing the known rotation first.
-- `*_card` columns roll printings up to gameplay cards, which is the product metric; `*_printing` columns require the exact printing.
+- `*_card` columns roll printings up to gameplay cards, which is the product metric; `*_printing` columns require the exact printing. Printings with identical art (reprints, some signature versions) cap printing-level accuracy below 100%.
+- `realism` is the simulator level; `queries` is `same` for degraded gallery images, a language tag such as `zh-Hans` for another language's printings, or `real`.
 
 ## Demo (no data needed)
 

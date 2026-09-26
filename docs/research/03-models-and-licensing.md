@@ -100,6 +100,19 @@ Practical constraints for ORT Web:
 | ORT Web; Transformers.js; LiteRT.js; trackers; supervision; Norfair | | Community models trained with Ultralytics (e.g. existing YOLO11 card detectors) |
 | PaddleOCR(.js); RapidOCR; docTR; Tesseract.js; Whisper; Moonshine (streaming/EN); CVAT; Label Studio; SAM 2 | | |
 
+## 3.8 Research tooling in `ml/` (not shipped)
+
+These run on the Maintainer's and contributors' machines for the spike, training and evaluation. None of them ships in the extension or in release assets. Only the ONNX models exported from permissive weights and the float16 index do.
+
+| Package or weights | Licence | Notes |
+|---|---|---|
+| numpy, Pillow, pytest | BSD-3-Clause, MIT-CMU, MIT | |
+| imageio-ffmpeg | BSD-2-Clause | Its bundled ffmpeg binary includes libx264 and is **GPL**. It is invoked as a separate process for the H.264 pass, on the developer's machine only, and never shipped or linked |
+| torch, torchvision | BSD-3-Clause | CPU wheels from download.pytorch.org are enough for the spike |
+| timm, huggingface_hub, safetensors | Apache-2.0 | timm's ImageNet weights keep the caveat in §3.7; the two backbones below are not ImageNet-trained |
+| DINOv2 ViT-S/14 (`timm/vit_small_patch14_dinov2.lvd142m`) | Apache-2.0 (weights) | First embedder candidate |
+| Perception Encoder Core S16 (`timm/vit_pe_core_small_patch16_384.fb`, run at 224 px) | Apache-2.0 (weights) | Second embedder candidate |
+
 ## Sources
 
 - RF-DETR README, exports, keypoint docs, PML: github.com/roboflow/rf-detr, github.com/roboflow/rf-detr_plus ; PyPI `rfdetr`
