@@ -1,0 +1,13 @@
+mode,realism,queries,gallery,view,encoder,frame,card_h,bitrate_kbps,rotation,n,top1_printing,top5_printing,top1_card,top5_card,seconds
+real,,real,"px:120,140",full,colorgrid16,,80-120,,search,1,1.0000,1.0000,1.0000,1.0000,0.0000
+real,,real,"px:120,140",full,colorgrid16,,120-,,search,2380,0.9055,0.9420,0.9059,0.9433,3.7000
+real,,real,"px:120,140",full,colorgrid16-trim0.03,,80-120,,search,1,1.0000,1.0000,1.0000,1.0000,0.0000
+real,,real,"px:120,140",full,colorgrid16-trim0.03,,120-,,search,2380,0.9458,0.9702,0.9475,0.9706,3.4000
+real,,real,"px:120,140",full,dhash16,,80-120,,search,1,1.0000,1.0000,1.0000,1.0000,0.0000
+real,,real,"px:120,140",full,dhash16,,120-,,search,2380,0.8508,0.9286,0.8811,0.9303,1.7000
+real,,real,"px:120,140",full,dhash16-trim0.03,,80-120,,search,1,1.0000,1.0000,1.0000,1.0000,0.0000
+real,,real,"px:120,140",full,dhash16-trim0.03,,120-,,search,2380,0.8807,0.9353,0.9130,0.9391,1.7000
+real,,real,"px:120,140",full,timm:vit_small_patch14_dinov2.lvd142m@224,,80-120,,search,1,0.0000,0.0000,0.0000,0.0000,0.2000
+real,,real,"px:120,140",full,timm:vit_small_patch14_dinov2.lvd142m@224,,120-,,search,2380,0.2563,0.4874,0.3168,0.5067,421.6000
+real,,real,"px:120,140",full,timm:vit_pe_core_small_patch16_384.fb@224,,80-120,,search,1,1.0000,1.0000,1.0000,1.0000,0.2000
+real,,real,"px:120,140",full,timm:vit_pe_core_small_patch16_384.fb@224,,120-,,search,2380,0.1239,0.2261,0.1294,0.2412,288.3000

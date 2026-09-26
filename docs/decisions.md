@@ -102,7 +102,7 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 
 - **Date:** 2026-09-26. **Status:** accepted. The prototype is in `ml/rifteye_ml/changegate.py`; M2 ports it to the extension.
 - **Decision:** A layer-1 change gate watches a small view of the table against a model of the still table and reports settled changes with a box and a kind ([ARCHITECTURE §3.1.1](ARCHITECTURE.md#311-change-gate-layer-1)). The detector and embedder run on those boxes; full detection passes run only at the start, after cuts and periodically as a safety net.
-- **Why:** Proposed by the Maintainer. Most frames change nothing, and the gate costs a tiny fraction of a detection pass. It also times events to the moment a card settles. On 10 minutes of the M0 reference VOD it reported 57 events, and a visual check of 40 found nearly all of them to be real board changes.
+- **Why:** Proposed by the Maintainer. Most frames change nothing, and the gate costs a tiny fraction of a detection pass. It also times events to the moment a card settles. On 10 minutes of the M0 reference VOD it reported 57 events. The Maintainer reviewed all of them: 44 (77%) were real card changes, and the kind was right for 36 ([M0 report §6](reports/m0-spike.md#6-layer-1-the-change-gate)).
 
 ### D-017: The embedding index holds a gallery pyramid
 
