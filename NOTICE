@@ -1,0 +1,25 @@
+RiftEye
+Copyright (C) 2026 Federico Vietti and RiftEye contributors
+
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, version 3 only (AGPL-3.0-only). See LICENSE.
+Commercial licensing: see LICENSING.md. Trademarks: see TRADEMARKS.md.
+
+----------------------------------------------------------------------------
+Riot Games
+
+RiftEye was created under Riot Games' "Legal Jibber Jabber" policy using
+assets owned by Riot Games. Riot Games does not endorse or sponsor this
+project.
+
+RiftEye isn't endorsed by Riot Games and doesn't reflect the views or
+opinions of Riot Games or anyone officially involved in producing or
+managing Riot Games properties. Riot Games, and all associated properties
+are trademarks or registered trademarks of Riot Games, Inc.
+
+----------------------------------------------------------------------------
+Third-party components
+
+None yet. As dependencies are added, their licences and required notices
+(including Apache-2.0 NOTICE files) are listed here.

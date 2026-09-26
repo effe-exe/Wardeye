@@ -1,0 +1,28 @@
+name: Layout preset
+description: Tell RiftEye where the table camera is in a broadcast's frame.
+labels: [layout-preset]
+body:
+  - type: input
+    id: channel
+    attributes:
+      label: Broadcaster / channel
+    validations:
+      required: true
+  - type: input
+    id: vod
+    attributes:
+      label: Public VOD link with a timestamp where the table view is visible
+    validations:
+      required: true
+  - type: textarea
+    id: regions
+    attributes:
+      label: Regions (fractions of the frame, 0-1)
+      description: "Overhead table camera as [x0, y0, x1, y1], and optionally close-up, graphics, hand-cam and scoreboard regions. Also say which side player A sits on."
+      placeholder: "overhead: [0.18, 0.05, 0.82, 0.95]\nhandcam: [0.0, 0.7, 0.18, 1.0]\nplayerA: bottom"
+    validations:
+      required: true
+  - type: input
+    id: dates
+    attributes:
+      label: Date range this layout was used (if known)

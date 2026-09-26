@@ -1,0 +1,212 @@
+# CLA gate for pull requests. See CLA.md and docs/research/07-licensing-and-governance.md.
+#
+# Security: this workflow runs on pull_request_target, so it holds a write token even for
+# pull requests from forks. It must NEVER check out, build or execute code from the pull
+# request. It only reads PR metadata through the API. Comment text is read from the event
+# payload inside the script, never interpolated into it.
+#
+# Signatures are appended to signatures/cla-v1.json on the `cla-signatures` branch, which
+# must stay unprotected. If it does not exist, the first signature creates it.
+name: CLA
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write        # append to the signature log
+  pull-requests: write   # comment on pull requests
+  issues: write          # PR comments go through the issues API
+  statuses: write        # set the "CLA" commit status
+
+concurrency:
+  group: cla-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  cla:
+    if: >-
+      github.event_name == 'pull_request_target' ||
+      (github.event.issue.pull_request &&
+       github.event.comment.user.type != 'Bot' &&
+       (contains(github.event.comment.body, 'recheck') ||
+        contains(github.event.comment.body, 'RiftEye CLA')))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          CLA_VERSION: '1.0'
+          SIGN_PHRASE: 'I have read the RiftEye CLA v1.0 and I hereby sign it.'
+          SIGNATURES_BRANCH: cla-signatures
+          SIGNATURES_PATH: signatures/cla-v1.json
+          # Exact GitHub logins that never need to sign (the Maintainer, dependency bots).
+          ALLOWLIST: 'effe-exe,dependabot[bot],renovate[bot],github-actions[bot]'
+          # Commits authored by AI assistants are covered by the human who opens the PR.
+          AI_AUTHOR_EMAILS: 'noreply@anthropic.com'
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const env = process.env;
+            const CLA_VERSION = env.CLA_VERSION;
+            const PHRASE = env.SIGN_PHRASE;
+            const BRANCH = env.SIGNATURES_BRANCH;
+            const PATH = env.SIGNATURES_PATH;
+            const MARKER = '<!-- rifteye-cla-bot -->';
+            const lower = (s) => (s || '').toLowerCase();
+            const ALLOW = new Set(lower(env.ALLOWLIST).split(',').map((s) => s.trim()).filter(Boolean));
+            // Commits written by AI assistants carry these author emails. They are covered by the
+            // human who opens the pull request, who must sign like everyone else.
+            const AI_EMAILS = new Set(lower(env.AI_AUTHOR_EMAILS).split(',').map((s) => s.trim()).filter(Boolean));
+            const norm = (s) => lower(s).replace(/\s+/g, ' ').trim();
+            const defaultBranch = context.payload.repository.default_branch;
+            const claUrl = `https://github.com/${owner}/${repo}/blob/${defaultBranch}/CLA.md`;
+            const whyUrl = `https://github.com/${owner}/${repo}/blob/${defaultBranch}/CONTRIBUTING.md#1-the-contributor-licence-agreement-cla`;
+
+            // --- Which pull request? -------------------------------------------------------------
+            let pr;
+            if (context.eventName === 'pull_request_target') {
+              pr = context.payload.pull_request;
+            } else if (context.eventName === 'issue_comment' && context.payload.issue.pull_request) {
+              pr = (await github.rest.pulls.get({ owner, repo, pull_number: context.payload.issue.number })).data;
+            } else {
+              core.info('Not a pull request event; nothing to do.');
+              return;
+            }
+            if (pr.state !== 'open') {
+              core.info(`#${pr.number} is ${pr.state}; nothing to do.`);
+              return;
+            }
+
+            // --- Signature log on the dedicated branch -------------------------------------------
+            async function load() {
+              try {
+                const { data } = await github.rest.repos.getContent({ owner, repo, path: PATH, ref: BRANCH });
+                return { sha: data.sha, log: JSON.parse(Buffer.from(data.content, 'base64').toString('utf8')) };
+              } catch (e) {
+                if (e.status !== 404) throw e;
+                return { sha: null, log: { claVersion: CLA_VERSION, document: 'CLA.md', signatures: [] } };
+              }
+            }
+
+            async function branchExists() {
+              try {
+                await github.rest.git.getRef({ owner, repo, ref: `heads/${BRANCH}` });
+                return true;
+              } catch (e) {
+                if (e.status === 404) return false;
+                throw e;
+              }
+            }
+
+            async function save(log, sha, message) {
+              const text = JSON.stringify(log, null, 2) + '\n';
+              if (!sha && !(await branchExists())) {
+                // First signature ever and no branch yet: start an orphan branch holding only the log.
+                const blob = await github.rest.git.createBlob({ owner, repo, content: text, encoding: 'utf-8' });
+                const tree = await github.rest.git.createTree({
+                  owner, repo, tree: [{ path: PATH, mode: '100644', type: 'blob', sha: blob.data.sha }],
+                });
+                const commit = await github.rest.git.createCommit({ owner, repo, message, tree: tree.data.sha, parents: [] });
+                await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${BRANCH}`, sha: commit.data.sha });
+                return;
+              }
+              await github.rest.repos.createOrUpdateFileContents({
+                owner, repo, path: PATH, branch: BRANCH, message,
+                content: Buffer.from(text, 'utf8').toString('base64'),
+                ...(sha ? { sha } : {}),
+              });
+            }
+
+            let { sha, log } = await load();
+            const signedIds = () => new Set(log.signatures.map((s) => s.id));
+
+            // --- Record a signature ----------------------------------------------------------------
+            if (context.eventName === 'issue_comment') {
+              const c = context.payload.comment;
+              if (c.user.type !== 'Bot' && norm(c.body) === norm(PHRASE) && !signedIds().has(c.user.id)) {
+                for (let attempt = 1; ; attempt++) {
+                  log.signatures.push({
+                    login: c.user.login,
+                    id: c.user.id,
+                    claVersion: CLA_VERSION,
+                    signedAt: c.created_at,
+                    pullRequest: pr.number,
+                    commentId: c.id,
+                    commentUrl: c.html_url,
+                  });
+                  try {
+                    await save(log, sha, `chore(cla): @${c.user.login} signed CLA v${CLA_VERSION} on #${pr.number}`);
+                    core.info(`Recorded signature for @${c.user.login}.`);
+                    break;
+                  } catch (e) {
+                    // 409/422: the log changed under us (another signature landed). Re-read and retry.
+                    if (![409, 422].includes(e.status) || attempt >= 3) throw e;
+                    ({ sha, log } = await load());
+                    if (signedIds().has(c.user.id)) break;
+                  }
+                }
+              }
+            }
+
+            // --- Who has to sign for this pull request? ------------------------------------------
+            const commits = await github.paginate(github.rest.pulls.listCommits, {
+              owner, repo, pull_number: pr.number, per_page: 100,
+            });
+            const needed = new Map(); // GitHub id -> login
+            const unlinked = [];
+            const consider = (user) => {
+              if (!user || user.type === 'Bot' || ALLOW.has(lower(user.login))) return;
+              needed.set(user.id, user.login);
+            };
+            for (const commit of commits) {
+              if (AI_EMAILS.has(lower(commit.commit && commit.commit.author && commit.commit.author.email))) continue;
+              if (!commit.author) {
+                unlinked.push(commit.sha.slice(0, 7));
+                continue;
+              }
+              consider(commit.author);
+            }
+            consider(pr.user); // whoever submits the pull request signs, whoever wrote the commits
+
+            const signed = signedIds();
+            const missing = [...needed].filter(([id]) => !signed.has(id)).map(([, login]) => login);
+            const ok = missing.length === 0 && unlinked.length === 0;
+
+            // --- Report: commit status + one self-updating comment -------------------------------
+            const waiting = missing.length + (unlinked.length ? 1 : 0);
+            await github.rest.repos.createCommitStatus({
+              owner, repo, sha: pr.head.sha, context: 'CLA', target_url: claUrl,
+              state: ok ? 'success' : 'failure',
+              description: ok ? 'All contributors have signed the CLA' : `Waiting on ${waiting} CLA item${waiting === 1 ? '' : 's'}`,
+            });
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: pr.number, per_page: 100,
+            });
+            const mine = comments.find((c) => c.user && c.user.type === 'Bot' && (c.body || '').includes(MARKER));
+
+            let body;
+            if (ok) {
+              body = `${MARKER}\nAll contributors have signed the [RiftEye CLA](${claUrl}). Thank you!`;
+            } else {
+              const lines = [
+                MARKER,
+                `Thanks for contributing to RiftEye! Before this can be merged, everyone involved needs to sign the [Contributor License Agreement](${claUrl}) (v${CLA_VERSION}). You keep your copyright. The CLA lets the maintainer offer RiftEye under the AGPL-3.0 and under other licences, and guarantees your contribution stays available under the AGPL. [Why we ask](${whyUrl}).`,
+              ];
+              if (missing.length) {
+                lines.push('', 'To sign, post a comment on this pull request containing exactly:', '', '```', PHRASE, '```',
+                  '', `Still needed from: ${missing.map((l) => '@' + l).join(', ')}`);
+              }
+              if (unlinked.length) {
+                lines.push('', `These commits have an author email that is not linked to a GitHub account, so they cannot be matched to a signature: ${unlinked.map((s) => '`' + s + '`').join(', ')}. Add that email to your GitHub account (Settings → Emails) or amend the commits, then comment \`recheck\`.`);
+              }
+              body = lines.join('\n');
+            }
+            if (mine) {
+              if (mine.body !== body) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+            } else if (!ok) {
+              await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });
+            }
+            core.info(ok ? 'CLA check passed.' : `CLA check failed: missing=${missing.join(',') || '-'} unlinked=${unlinked.join(',') || '-'}`);

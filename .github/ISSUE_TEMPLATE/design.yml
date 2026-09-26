@@ -1,0 +1,21 @@
+name: Design feedback
+description: Challenge or improve something in the architecture, research or roadmap.
+labels: [design]
+body:
+  - type: input
+    id: doc
+    attributes:
+      label: Which document and section?
+      placeholder: docs/research/02-vision-pipeline.md, section 2.8
+    validations:
+      required: true
+  - type: textarea
+    id: feedback
+    attributes:
+      label: What is wrong, risky or missing, and what would you do instead?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or references (papers, repos, measurements)

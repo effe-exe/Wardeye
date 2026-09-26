@@ -1,0 +1,79 @@
+# ---------------------------------------------------------------------------
+# Data that must never be committed.
+#
+# Stream footage, frames, crops and card artwork belong to their rights holders
+# (tournament organisers, broadcasters, Riot Games). Datasets live in a private
+# bucket and are referenced here only by manifest (sha256 per file) -- see
+# docs/research/04-data-and-evaluation.md. If you are about to force-add one of
+# these, stop and ask in an issue first.
+# ---------------------------------------------------------------------------
+datasets/
+data/
+frames/
+crops/
+vods/
+catalog-cache/
+card-art/
+*.mp4
+*.mkv
+*.mov
+*.flv
+*.webm
+*.avi
+*.m3u8
+*.m4s
+*.aac
+*.wav
+*.mp3
+
+# Model weights ship as release assets, not in git history.
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.ort
+*.tflite
+*.engine
+*.bin
+runs/
+wandb/
+mlruns/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.eggs/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Node / web
+node_modules/
+dist/
+build/
+.output/
+.wxt/
+.turbo/
+coverage/
+*.tsbuildinfo
+.vite/
+
+# Env and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp

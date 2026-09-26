@@ -1,0 +1,27 @@
+name: Bug report
+description: Something RiftEye got wrong (a missed or misnamed card, a broken overlay, a crash).
+labels: [bug]
+body:
+  - type: input
+    id: vod
+    attributes:
+      label: Public VOD link with timestamp
+      description: A link to the exact moment, e.g. https://www.twitch.tv/videos/123?t=1h02m33s. Please do not attach screenshots of broadcasts.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Extension version, model and catalogue version (shown in the side panel settings), browser and OS.
+  - type: dropdown
+    id: quality
+    attributes:
+      label: Video quality you were watching at
+      options: ["Source / 1080p", "720p", "480p or lower", "Auto / not sure"]
