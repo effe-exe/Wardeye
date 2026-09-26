@@ -1,0 +1,30 @@
+{
+  "name": "rifteye",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "Open-source computer vision for Riftbound TCG streams",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:e2e": "npm run build && playwright test",
+    "check:media": "node scripts/check-no-media.mjs",
+    "check:licenses": "node scripts/check-licenses.mjs",
+    "check": "npm run typecheck && npm test && npm run check:media && npm run check:licenses"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^24.19.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.2"
+  }
+}

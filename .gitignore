@@ -77,3 +77,8 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 *.swp
+
+# Test and build output
+test-results/
+playwright-report/
+ml/reports/
