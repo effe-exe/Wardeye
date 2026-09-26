@@ -13,6 +13,7 @@ Research, training and evaluation tools for RiftEye (Python 3.11+). Right now th
 | `changegate` | Layer 1: when and where the table changed (settled changes vs a still-table model; hands and light ignored), from a VOD window |
 | `matcrops` | A classical bootstrap detector for M0: isolated cards on a known playmat, straightened into upright crops (not the product detector) |
 | `label` | Model-assisted labeling of real crops: ranked candidates and verification sheets; a person decides |
+| `demo` | A preview bundle for `apps/viewer`: the M0 pipeline run offline on a VOD window (detector, identifier, tracks, change gate), so a recorded match can be hovered |
 | `reviewpack` | Review packs for `apps/reviewer`: the model's guesses, one per track of the same card, least confident first plus a random audit; and exported answers back into labels |
 | `adapter` | The M0 "quick fine-tune": a linear head on a frozen backbone, trained on synthetic camera-level crops, evaluated on held-out sets |
 | `index` | Writes the shipped index (float16 matrix + manifest) and refuses to load it with a different encoder |

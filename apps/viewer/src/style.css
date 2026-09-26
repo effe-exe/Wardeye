@@ -1,0 +1,55 @@
+:root {
+  color-scheme: dark;
+  --bg: #121418;
+  --panel: #1b1e24;
+  --line: #2c313a;
+  --text: #e6e8ec;
+  --muted: #8b93a1;
+  --accent: #6153cc;
+  --accent-2: #8a7ff0;
+  --good: #3f9d6b;
+  font: 14px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+h1 { font-size: 16px; margin: 0; }
+h1 span { color: var(--muted); font-weight: 400; }
+h2 { font-size: 14px; margin: 0 0 8px; }
+.intro { margin: 10px 16px 0; color: var(--muted); }
+.toggle { color: var(--muted); display: flex; gap: 6px; align-items: center; cursor: pointer; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; padding: 12px 16px; min-height: 0; }
+@media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
+#player { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 8px; overflow: hidden; }
+video { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* The overlay lets clicks through to the video (and its controls) except on the card boxes. */
+#overlay { position: absolute; inset: 0; width: 100%; height: calc(100% - 44px); pointer-events: none; }
+#overlay polygon { fill: rgba(138, 127, 240, 0.001); stroke: var(--accent-2); stroke-width: 3; pointer-events: all; cursor: pointer; vector-effect: non-scaling-stroke; }
+#overlay polygon.unsure { stroke: #e0b04a; stroke-dasharray: 6 4; }
+#overlay polygon.facedown { stroke: #7f8794; stroke-dasharray: 2 4; }
+#overlay polygon.hot { stroke: #fff; stroke-width: 4; fill: rgba(255, 255, 255, 0.08); }
+#overlay.hidden-boxes polygon:not(.hot) { stroke: transparent; }
+#now { margin-top: 8px; }
+.problem { background: #3a1f24; border: 1px solid #7a3340; padding: 10px; border-radius: 6px; }
+#side { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow: auto; max-height: calc(100vh - 150px); }
+#events { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+#events li { display: grid; grid-template-columns: 44px 42px 1fr; gap: 8px; align-items: center; padding: 6px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
+#events li:hover { border-color: var(--accent-2); }
+#events li.current { background: rgba(97, 83, 204, 0.25); border-color: var(--accent); }
+#events li.future { opacity: 0.55; }
+#events .time { color: var(--accent-2); font-variant-numeric: tabular-nums; }
+#events img { width: 42px; height: 58px; object-fit: cover; border-radius: 3px; background: #000; }
+#events .what small { display: block; color: var(--muted); }
+.hover { position: fixed; z-index: 10; background: var(--panel); border: 1px solid var(--accent); border-radius: 10px; padding: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); pointer-events: none; max-width: 560px; }
+.hover .one img { height: 300px; border-radius: 8px; display: block; }
+.hover .name { font-size: 16px; font-weight: 600; margin-top: 6px; }
+.hover .sure { color: var(--good); }
+.hover .three { display: flex; gap: 8px; margin-top: 6px; }
+.hover .three figure { margin: 0; width: 160px; }
+.hover .three img { height: 210px; border-radius: 6px; display: block; }
+.hover .three figcaption { font-size: 12px; margin-top: 4px; }
+.hover .note { color: #e0b04a; }
+footer { color: var(--muted); font-size: 11px; padding: 8px 16px; border-top: 1px solid var(--line); }

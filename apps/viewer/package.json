@@ -1,0 +1,11 @@
+{
+  "name": "@rifteye/viewer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "VOD viewer preview: hover the cards of a recorded match and follow its timeline, from a demo bundle made by ml/rifteye_ml/demo.py",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  }
+}
