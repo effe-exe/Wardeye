@@ -2,10 +2,13 @@
 # Copyright (C) 2026 Federico Vietti and RiftEye contributors
 """Image encoders for card retrieval. Every encoder returns L2-normalised float32 rows.
 
-* `colorgrid[:N]`: an N×N colour grid of the whole card, mean-centred. It is the
+* `colorgrid[:N][/trimF]`: an N×N colour grid of the whole card, mean-centred. It is the
   fingerprint used by the open-source riftbound-scanner, and the baseline to beat.
-* `dhash[:N]`: a difference hash (gradient signs) as a ±1 vector; the classic
+* `dhash[:N][/trimF]`: a difference hash (gradient signs) as a ±1 vector; the classic
   perceptual-hash baseline.
+
+`/trimF` crops a fraction F off every edge first, e.g. `colorgrid:16/trim0.03`. On real
+stream crops that drops the sleeve edge and the mat around the card (M0: 93.7% → 96.6%).
 * `timm:<model>[@<size>][/<pool>]`: any timm backbone, e.g.
   `timm:vit_small_patch14_dinov2.lvd142m` (DINOv2 ViT-S/14, Apache-2.0 weights) at 224 px.
   `/avg` pools the patch tokens instead of using the model's default head (the class token
@@ -35,15 +38,26 @@ def l2n(x: np.ndarray) -> np.ndarray:
     return x / np.maximum(np.linalg.norm(x, axis=1, keepdims=True), 1e-12)
 
 
+def trim(im: Image.Image, frac: float) -> Image.Image:
+    """Crop `frac` of the width and height off every edge."""
+    if frac <= 0:
+        return im
+    w, h = im.size
+    dx, dy = round(w * frac), round(h * frac)
+    return im.crop((dx, dy, max(dx + 1, w - dx), max(dy + 1, h - dy)))
+
+
 class ColorGrid:
-    def __init__(self, grid: int = 16):
+    def __init__(self, grid: int = 16, trim: float = 0.0):
         self.grid = grid
-        self.name = f"colorgrid{grid}"
+        self.trim = trim
+        self.name = f"colorgrid{grid}" + (f"-trim{trim:g}" if trim else "")
         self.dim = grid * grid * 3
 
     def embed(self, images: Sequence[Image.Image]) -> np.ndarray:
         g = self.grid
-        rows = [np.asarray(im.convert("RGB").resize((g, g), Image.BOX), np.float32).reshape(-1) / 255.0 for im in images]
+        rows = [np.asarray(trim(im.convert("RGB"), self.trim).resize((g, g), Image.BOX), np.float32).reshape(-1) / 255.0
+                for im in images]
         x = np.stack(rows) if rows else np.zeros((0, self.dim), np.float32)
         return l2n(x - x.mean(axis=1, keepdims=True))
 
@@ -52,16 +66,17 @@ class ColorGrid:
 
 
 class DHash:
-    def __init__(self, size: int = 16):
+    def __init__(self, size: int = 16, trim: float = 0.0):
         self.size = size
-        self.name = f"dhash{size}"
+        self.trim = trim
+        self.name = f"dhash{size}" + (f"-trim{trim:g}" if trim else "")
         self.dim = size * size
 
     def embed(self, images: Sequence[Image.Image]) -> np.ndarray:
         n = self.size
         rows = []
         for im in images:
-            a = np.asarray(im.convert("L").resize((n + 1, n), Image.BOX), np.float32)
+            a = np.asarray(trim(im.convert("L"), self.trim).resize((n + 1, n), Image.BOX), np.float32)
             rows.append(np.where(a[:, 1:] > a[:, :-1], 1.0, -1.0).reshape(-1))
         return l2n(np.stack(rows)) if rows else np.zeros((0, self.dim), np.float32)
 
@@ -142,11 +157,16 @@ def parse_timm_spec(arg: str) -> tuple[str, int, str]:
 
 def get_encoder(spec: str) -> Encoder:
     """'colorgrid', 'colorgrid:8', 'dhash', 'dhash:8', or 'timm:<model>[@<size>][/<pool>]'."""
-    kind, _, arg = spec.partition(":")
-    if kind == "colorgrid":
-        return ColorGrid(int(arg) if arg else 16)
-    if kind == "dhash":
-        return DHash(int(arg) if arg else 16)
+    kind = spec.split(":")[0].split("/")[0]
+    rest = spec[len(kind):]
+    arg = rest[1:] if rest.startswith(":") else rest
+    if kind in ("colorgrid", "dhash"):
+        size, _, opt = arg.partition("/")
+        frac = float(opt.removeprefix("trim")) if opt else 0.0
+        if opt and not opt.startswith("trim"):
+            raise ValueError(f"unknown option {opt!r} in encoder spec {spec!r}")
+        cls = ColorGrid if kind == "colorgrid" else DHash
+        return cls(int(size) if size else 16, trim=frac)
     if kind == "timm":
         model, size, pool = parse_timm_spec(arg)
         return TimmEncoder(model, img_size=size, pool=pool)

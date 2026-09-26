@@ -1,6 +1,8 @@
 import numpy as np
 import pytest
 
+from PIL import Image
+
 from rifteye_ml.encoders import ColorGrid, DHash, get_encoder
 from rifteye_ml.fixtures import load_fixture_image, synthetic_card, synthetic_catalog
 from rifteye_ml.index import IndexModelMismatch, build_index, load_index
@@ -96,3 +98,17 @@ def test_band_views():
     for bad in ("middle:0.5", "top:0", "top:1.5"):
         with pytest.raises(ValueError):
             band(im, bad)
+
+
+def test_trim_option_for_hash_encoders():
+    plain, trimmed = get_encoder("colorgrid:16"), get_encoder("colorgrid:16/trim0.03")
+    assert (plain.name, trimmed.name) == ("colorgrid16", "colorgrid16-trim0.03")
+    assert get_encoder("dhash/trim0.05").name == "dhash16-trim0.05"
+    card = synthetic_card(2)
+    framed = Image.new("RGB", (card.width + 60, card.height + 60), (200, 20, 40))  # a card on a red mat
+    framed.paste(card, (30, 30))
+    # Trimming the mat off brings the framed card closer to the clean one.
+    g, t = plain.embed([card, framed]), get_encoder("colorgrid:16/trim0.05").embed([card, framed])
+    assert float(t[0] @ t[1]) > float(g[0] @ g[1])
+    with pytest.raises(ValueError):
+        get_encoder("colorgrid:16/blur2")
