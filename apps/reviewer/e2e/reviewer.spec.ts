@@ -72,7 +72,8 @@ test('review a pack from the keyboard, export valid answers, and continue after 
   await page.keyboard.press('n'); // item 2: wrong, typed name
   await expect(page.locator('#ask-input')).toBeFocused();
   await page.keyboard.type('myst');
-  await expect(page.locator('#suggestions li')).toHaveCount(1);
+  // The catalogue match first, then the typed name itself for cards the list does not have.
+  await expect(page.locator('#suggestions li')).toHaveText(['Mystic ShieldFAK-004', 'Use “myst”not in the list']);
   await page.keyboard.press('Enter');
   await expect(page.locator('#position')).toHaveText('4 / 4');
 
@@ -80,12 +81,21 @@ test('review a pack from the keyboard, export valid answers, and continue after 
   await page.keyboard.press('Escape');
   await expect(page.locator('#ask')).toBeHidden();
   await expect(page.locator('#position')).toHaveText('4 / 4');
-  await page.keyboard.press('s'); // can't tell
+  await page.keyboard.press('n'); // a card the list does not have: keep the typed name
+  await page.keyboard.type('mech token');
+  await expect(page.locator('#suggestions li')).toHaveText(['Use “mech token”not in the list']);
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#done')).toBeVisible();
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.locator('#answered')).toHaveText('You said: wrong, it is “mech token” (not in the list).');
+  await page.keyboard.press('s'); // changed my mind: can't tell
   await expect(page.locator('#done')).toBeVisible();
   await expect(page.locator('#done-counts')).toHaveText("4 of 4 answered: 1 correct · 2 wrong · 1 can't tell.");
 
-  await page.keyboard.press('z'); // undo the last answer: back to item 3, open again
+  await page.keyboard.press('z'); // undo restores what "can't tell" replaced: the typed name
   await expect(page.locator('#position')).toHaveText('4 / 4');
+  await expect(page.locator('#answered')).toHaveText('You said: wrong, it is “mech token” (not in the list).');
+  await page.keyboard.press('z'); // and once more: item 3 is open again
   await expect(page.locator('#answered')).toHaveText('');
   await page.locator('#keys button[data-key="n"]').click();
   await page.keyboard.press('Enter'); // empty box: wrong, don't know

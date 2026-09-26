@@ -4,7 +4,7 @@ A small static web page for turning a model's guesses into labels. The model pro
 
 - <kbd>Y</kbd>: correct.
 - <kbd>1</kbd>–<kbd>9</kbd>: wrong, it is the numbered alternative.
-- <kbd>N</kbd>: wrong. Type what it is and press <kbd>Enter</kbd>, or press <kbd>Enter</kbd> on the empty box if you don't know.
+- <kbd>N</kbd>: wrong. Type what it is and press <kbd>Enter</kbd>, or press <kbd>Enter</kbd> on the empty box if you don't know. For a card the list does not have (some tokens are missing from Riot's gallery), pick **Use “…”** to keep the name you typed.
 - <kbd>S</kbd>: can't tell (blurry, covered, not a card). Saying <kbd>S</kbd> is better than guessing: a wrong label does more harm than a missing one.
 - <kbd>Z</kbd>: undo the last answer. <kbd>←</kbd>/<kbd>→</kbd>: previous or next item.
 

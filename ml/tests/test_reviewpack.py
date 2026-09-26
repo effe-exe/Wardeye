@@ -93,16 +93,20 @@ def test_apply_answers_labels_every_crop_of_a_track():
                 "t3": {"files": ["d.png"], "audit": False,
                        "proposal": {"printing_id": "OGN-003", "card_id": "three"}, "alternatives": []},
                 "t4": {"files": ["e.png"], "audit": False,
+                       "proposal": {"printing_id": "OGN-003", "card_id": "three"}, "alternatives": []},
+                "t5": {"files": ["f.png"], "audit": False,
                        "proposal": {"printing_id": "OGN-003", "card_id": "three"}, "alternatives": []}}}
     answers = {"packId": "p", "reviewer": "fede", "answers": [
         {"itemId": "t1", "verdict": "correct"}, {"itemId": "t2", "verdict": "wrong", "value": "OGN-002"},
-        {"itemId": "t3", "verdict": "wrong"}, {"itemId": "t4", "verdict": "unsure"}, {"itemId": "gone", "verdict": "correct"}]}
+        {"itemId": "t3", "verdict": "wrong"}, {"itemId": "t4", "verdict": "unsure"},
+        {"itemId": "t5", "verdict": "wrong", "text": "mech token"}, {"itemId": "gone", "verdict": "correct"}]}
     rows, stats = apply_answers(side, answers)
     got = [(r["file"], r["printing_id"], r["card_id"], r["labeled_by"]) for r in rows]
     assert got == [("a.png", "OGN-001", "one", "review:fede"), ("b.png", "OGN-001", "one", "review:fede"),
                    ("c.png", "OGN-002", "two", "review:fede"), ("d.png", "!OGN-003", "!three", "review:fede"),
-                   ("e.png", "?", "?", "review:fede")]
-    assert stats["review_n"] == 2 and stats["review_correct"] == 0.5 and stats["review_unsure"] == 1
+                   ("e.png", "?", "?", "review:fede"), ("f.png", "none", "none", "review:fede")]
+    assert rows[-1]["name"] == "mech token" and rows[0]["name"] == ""
+    assert stats["review_n"] == 3 and stats["review_correct"] == pytest.approx(1 / 3) and stats["review_unsure"] == 1
     assert stats["audit_n"] == 1 and stats["audit_correct"] == 0.0
     with pytest.raises(ValueError):
         apply_answers(side, {**answers, "packId": "other"})

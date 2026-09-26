@@ -56,6 +56,16 @@ describe('review session', () => {
     expect(progress(s)).toEqual({ total: 4, answered: 4, correct: 1, wrong: 2, unsure: 1 });
   });
 
+  it('keeps a typed name for a card the list does not have', () => {
+    const s = answer(createSession(pack()), 'wrong', undefined, 900, '  mech token ');
+    expect(s.answers.i0).toEqual({ itemId: 'i0', verdict: 'wrong', text: 'mech token', ms: 900 });
+    expect(validateReviewAnswers(toAnswers(s, undefined, at))).toEqual([]);
+    expect(optionFor(s.pack, s.pack.items[0]!, s.answers.i0)?.label).toBe('“mech token” (not in the list)');
+    // A catalogue value wins over text; text never rides on other verdicts.
+    expect(answer(createSession(pack()), 'wrong', 'FAK-101', undefined, 'x').answers.i0).toEqual({ itemId: 'i0', verdict: 'wrong', value: 'FAK-101' });
+    expect(answer(createSession(pack()), 'unsure', undefined, undefined, 'x').answers.i0).toEqual({ itemId: 'i0', verdict: 'unsure' });
+  });
+
   it('treats naming the proposal as correct', () => {
     const s = answer(createSession(pack()), 'wrong', 'FAK-000');
     expect(s.answers.i0).toEqual({ itemId: 'i0', verdict: 'correct' });

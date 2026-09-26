@@ -20,6 +20,7 @@ The models are the easy part to write down. The data engine that keeps improving
   - The Maintainer's build machine fetches it to train models and build the vector index. The images stay on that machine.
   - The extension fetches it in the viewer's browser at display time.
   - Nothing is re-hosted.
+- **Gaps:** the gallery does not list every token. On 2026-09-26 it had 10 (SFD-T03, UNL-T01–T08, VEN-T04); others that are played on stream, such as the SFD-T01 Mech token, are missing. A reviewer who meets one types its name ([§4.4](#44-stream-footage-the-data-engine)), and the label records `none` with that name. The matcher cannot propose a card with no reference image, so missing tokens get a supplement: names and codes collected from reviews and rules text, with art only from our own permitted footage.
 - **Offline research:** `ml/` also reads community mirrors of the gallery that use the same JSON shape. Promos missing from the gallery can come from marketplace catalogues, for internal research only.
 - **Shape:** the `Card` / `Printing` schema in [ARCHITECTURE §6](../ARCHITECTURE.md#6-data-contracts), released as versioned files, with a changelog entry per set release.
 - **New-set readiness:** when a new set is revealed, its printings enter the catalogue as soon as images exist. The embedder then recognises them zero-shot from art, before any real footage exists.

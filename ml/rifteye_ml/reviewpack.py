@@ -446,6 +446,7 @@ def apply_answers(sidecar: dict, answers: dict) -> tuple[list[dict], dict[str, f
 
     Identity: every crop of an answered track gets the confirmed or corrected printing; 'unsure'
     gives '?', and 'wrong' without a name gives '!' + the rejected card (known wrong, unknown right).
+    A name typed for a card the catalogue lacks (some tokens) gives 'none', with the name kept.
     Event: one row per event with the verdict and the right kind."""
     if answers.get("packId") != sidecar["pack"]:
         raise ValueError(f"answers are for pack {answers.get('packId')!r}, not {sidecar['pack']!r}")
@@ -467,13 +468,15 @@ def apply_answers(sidecar: dict, answers: dict) -> tuple[list[dict], dict[str, f
                 cid = sidecar.get("card_ids", {}).get(pid, "")
                 if not cid:
                     cid = next((x["card_id"] for x in item["alternatives"] if x["printing_id"] == pid), "")
+            elif verdict == "wrong" and ans.get("text"):
+                pid, cid = "none", "none"  # not in the catalogue; the typed name says what it is
             elif verdict == "wrong":
                 pid, cid = "!" + prop["printing_id"], "!" + prop["card_id"]
             else:
                 pid, cid = "?", "?"
             for f in item["files"]:
                 out.append({"file": f, "track": ans["itemId"], "printing_id": pid, "card_id": cid,
-                            "verdict": verdict, "labeled_by": who})
+                            "verdict": verdict, "name": ans.get("text", ""), "labeled_by": who})
         else:
             right = item["kind"] if verdict == "correct" else ans.get("value", "?" if verdict == "unsure" else "!" + item["kind"])
             out.append({"event": item["event"], "t": item["t"], "t_before": item["t_before"], "proposed": item["kind"],

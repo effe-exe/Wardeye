@@ -27,7 +27,7 @@ export interface Session {
 }
 
 export type Action =
-  | { kind: 'answer'; verdict: Verdict; value?: string }
+  | { kind: 'answer'; verdict: Verdict; value?: string; text?: string }
   | { kind: 'ask-value' }
   | { kind: 'undo' }
   | { kind: 'move'; by: -1 | 1 };
@@ -70,8 +70,11 @@ export function nextOpen(s: Session, from: number): number {
   return n;
 }
 
-/** Answers the item on screen and moves to the next unanswered one. */
-export function answer(s: Session, verdict: Verdict, value?: string, ms?: number): Session {
+/**
+ * Answers the item on screen and moves to the next unanswered one. `text` is a name typed
+ * when nothing in the pack fits (a card missing from the catalogue); it goes with 'wrong'.
+ */
+export function answer(s: Session, verdict: Verdict, value?: string, ms?: number, text?: string): Session {
   const item = current(s);
   if (!item) return s;
   const a: ReviewAnswer = { itemId: item.id, verdict };
@@ -79,6 +82,8 @@ export function answer(s: Session, verdict: Verdict, value?: string, ms?: number
   if (verdict === 'wrong' && value !== undefined && value !== '') {
     if (value === item.proposal.value) a.verdict = 'correct';
     else a.value = value;
+  } else if (verdict === 'wrong' && text !== undefined && text.trim() !== '') {
+    a.text = text.trim();
   }
   if (ms !== undefined && Number.isFinite(ms)) a.ms = Math.max(0, Math.round(ms));
   const previous = s.answers[item.id];
@@ -148,7 +153,7 @@ export function restore(pack: ReviewPack, value: unknown): { session?: Session; 
 export function optionFor(pack: ReviewPack, item: ReviewItem, a: ReviewAnswer | undefined): ReviewOption | undefined {
   if (!a) return undefined;
   if (a.verdict === 'correct') return item.proposal;
-  if (a.value === undefined) return undefined;
+  if (a.value === undefined) return a.text === undefined ? undefined : { value: '', label: `“${a.text}” (not in the list)` };
   return (
     item.alternatives.find((o) => o.value === a.value) ??
     pack.vocabulary?.find((o) => o.value === a.value) ?? { value: a.value, label: a.value }

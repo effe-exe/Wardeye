@@ -192,7 +192,7 @@ function act(action: Action): void {
   if (!session) return;
   switch (action.kind) {
     case 'answer':
-      commit(answer(session, action.verdict, action.value, performance.now() - shownAt));
+      commit(answer(session, action.verdict, action.value, performance.now() - shownAt, action.text));
       break;
     case 'ask-value':
       openAsk();
@@ -220,24 +220,35 @@ function closeAsk(): void {
   if (document.activeElement === askInput) askInput.blur();
 }
 
+/** The last suggestion is always the typed name itself, for cards the list does not have. */
+const TYPED = '';
+
 function showHits(): void {
-  hits = searchOptions(session?.pack.vocabulary ?? [], askInput.value, 8);
+  const typed = askInput.value.trim();
+  hits = searchOptions(session?.pack.vocabulary ?? [], typed, 8);
+  if (typed.length >= 2) hits.push({ value: TYPED, label: typed });
   hitIndex = 0;
   suggestions.replaceChildren(
     ...hits.map((o, i) => {
       const li = document.createElement('li');
       li.className = i === 0 ? 'active' : '';
-      li.textContent = o.label;
+      const free = o.value === TYPED;
+      li.textContent = free ? `Use “${o.label}”` : o.label;
       const small = document.createElement('small');
-      small.textContent = o.value;
+      small.textContent = free ? 'not in the list' : o.value;
       li.append(small);
       li.addEventListener('mousedown', (e) => {
         e.preventDefault();
-        act({ kind: 'answer', verdict: 'wrong', value: o.value });
+        pickHit(o);
       });
       return li;
     }),
   );
+}
+
+function pickHit(o: ReviewOption): void {
+  if (o.value === TYPED) act({ kind: 'answer', verdict: 'wrong', text: o.label });
+  else act({ kind: 'answer', verdict: 'wrong', value: o.value });
 }
 
 askInput.addEventListener('input', showHits);
@@ -257,7 +268,7 @@ ask.addEventListener('submit', (e) => {
   e.preventDefault();
   // Enter picks the highlighted name; Enter on an empty box means "wrong, I don't know what it is".
   const hit = hits[hitIndex];
-  if (hit) act({ kind: 'answer', verdict: 'wrong', value: hit.value });
+  if (hit) pickHit(hit);
   else if (askInput.value.trim() === '') act({ kind: 'answer', verdict: 'wrong' });
 });
 

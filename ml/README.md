@@ -132,7 +132,7 @@ python -m rifteye_ml.reviewpack apply --pack ~/rifteye-data/packs/identity-v2a.j
   --answers identity-v2a.answers.json --out ~/rifteye-data/real-crops/v2/labels-review.csv
 ```
 
-`--labels` does two things: it fits the softmax temperature that turns match scores into the confidence shown, and it leaves out tracks that already have a label. `apply` also prints how often the model was right, on the reviewed items and on the audit, with 95% intervals. The pack is a single JSON file with its pictures embedded (about 17 MB for 400 items). A sidecar `*.meta.json` next to it maps items to crops and never leaves the machine.
+A name the reviewer typed for a card the catalogue lacks (some tokens) becomes `printing_id` `none`, with the name in the `name` column. `--labels` does two things: it fits the softmax temperature that turns match scores into the confidence shown, and it leaves out tracks that already have a label. `apply` also prints how often the model was right, on the reviewed items and on the audit, with 95% intervals. The pack is a single JSON file with its pictures embedded (about 17 MB for 400 items). A sidecar `*.meta.json` next to it maps items to crops and never leaves the machine.
 
 `reviewpack events` does the same for change-gate events: the table before and after each change, and the gate's guess of its kind. The gate records when each changed region last matched the still table (`extra.t_before`, about when the hand arrived), which is where the "before" picture is taken:
 

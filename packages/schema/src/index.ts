@@ -234,6 +234,8 @@ export interface ReviewAnswer {
   verdict: Verdict;
   /** The right value, when the verdict is 'wrong' and the reviewer knows it. */
   value?: string;
+  /** What the reviewer typed when nothing in the pack fits, e.g. a token missing from the catalogue. */
+  text?: string;
   /** Time the reviewer spent on the item, in milliseconds. */
   ms?: number;
 }
@@ -488,6 +490,10 @@ export function validateReviewAnswers(value: unknown): Issue[] {
       if (!oneOf(VERDICTS, x.verdict)) issues.push({ path: `${at}.verdict`, message: `must be one of ${VERDICTS.join(', ')}` });
       if (x.value !== undefined && !isStr(x.value)) issues.push({ path: `${at}.value`, message: 'must be a non-empty string' });
       if (x.verdict === 'correct' && x.value !== undefined) issues.push({ path: `${at}.value`, message: "only 'wrong' answers carry a value" });
+      if (x.text !== undefined) {
+        if (!isStr(x.text)) issues.push({ path: `${at}.text`, message: 'must be a non-empty string' });
+        else if (x.verdict !== 'wrong' || x.value !== undefined) issues.push({ path: `${at}.text`, message: "only 'wrong' answers without a value carry text" });
+      }
       if (x.ms !== undefined && (!isNum(x.ms) || x.ms < 0)) issues.push({ path: `${at}.ms`, message: 'must be ≥ 0' });
     });
   }

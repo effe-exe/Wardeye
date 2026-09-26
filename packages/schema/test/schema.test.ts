@@ -201,4 +201,17 @@ describe('review packs and answers', () => {
     const bad = answers({ answers: [{ itemId: 'i1', verdict: 'correct', value: 'FAK-001' }, { itemId: '', verdict: 'maybe' as 'correct' }] });
     expect(validateReviewAnswers(bad).map((i) => i.path)).toEqual(['answers[0].value', 'answers[1].itemId', 'answers[1].verdict']);
   });
+
+  it('carries typed text only on wrong answers without a value', () => {
+    const typed = answers({ answers: [{ itemId: 'i1', verdict: 'wrong', text: 'mech token' }] });
+    expect(validateReviewAnswers(typed)).toEqual([]);
+    const bad = answers({
+      answers: [
+        { itemId: 'i1', verdict: 'correct', text: 'x' },
+        { itemId: 'i2', verdict: 'wrong', value: 'FAK-001', text: 'x' },
+        { itemId: 'i3', verdict: 'wrong', text: '' },
+      ],
+    });
+    expect(validateReviewAnswers(bad).map((i) => i.path)).toEqual(['answers[0].text', 'answers[1].text', 'answers[2].text']);
+  });
 });
