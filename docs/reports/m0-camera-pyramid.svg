@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="420" viewBox="0 0 720 420" font-family="system-ui, sans-serif" font-size="12">
+<rect width="720" height="420" fill="#ffffff"/>
+<text x="64" y="28" font-size="15" font-weight="600" fill="#1f2328">Camera realism: card-level top-1 vs card height (4 Mbps, pyramid gallery)</text>
+<line x1="64" y1="364.0" x2="510" y2="364.0" stroke="#e5e7eb"/>
+<text x="56" y="368.0" text-anchor="end" fill="#57606a">0%</text>
+<line x1="64" y1="300.8" x2="510" y2="300.8" stroke="#e5e7eb"/>
+<text x="56" y="304.8" text-anchor="end" fill="#57606a">20%</text>
+<line x1="64" y1="237.6" x2="510" y2="237.6" stroke="#e5e7eb"/>
+<text x="56" y="241.6" text-anchor="end" fill="#57606a">40%</text>
+<line x1="64" y1="174.4" x2="510" y2="174.4" stroke="#e5e7eb"/>
+<text x="56" y="178.4" text-anchor="end" fill="#57606a">60%</text>
+<line x1="64" y1="111.2" x2="510" y2="111.2" stroke="#e5e7eb"/>
+<text x="56" y="115.2" text-anchor="end" fill="#57606a">80%</text>
+<line x1="64" y1="48.0" x2="510" y2="48.0" stroke="#e5e7eb"/>
+<text x="56" y="52.0" text-anchor="end" fill="#57606a">100%</text>
+<text x="64.0" y="384" text-anchor="middle" fill="#57606a">40</text>
+<text x="138.3" y="384" text-anchor="middle" fill="#57606a">60</text>
+<text x="212.7" y="384" text-anchor="middle" fill="#57606a">80</text>
+<text x="361.3" y="384" text-anchor="middle" fill="#57606a">120</text>
+<text x="510.0" y="384" text-anchor="middle" fill="#57606a">160</text>
+<text x="287.0" y="406" text-anchor="middle" fill="#1f2328">card height in a 1920x1080 frame (px)</text>
+<polyline points="64.0,203.9 138.3,172.3 212.7,162.8 361.3,149.1 510.0,139.6" fill="none" stroke="#6153CC" stroke-width="2.5"/>
+<circle cx="64.0" cy="203.9" r="3.5" fill="#6153CC"/>
+<circle cx="138.3" cy="172.3" r="3.5" fill="#6153CC"/>
+<circle cx="212.7" cy="162.8" r="3.5" fill="#6153CC"/>
+<circle cx="361.3" cy="149.1" r="3.5" fill="#6153CC"/>
+<circle cx="510.0" cy="139.6" r="3.5" fill="#6153CC"/>
+<line x1="526" y1="56" x2="546" y2="56" stroke="#6153CC" stroke-width="3"/>
+<text x="552" y="60" fill="#1f2328">colour grid 16×16</text>
+<polyline points="64.0,315.6 138.3,306.1 212.7,273.4 361.3,273.4 510.0,282.9" fill="none" stroke="#E0795A" stroke-width="2.5"/>
+<circle cx="64.0" cy="315.6" r="3.5" fill="#E0795A"/>
+<circle cx="138.3" cy="306.1" r="3.5" fill="#E0795A"/>
+<circle cx="212.7" cy="273.4" r="3.5" fill="#E0795A"/>
+<circle cx="361.3" cy="273.4" r="3.5" fill="#E0795A"/>
+<circle cx="510.0" cy="282.9" r="3.5" fill="#E0795A"/>
+<line x1="526" y1="78" x2="546" y2="78" stroke="#E0795A" stroke-width="3"/>
+<text x="552" y="82" fill="#1f2328">dHash 16</text>
+<polyline points="64.0,319.8 138.3,291.3 212.7,284.0 361.3,254.4 510.0,241.8" fill="none" stroke="#2E9E8F" stroke-width="2.5"/>
+<circle cx="64.0" cy="319.8" r="3.5" fill="#2E9E8F"/>
+<circle cx="138.3" cy="291.3" r="3.5" fill="#2E9E8F"/>
+<circle cx="212.7" cy="284.0" r="3.5" fill="#2E9E8F"/>
+<circle cx="361.3" cy="254.4" r="3.5" fill="#2E9E8F"/>
+<circle cx="510.0" cy="241.8" r="3.5" fill="#2E9E8F"/>
+<line x1="526" y1="100" x2="546" y2="100" stroke="#2E9E8F" stroke-width="3"/>
+<text x="552" y="104" fill="#1f2328">PE Core S16, frozen</text>
+<polyline points="64.0,324.0 138.3,308.2 212.7,258.7 361.3,214.4 510.0,189.2" fill="none" stroke="#C9A227" stroke-width="2.5"/>
+<circle cx="64.0" cy="324.0" r="3.5" fill="#C9A227"/>
+<circle cx="138.3" cy="308.2" r="3.5" fill="#C9A227"/>
+<circle cx="212.7" cy="258.7" r="3.5" fill="#C9A227"/>
+<circle cx="361.3" cy="214.4" r="3.5" fill="#C9A227"/>
+<circle cx="510.0" cy="189.2" r="3.5" fill="#C9A227"/>
+<line x1="526" y1="122" x2="546" y2="122" stroke="#C9A227" stroke-width="3"/>
+<text x="552" y="126" fill="#1f2328">DINOv2 ViT-S/14, frozen</text>
+</svg>

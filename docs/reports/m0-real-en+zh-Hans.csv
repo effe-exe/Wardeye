@@ -1,0 +1,7 @@
+mode,realism,queries,gallery,view,encoder,frame,card_h,bitrate_kbps,rotation,n,top1_printing,top5_printing,top1_card,top5_card,seconds
+real,,real,"px:120,140",full,colorgrid16,,120-,,search,174,0.9368,0.9483,0.9368,0.9483,0.3000
+real,,real,"px:120,140",full,colorgrid16-trim0.03,,120-,,search,174,0.9655,0.9770,0.9713,0.9770,0.3000
+real,,real,"px:120,140",full,dhash16,,120-,,search,174,0.8736,0.9368,0.9138,0.9368,0.1000
+real,,real,"px:120,140",full,dhash16-trim0.03,,120-,,search,174,0.8966,0.9425,0.9310,0.9483,0.1000
+real,,real,"px:120,140",full,timm:vit_small_patch14_dinov2.lvd142m@224,,120-,,search,174,0.2874,0.4425,0.3391,0.4598,70.6000
+real,,real,"px:120,140",full,timm:vit_pe_core_small_patch16_384.fb@224,,120-,,search,174,0.1207,0.2299,0.1207,0.2356,71.0000

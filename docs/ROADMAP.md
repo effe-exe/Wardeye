@@ -20,8 +20,8 @@ flowchart LR
 - [x] Timeline logger v0 (`apps/logger`)
 - [ ] First 5 matches logged with it
 - [x] Feasibility spike tooling (`ml/`: stream simulator with a real H.264 pass, encoders, retrieval metrics)
-- [ ] **Feasibility spike run**: accuracy-vs-card-height curves, synthetic and real ([04 §4.8](research/04-data-and-evaluation.md#48-the-m0-feasibility-spike)), plus identification from a visible strip for stacked cards
-- [ ] Choose the embedder base model (DINOv2-S vs Perception Encoder S) and the browser detector (RT-DETRv2-OBB vs D-FINE) from the spike ([03](research/03-models-and-licensing.md))
+- [ ] **Feasibility spike run**: accuracy-vs-card-height curves, synthetic and real ([04 §4.8](research/04-data-and-evaluation.md#48-the-m0-feasibility-spike)), plus identification from a visible strip for stacked cards. Synthetic curves and the first real set (one broadcast, cards about 130 px) are done: [M0 report](reports/m0-spike.md). Still needed: real crops at smaller sizes and of stacked cards, from a second broadcast
+- [ ] Choose the embedder base model (DINOv2-S vs Perception Encoder S) and the browser detector (RT-DETRv2-OBB vs D-FINE) from the spike ([03](research/03-models-and-licensing.md)). **Embedder: DINOv2-S**, which beats PE-S frozen in every setting ([report](reports/m0-spike.md)). The detector choice moves to M1 benchmarks
 
 **Exit:** the M0 report is published in `docs/reports/`, with a go / adjust decision per broadcast framing (full-screen vs picture-in-picture, 1080p vs 720p).
 
