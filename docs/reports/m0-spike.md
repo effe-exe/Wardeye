@@ -70,6 +70,15 @@ Top-5 runs 10–20 points higher (colour grid: 66% at 40 px, 81% at 160 px), whi
 
 Stream bitrates in the usual range barely matter. The camera and the card's size do.
 
+**Foil.** The `foil` level adds a holographic sheen, a rainbow drifting across the card with a bright band where the light catches it, because foil printings were the colour grid's main misses on real footage (§5.2). The same 300 printings at the camera level, with no foil and with every card foil, card-level top-1 ([CSV](m0-foil-effect.csv)):
+
+| Encoder | 80 px | 120 px |
+|---|---:|---:|
+| colour grid 16×16, 3% trimmed | 69% → 60% | 69% → 63% |
+| DINOv2 ViT-S/14, frozen | 33% → 16% | 47% → 23% |
+
+Foil halves what frozen DINOv2-S gets right. The trained embedder has to see foils. The sheen's strength is an assumption, like the other camera effects.
+
 ## 3. The gallery pyramid
 
 Camera level, the same 300 cards, card-level top-1 against one sharp gallery → against the pyramid ([CSV](m0-camera-sharp.csv)):
@@ -225,7 +234,7 @@ The frozen scores here are a few points above §5.2 because this run's gallery p
 
 ## Next
 
-1. **A second broadcast** with a different camera and lighting, preferably English, and real crops of **stacked cards**. Reviewed the same way, it takes a pack of about 400 answers.
+1. **A second broadcast**, in review: Riot's official English stream of the Los Angeles Regional Qualifier (2026-09-26). Navy mat, a different camera, English printings, many foils, cards about 155 px long. 617 table frames gave 2,345 crops in 541 tracks, and a 400-item pack is with the Maintainer. Still wanted: real crops of **stacked cards**.
 2. **The M1 embedder.** Fine-tune DINOv2-S with random covering, text scrambling and foil-like colour shifts on a GPU, scored first on this real set as the first leaderboard row. PE-S gets a second look on real small crops.
 3. **The timeline** of Swiss R11 game 1, for change-gate recall and the first end-to-end test.
 4. **A gate verifier** trained on reviewed before/after pairs, once there are a few hundred.

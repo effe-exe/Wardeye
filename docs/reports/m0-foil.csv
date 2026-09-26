@@ -1,0 +1,9 @@
+mode,realism,queries,gallery,view,encoder,frame,card_h,bitrate_kbps,rotation,n,top1_printing,top5_printing,top1_card,top5_card,seconds
+synthetic,foil,same,"px:80,120",full,colorgrid16-trim0.03,1920x1080,80,4000,search,300,0.6533,0.8033,0.6733,0.8033,12.6000
+synthetic,foil,same,"px:80,120",full,colorgrid16-trim0.03,1920x1080,80,4000,oracle,300,0.6733,0.8433,0.6933,0.8433,12.3000
+synthetic,foil,same,"px:80,120",full,timm:vit_small_patch14_dinov2.lvd142m@224,1920x1080,80,4000,search,300,0.2767,0.3867,0.2800,0.3900,96.0000
+synthetic,foil,same,"px:80,120",full,timm:vit_small_patch14_dinov2.lvd142m@224,1920x1080,80,4000,oracle,300,0.3100,0.4267,0.3133,0.4300,43.6000
+synthetic,foil,same,"px:80,120",full,colorgrid16-trim0.03,1920x1080,120,4000,search,300,0.6667,0.8267,0.6900,0.8267,8.7000
+synthetic,foil,same,"px:80,120",full,colorgrid16-trim0.03,1920x1080,120,4000,oracle,300,0.6900,0.8533,0.7133,0.8567,8.4000
+synthetic,foil,same,"px:80,120",full,timm:vit_small_patch14_dinov2.lvd142m@224,1920x1080,120,4000,search,300,0.3833,0.5233,0.4067,0.5300,106.7000
+synthetic,foil,same,"px:80,120",full,timm:vit_small_patch14_dinov2.lvd142m@224,1920x1080,120,4000,oracle,300,0.4233,0.5467,0.4467,0.5533,35.1000
