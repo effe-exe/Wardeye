@@ -74,3 +74,13 @@ def test_pyramid_routes_queries_to_the_nearest_scale():
     assert idx.shape == (16, 3) and (idx[:, 0] == np.arange(16)).all()
     with pytest.raises(ValueError):
         Pyramid.build(enc, imgs, [])
+
+
+def test_timm_spec_parsing():
+    from rifteye_ml.encoders import parse_timm_spec
+
+    assert parse_timm_spec("vit_small_patch14_dinov2.lvd142m") == ("vit_small_patch14_dinov2.lvd142m", 224, "")
+    assert parse_timm_spec("vit_pe_core_small_patch16_384.fb@224") == ("vit_pe_core_small_patch16_384.fb", 224, "")
+    assert parse_timm_spec("vit_small_patch14_dinov2.lvd142m@168/avg") == ("vit_small_patch14_dinov2.lvd142m", 168, "avg")
+    with pytest.raises(ValueError):
+        parse_timm_spec("@224")

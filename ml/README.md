@@ -11,6 +11,7 @@ Research, training and evaluation tools for RiftEye (Python 3.11+). Right now th
 | `spike` | Accuracy vs card height × bitrate (synthetic), or vs crop height (real labeled crops) |
 | `report` | Markdown tables and an SVG accuracy-vs-height chart from spike CSVs (numbers only) |
 | `label` | Model-assisted labeling of real crops: ranked candidates and verification sheets; a person decides |
+| `adapter` | The M0 "quick fine-tune": a linear head on a frozen backbone, trained on synthetic camera-level crops, evaluated on held-out sets |
 | `index` | Writes the shipped index (float16 matrix + manifest) and refuses to load it with a different encoder |
 | `fixtures` | Procedural fake cards for tests and demos. No Riot content |
 
@@ -73,6 +74,16 @@ python -m rifteye_ml.spike synthetic --catalog ~/rifteye-data/catalog/catalog.js
 - `--queries 300` degrades a seeded sample of 300 printings; the gallery stays complete. Pretrained ViTs embed about 10–40 images per second on a laptop CPU, and `rotation=search` embeds every query 4 times.
 - `--query-catalog catalog-zh-Hans.jsonl` degrades another language's printings of the same cards instead. For example, Chinese crops searched against the English gallery.
 - The simulation takes about a minute per setting for the whole catalogue at 1080p. The H.264 pass runs single-threaded so results are bit-exact between runs.
+
+**Quick fine-tune.** A linear head on the frozen backbone, trained on synthetic crops of some sets and evaluated on the others. It asks whether a trained embedder will close the camera gap for cards it never saw:
+
+```bash
+python -m rifteye_ml.adapter --catalog ~/rifteye-data/catalog/catalog.jsonl --cache ~/rifteye-data/art \
+  --embed-cache ~/rifteye-data/embed-cache --encoder timm:vit_small_patch14_dinov2.lvd142m \
+  --train-sets OGN,OGS,SFD --out reports/m0-adapter.csv
+```
+
+Encoder specs take a pooling suffix: `timm:vit_small_patch14_dinov2.lvd142m@224/avg` averages the patch tokens instead of using the class token.
 
 Turn a CSV into tables and a chart:
 
