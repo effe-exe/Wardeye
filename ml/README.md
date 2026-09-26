@@ -10,6 +10,7 @@ Research, training and evaluation tools for RiftEye (Python 3.11+). Right now th
 | `retrieval` | Brute-force gallery search with 4-rotation matching; printing-level and card-level top-k |
 | `spike` | Accuracy vs card height × bitrate (synthetic), or vs crop height (real labeled crops) |
 | `report` | Markdown tables and an SVG accuracy-vs-height chart from spike CSVs (numbers only) |
+| `label` | Model-assisted labeling of real crops: ranked candidates and verification sheets; a person decides |
 | `index` | Writes the shipped index (float16 matrix + manifest) and refuses to load it with a different encoder |
 | `fixtures` | Procedural fake cards for tests and demos. No Riot content |
 
@@ -79,7 +80,15 @@ Turn a CSV into tables and a chart:
 python -m rifteye_ml.report --csv reports/m0-camera.csv --svg reports/m0-camera.svg --bitrate 6000 --realism camera
 ```
 
-**4. Real curve** (the one that decides). Put hand-labeled crops from real, permitted footage in a folder, with a `labels.csv`:
+**4. Real curve** (the one that decides). Put crops from real, permitted footage in a folder. `label propose` ranks catalogue candidates for each crop and renders private verification sheets; a person confirms or corrects each one by eye:
+
+```bash
+python -m rifteye_ml.label propose --catalog ~/rifteye-data/catalog/catalog.jsonl \
+  --catalog ~/rifteye-data/catalog/catalog-zh-Hans.jsonl --cache ~/rifteye-data/art \
+  --crops ~/rifteye-data/real-crops --out ~/rifteye-data/real-crops/proposals.csv --sheets ~/rifteye-data/real-crops/sheets
+```
+
+Then write `labels.csv`:
 
 ```csv
 file,printing_id

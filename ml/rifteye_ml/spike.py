@@ -46,6 +46,11 @@ FIELDS = ["mode", "realism", "queries", "gallery", "encoder", "frame", "card_h",
 HEIGHT_BUCKETS = [(0, 50), (50, 80), (80, 120), (120, 10_000)]
 
 
+def catalog_key(rows: Sequence[dict], max_side: int) -> str:
+    """Identifies an image set for the embedding cache."""
+    return hashlib.sha1(json.dumps([[r["printing_id"], r["image_url"]] for r in rows] + [max_side]).encode()).hexdigest()
+
+
 def _gallery(encoder: Encoder, images: Sequence[Image.Image], scales: Sequence[int],
              cache: Path | None = None, key: str = "") -> Gallery:
     """The gallery once from the sharp art, or a `Pyramid` at `scales`. With `cache`, each level
@@ -237,8 +242,7 @@ def main(argv: list[str] | None = None) -> int:
 
     cache, cache_key = None, ""
     if a.mode != "demo" and a.embed_cache:
-        cache = Path(a.embed_cache)
-        cache_key = hashlib.sha1(json.dumps([[r["printing_id"], r["image_url"]] for r in rows] + [a.max_side]).encode()).hexdigest()
+        cache, cache_key = Path(a.embed_cache), catalog_key(rows, a.max_side)
 
     query_set = None
     if a.mode == "synthetic" and a.query_catalog:
