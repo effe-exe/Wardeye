@@ -180,6 +180,74 @@ export interface LayoutPreset {
 }
 
 // ---------------------------------------------------------------------------------------
+// Review packs: model proposals a person marks correct or wrong (apps/reviewer)
+// ---------------------------------------------------------------------------------------
+
+export const REVIEW_KINDS = ['identity', 'event'] as const;
+export type ReviewKind = (typeof REVIEW_KINDS)[number];
+
+export interface ReviewOption {
+  /** What the answer means: a printingId ("OGN-066"), an event type ("card_played"), ... */
+  value: string;
+  /** What the reviewer reads, e.g. "Ahri, Alluring". */
+  label: string;
+  /** Pack-relative path of a picture of this option, such as the card's art. */
+  image?: string;
+}
+
+export interface ReviewItem {
+  id: string;
+  /** Pack-relative paths of the evidence: one crop, or before and after a change. */
+  images: string[];
+  proposal: ReviewOption;
+  /** The model's confidence in the proposal, in [0, 1]. */
+  confidence?: number;
+  /** Offered when the proposal is wrong, best first. */
+  alternatives: ReviewOption[];
+  /** Context shown under the evidence, e.g. "VOD 03:26:20, Swiss R11". */
+  note?: string;
+}
+
+export interface ReviewPack {
+  schema: 'rifteye.reviewpack';
+  version: typeof SCHEMA_VERSION;
+  id: string;
+  kind: ReviewKind;
+  /** The question every item asks, e.g. "Is this the card?" */
+  question: string;
+  items: ReviewItem[];
+  /** Everything a reviewer may pick by name when no option fits (for identity: every card). */
+  vocabulary?: ReviewOption[];
+  /**
+   * Embedded pictures as `data:image/...` URIs, keyed by the pack-relative paths the items use,
+   * so a pack travels as one file. Without it, paths resolve next to pack.json.
+   */
+  files?: Record<string, string>;
+  createdAt: string;
+}
+
+export const VERDICTS = ['correct', 'wrong', 'unsure'] as const;
+export type Verdict = (typeof VERDICTS)[number];
+
+export interface ReviewAnswer {
+  itemId: string;
+  verdict: Verdict;
+  /** The right value, when the verdict is 'wrong' and the reviewer knows it. */
+  value?: string;
+  /** Time the reviewer spent on the item, in milliseconds. */
+  ms?: number;
+}
+
+export interface ReviewAnswers {
+  schema: 'rifteye.reviewanswers';
+  version: typeof SCHEMA_VERSION;
+  packId: string;
+  reviewer?: string;
+  answers: ReviewAnswer[];
+  exportedAt: string;
+}
+
+// ---------------------------------------------------------------------------------------
 // Validation (dependency-free; returns every problem found, never throws)
 // ---------------------------------------------------------------------------------------
 
@@ -322,6 +390,106 @@ export function validateIndexManifest(value: unknown): Issue[] {
     issues.push({ path: 'rows', message: 'must be a non-empty array of printing ids' });
   } else if (new Set(m.rows).size !== m.rows.length) {
     issues.push({ path: 'rows', message: 'must not contain duplicates' });
+  }
+  return issues;
+}
+
+function validateReviewOption(value: unknown, path: string): Issue[] {
+  if (!isObj(value)) return [{ path, message: 'must be an object' }];
+  const issues: Issue[] = [];
+  if (!isStr(value.value)) issues.push({ path: `${path}.value`, message: 'must be a non-empty string' });
+  if (!isStr(value.label)) issues.push({ path: `${path}.label`, message: 'must be a non-empty string' });
+  if (value.image !== undefined && !isStr(value.image)) issues.push({ path: `${path}.image`, message: 'must be a non-empty string' });
+  return issues;
+}
+
+export function validateReviewPack(value: unknown): Issue[] {
+  if (!isObj(value)) return [{ path: 'pack', message: 'must be an object' }];
+  const p = value;
+  const issues: Issue[] = [];
+  if (p.schema !== 'rifteye.reviewpack') issues.push({ path: 'schema', message: "must be 'rifteye.reviewpack'" });
+  if (p.version !== SCHEMA_VERSION) issues.push({ path: 'version', message: `must be ${SCHEMA_VERSION}` });
+  for (const f of ['id', 'question', 'createdAt'] as const) {
+    if (!isStr(p[f])) issues.push({ path: f, message: 'must be a non-empty string' });
+  }
+  if (!oneOf(REVIEW_KINDS, p.kind)) issues.push({ path: 'kind', message: `must be one of ${REVIEW_KINDS.join(', ')}` });
+  if (!Array.isArray(p.items) || p.items.length === 0) issues.push({ path: 'items', message: 'must be a non-empty array' });
+  else {
+    const ids = new Set<string>();
+    p.items.forEach((it, i) => {
+      const at = `items[${i}]`;
+      if (!isObj(it)) {
+        issues.push({ path: at, message: 'must be an object' });
+        return;
+      }
+      if (!isStr(it.id)) issues.push({ path: `${at}.id`, message: 'must be a non-empty string' });
+      else if (ids.has(it.id)) issues.push({ path: `${at}.id`, message: 'duplicate id' });
+      else ids.add(it.id);
+      if (!Array.isArray(it.images) || it.images.length === 0 || !it.images.every(isStr)) {
+        issues.push({ path: `${at}.images`, message: 'must be a non-empty array of paths' });
+      }
+      issues.push(...validateReviewOption(it.proposal, `${at}.proposal`));
+      if (!Array.isArray(it.alternatives)) issues.push({ path: `${at}.alternatives`, message: 'must be an array' });
+      else it.alternatives.forEach((a, k) => issues.push(...validateReviewOption(a, `${at}.alternatives[${k}]`)));
+      if (it.confidence !== undefined && (!isNum(it.confidence) || it.confidence < 0 || it.confidence > 1)) {
+        issues.push({ path: `${at}.confidence`, message: 'must be in [0, 1]' });
+      }
+      if (it.note !== undefined && typeof it.note !== 'string') issues.push({ path: `${at}.note`, message: 'must be a string' });
+    });
+  }
+  if (p.vocabulary !== undefined) {
+    if (!Array.isArray(p.vocabulary)) issues.push({ path: 'vocabulary', message: 'must be an array' });
+    else p.vocabulary.forEach((o, k) => issues.push(...validateReviewOption(o, `vocabulary[${k}]`)));
+  }
+  if (p.files !== undefined) {
+    if (!isObj(p.files)) issues.push({ path: 'files', message: 'must be an object of data URIs' });
+    else {
+      const files = p.files;
+      for (const [k, v] of Object.entries(files)) {
+        if (typeof v !== 'string' || !v.startsWith('data:image/')) issues.push({ path: `files.${k}`, message: 'must be a data:image/ URI' });
+      }
+      // With embedded files, every picture an item names must be among them.
+      if (Array.isArray(p.items)) {
+        p.items.forEach((it, i) => {
+          if (!isObj(it)) return;
+          const named: [string, unknown][] = [];
+          if (Array.isArray(it.images)) it.images.forEach((im, k) => named.push([`items[${i}].images[${k}]`, im]));
+          if (isObj(it.proposal)) named.push([`items[${i}].proposal.image`, it.proposal.image]);
+          if (Array.isArray(it.alternatives)) {
+            it.alternatives.forEach((a, k) => isObj(a) && named.push([`items[${i}].alternatives[${k}].image`, a.image]));
+          }
+          for (const [at, im] of named) {
+            if (isStr(im) && !(im in files)) issues.push({ path: at, message: 'not in files' });
+          }
+        });
+      }
+    }
+  }
+  return issues;
+}
+
+export function validateReviewAnswers(value: unknown): Issue[] {
+  if (!isObj(value)) return [{ path: 'answers', message: 'must be an object' }];
+  const a = value;
+  const issues: Issue[] = [];
+  if (a.schema !== 'rifteye.reviewanswers') issues.push({ path: 'schema', message: "must be 'rifteye.reviewanswers'" });
+  if (a.version !== SCHEMA_VERSION) issues.push({ path: 'version', message: `must be ${SCHEMA_VERSION}` });
+  if (!isStr(a.packId)) issues.push({ path: 'packId', message: 'must be a non-empty string' });
+  if (!isStr(a.exportedAt)) issues.push({ path: 'exportedAt', message: 'must be an ISO date string' });
+  if (!Array.isArray(a.answers)) issues.push({ path: 'answers', message: 'must be an array' });
+  else {
+    a.answers.forEach((x, i) => {
+      const at = `answers[${i}]`;
+      if (!isObj(x)) {
+        issues.push({ path: at, message: 'must be an object' });
+        return;
+      }
+      if (!isStr(x.itemId)) issues.push({ path: `${at}.itemId`, message: 'must be a non-empty string' });
+      if (!oneOf(VERDICTS, x.verdict)) issues.push({ path: `${at}.verdict`, message: `must be one of ${VERDICTS.join(', ')}` });
+      if (x.value !== undefined && !isStr(x.value)) issues.push({ path: `${at}.value`, message: 'must be a non-empty string' });
+      if (x.verdict === 'correct' && x.value !== undefined) issues.push({ path: `${at}.value`, message: "only 'wrong' answers carry a value" });
+      if (x.ms !== undefined && (!isNum(x.ms) || x.ms < 0)) issues.push({ path: `${at}.ms`, message: 'must be ≥ 0' });
+    });
   }
   return issues;
 }

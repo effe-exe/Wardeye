@@ -1,0 +1,71 @@
+:root {
+  color-scheme: dark;
+  --bg: #121418;
+  --panel: #1b1e24;
+  --line: #2c313a;
+  --text: #e6e8ec;
+  --muted: #8b93a1;
+  --accent: #6153cc;
+  --accent-2: #8a7ff0;
+  --good: #3f9d6b;
+  --bad: #c9544f;
+  --tile: 300px;
+  font: 14px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+* { box-sizing: border-box; }
+/* `display` rules below would otherwise override the hidden attribute. */
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+h1 { font-size: 16px; margin: 0; }
+h1 span { color: var(--muted); font-weight: 400; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+button, .button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; font: inherit; }
+button:hover, .button:hover { border-color: var(--accent-2); }
+button:disabled { opacity: 0.5; cursor: default; }
+input { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: inherit; }
+input:focus { outline: 2px solid var(--accent-2); outline-offset: -1px; }
+main { flex: 1; padding: 16px; max-width: 1100px; width: 100%; margin: 0 auto; }
+.empty { border: 1px dashed var(--line); border-radius: 8px; padding: 48px 24px; text-align: center; }
+.muted { color: var(--muted); }
+#review { display: flex; flex-direction: column; gap: 10px; }
+#topline { display: flex; justify-content: space-between; gap: 12px; font-size: 16px; }
+#position { font-variant-numeric: tabular-nums; }
+#bar { height: 4px; background: var(--panel); border-radius: 2px; overflow: hidden; }
+#bar-fill { display: block; height: 100%; width: 0; background: var(--accent); }
+#item { display: flex; gap: 24px; align-items: flex-end; flex-wrap: wrap; }
+figure { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+#evidence { flex-direction: row; gap: 12px; align-items: flex-end; }
+#evidence img { height: var(--tile); max-width: 100%; object-fit: contain; border-radius: 6px; background: #000; }
+#evidence img.context { height: calc(var(--tile) * 0.8); }
+.option img { height: var(--tile); max-width: 100%; object-fit: contain; border-radius: 6px; }
+.option img[src=''], .option img:not([src]) { display: none; }
+figcaption { display: flex; flex-direction: column; }
+.label { font-size: 16px; font-weight: 600; }
+#proposal { border: 2px solid var(--accent); border-radius: 10px; padding: 8px; }
+#item.correct #proposal { border-color: var(--good); }
+#item.wrong #proposal { border-color: var(--bad); opacity: 0.6; }
+#alternatives { display: flex; gap: 12px; flex-wrap: wrap; }
+#alternatives .option { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px; cursor: pointer; width: 150px; }
+#alternatives .option:hover { border-color: var(--accent-2); }
+#alternatives .option.picked { border-color: var(--good); }
+#alternatives .option img { height: 190px; }
+#alternatives .option .label { font-size: 13px; }
+#keys { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+#keys .yes { border-color: var(--good); }
+#keys .no { border-color: var(--bad); }
+#answered.correct { color: var(--good); }
+#answered.wrong { color: var(--bad); }
+#ask { position: relative; max-width: 420px; }
+#ask label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }
+.suggestions { list-style: none; margin: 4px 0 0; padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; max-height: 260px; overflow: auto; }
+.suggestions:empty { display: none; }
+.suggestions li { padding: 6px 8px; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; gap: 12px; }
+.suggestions li.active, .suggestions li:hover { background: var(--accent); }
+.suggestions li small { color: var(--muted); }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; font-size: 11px; }
+#done { text-align: center; padding: 48px 0; }
+dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; }
+dialog td { padding: 3px 12px 3px 0; }
+footer { color: var(--muted); font-size: 11px; padding: 8px 16px; border-top: 1px solid var(--line); }
+@media (max-width: 700px) { :root { --tile: 200px; } }

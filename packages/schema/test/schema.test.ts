@@ -3,8 +3,12 @@ import {
   newId,
   validateIndexManifest,
   validateLayoutPreset,
+  validateReviewAnswers,
+  validateReviewPack,
   validateTimelineDocument,
   validateTimelineEvent,
+  type ReviewAnswers,
+  type ReviewPack,
   type TimelineDocument,
   type TimelineEvent,
 } from '@rifteye/schema';
@@ -122,5 +126,79 @@ describe('newId', () => {
     const b = newId(2_000);
     expect(a).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
     expect(a < b).toBe(true);
+  });
+});
+
+describe('review packs and answers', () => {
+  const pixel = 'data:image/svg+xml;base64,PHN2Zy8+';
+  const pack = (over: Partial<ReviewPack> = {}): ReviewPack => ({
+    schema: 'rifteye.reviewpack',
+    version: 1,
+    id: 'pack-1',
+    kind: 'identity',
+    question: 'Is this the card?',
+    items: [
+      {
+        id: 'i1',
+        images: ['img/crop-1.jpg'],
+        proposal: { value: 'FAK-001', label: 'Fake Hero', image: 'img/art-1.jpg' },
+        confidence: 0.4,
+        alternatives: [{ value: 'FAK-002', label: 'Fake Legend', image: 'img/art-2.jpg' }],
+      },
+      { id: 'i2', images: ['img/crop-2.jpg'], proposal: { value: 'FAK-002', label: 'Fake Legend' }, alternatives: [] },
+    ],
+    vocabulary: [
+      { value: 'FAK-001', label: 'Fake Hero' },
+      { value: 'FAK-002', label: 'Fake Legend' },
+    ],
+    createdAt: '2026-09-26T00:00:00Z',
+    ...over,
+  });
+  const answers = (over: Partial<ReviewAnswers> = {}): ReviewAnswers => ({
+    schema: 'rifteye.reviewanswers',
+    version: 1,
+    packId: 'pack-1',
+    answers: [
+      { itemId: 'i1', verdict: 'wrong', value: 'FAK-002', ms: 2100 },
+      { itemId: 'i2', verdict: 'correct' },
+    ],
+    exportedAt: '2026-09-26T00:10:00Z',
+    ...over,
+  });
+
+  it('accepts a pack, with or without embedded files', () => {
+    expect(validateReviewPack(pack())).toEqual([]);
+    const files = { 'img/crop-1.jpg': pixel, 'img/crop-2.jpg': pixel, 'img/art-1.jpg': pixel, 'img/art-2.jpg': pixel };
+    expect(validateReviewPack(pack({ files }))).toEqual([]);
+  });
+
+  it('requires every picture to be embedded once files are', () => {
+    const issues = validateReviewPack(pack({ files: { 'img/crop-1.jpg': pixel, 'img/x.jpg': 'http://example.com/x.jpg' } }));
+    expect(issues.map((i) => i.path).sort()).toEqual([
+      'files.img/x.jpg',
+      'items[0].alternatives[0].image',
+      'items[0].proposal.image',
+      'items[1].images[0]',
+    ]);
+  });
+
+  it('reports bad items with paths', () => {
+    const [first] = pack().items;
+    const issues = validateReviewPack(
+      pack({ kind: 'nope' as ReviewPack['kind'], items: [{ ...first!, images: [], confidence: 2 }, { ...first! }] }),
+    );
+    expect(issues.map((i) => `${i.path}: ${i.message}`)).toEqual([
+      'kind: must be one of identity, event',
+      'items[0].images: must be a non-empty array of paths',
+      'items[0].confidence: must be in [0, 1]',
+      'items[1].id: duplicate id',
+    ]);
+    expect(validateReviewPack(pack({ items: [] })).map((i) => i.path)).toEqual(['items']);
+  });
+
+  it('accepts answers and rejects a value on a correct one', () => {
+    expect(validateReviewAnswers(answers())).toEqual([]);
+    const bad = answers({ answers: [{ itemId: 'i1', verdict: 'correct', value: 'FAK-001' }, { itemId: '', verdict: 'maybe' as 'correct' }] });
+    expect(validateReviewAnswers(bad).map((i) => i.path)).toEqual(['answers[0].value', 'answers[1].itemId', 'answers[1].verdict']);
   });
 });

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RiftEye reviewer</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>RiftEye <span>reviewer</span></h1>
+      <div class="actions">
+        <label class="button">Open pack<input id="open-pack" type="file" accept=".json,application/json" hidden /></label>
+        <label class="button">Import answers<input id="open-answers" type="file" accept=".json,application/json" hidden /></label>
+        <input id="reviewer" placeholder="your name (optional)" aria-label="Your name" />
+        <button id="export" type="button" disabled>Export</button>
+        <button id="show-help" type="button" aria-label="Keyboard shortcuts">?</button>
+      </div>
+    </header>
+
+    <main>
+      <div id="empty" class="empty">
+        <p>Open a review pack to start.</p>
+        <p class="muted">A pack holds the model's guesses. You say whether each one is right. Nothing leaves this page: answers are saved in this browser until you export them.</p>
+      </div>
+
+      <section id="review" hidden>
+        <div id="topline">
+          <strong id="question"></strong>
+          <span id="position" class="muted"></span>
+        </div>
+        <div id="bar" aria-hidden="true"><span id="bar-fill"></span></div>
+        <div id="counts" class="muted" aria-live="polite"></div>
+
+        <div id="item">
+          <figure id="evidence"></figure>
+          <figure id="proposal" class="option">
+            <img alt="" />
+            <figcaption><span class="label"></span><span class="confidence muted"></span></figcaption>
+          </figure>
+        </div>
+        <p id="note" class="muted"></p>
+        <p id="answered" class="muted"></p>
+
+        <form id="ask" hidden autocomplete="off">
+          <label>What is it? <input id="ask-input" placeholder="type a name and press Enter" /></label>
+          <small class="muted">Enter on an empty box: wrong, and you don't know what it is. Esc: go back.</small>
+          <ul id="suggestions" class="suggestions"></ul>
+        </form>
+
+        <div id="alternatives"></div>
+
+        <div id="keys">
+          <button type="button" data-key="y" class="yes"><kbd>Y</kbd> correct</button>
+          <button type="button" data-key="n" class="no"><kbd>N</kbd> wrong</button>
+          <button type="button" data-key="s"><kbd>S</kbd> can't tell</button>
+          <button type="button" data-key="z"><kbd>Z</kbd> undo</button>
+          <button type="button" data-key="ArrowLeft" aria-label="Previous item"><kbd>←</kbd></button>
+          <button type="button" data-key="ArrowRight" aria-label="Next item"><kbd>→</kbd></button>
+        </div>
+      </section>
+
+      <section id="done" hidden>
+        <h2>All done</h2>
+        <p id="done-counts"></p>
+        <p class="muted">Press <strong>Export</strong> and send the file back. You can still go back with <kbd>←</kbd> or <kbd>Z</kbd> to change an answer.</p>
+      </section>
+    </main>
+
+    <dialog id="help">
+      <h2>Keyboard shortcuts</h2>
+      <table>
+        <tbody>
+          <tr><td><kbd>Y</kbd></td><td>the guess is correct</td></tr>
+          <tr><td><kbd>1</kbd>–<kbd>9</kbd></td><td>wrong: it is that numbered option</td></tr>
+          <tr><td><kbd>N</kbd></td><td>wrong: type what it is and press <kbd>Enter</kbd> (<kbd>Enter</kbd> alone if you don't know)</td></tr>
+          <tr><td><kbd>S</kbd></td><td>can't tell (blurry, covered, not a card)</td></tr>
+          <tr><td><kbd>Z</kbd></td><td>undo the last answer</td></tr>
+          <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>previous / next item</td></tr>
+        </tbody>
+      </table>
+      <p class="muted">Say <kbd>S</kbd> rather than guess: a wrong label does more harm than a missing one.</p>
+      <form method="dialog"><button>Close</button></form>
+    </dialog>
+
+    <footer>
+      RiftEye was created under Riot Games' "Legal Jibber Jabber" policy using assets owned by Riot Games. Riot Games does not endorse or sponsor this project.
+    </footer>
+    <script src="app.js"></script>
+  </body>
+</html>

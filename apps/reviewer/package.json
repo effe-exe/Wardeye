@@ -1,0 +1,14 @@
+{
+  "name": "@rifteye/reviewer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Reviewer: mark a model's proposals correct or wrong, exported as RiftEye review answers",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@rifteye/schema": "0.1.0"
+  }
+}
