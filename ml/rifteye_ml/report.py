@@ -17,6 +17,19 @@ from typing import Sequence
 from xml.sax.saxutils import escape
 
 PALETTE = ["#6153CC", "#E0795A", "#2E9E8F", "#C9A227", "#8A8F98", "#D14D8B"]
+LABELS = {
+    "colorgrid16": "colour grid 16×16",
+    "dhash16": "dHash 16",
+    "timm:vit_small_patch14_dinov2.lvd142m@224": "DINOv2 ViT-S/14, frozen",
+    "timm:vit_pe_core_small_patch16_384.fb@224": "PE Core S16, frozen",
+}
+
+
+def label(encoder: str) -> str:
+    """A short display name for an encoder tag."""
+    if encoder in LABELS:
+        return LABELS[encoder]
+    return encoder.replace("timm:", "")[:28]
 
 
 def load(path: str | Path) -> list[dict]:
@@ -92,7 +105,7 @@ def svg_chart(rows: Sequence[dict], bitrate: str, rotation: str = "search", metr
         parts.extend(f'<circle cx="{px(x):.1f}" cy="{py(y):.1f}" r="3.5" fill="{color}"/>' for x, y in pts)
         ly = top + 8 + i * 22
         parts.append(f'<line x1="{left + pw + 16}" y1="{ly}" x2="{left + pw + 36}" y2="{ly}" stroke="{color}" stroke-width="3"/>')
-        parts.append(f'<text x="{left + pw + 42}" y="{ly + 4}" fill="#1f2328">{escape(name.replace("timm:", ""))}</text>')
+        parts.append(f'<text x="{left + pw + 42}" y="{ly + 4}" fill="#1f2328">{escape(label(name))}</text>')
     parts.append("</svg>")
     return "\n".join(parts) + "\n"
 

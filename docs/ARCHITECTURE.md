@@ -122,6 +122,16 @@ Context priors, from strongest to weakest:
 
 A track's identity is **committed** when the top score stays ahead of the runner-up by a calibrated margin for N observations. Until then the overlay shows "unknown card" with the top-3 candidates. A guess is never shown as fact.
 
+**What the hover card shows** follows the track's calibrated confidence:
+
+| State | Hover card |
+|---|---|
+| Committed | The card itself: art, name and text from Riot's gallery |
+| Uncertain | "Not sure yet", with the **top 3** candidates side by side and their probabilities. Hovering a candidate enlarges it |
+| Nothing close | "Unknown card", with the closest candidate for context only |
+
+In the uncertain state the viewer can pick the right one. That tells them which card it is, and with opt-in it sends a correction to the active-learning queue ([04 §4.10](research/04-data-and-evaluation.md#410-opt-in-corrections-from-the-extension)). The timeline records only committed identities; an uncertain card appears there as "unknown card" until it commits. The top 3 also carries the model while it is weak: in the M0 spike, top-5 accuracy runs 10–20 points above top-1 ([reports](reports/)).
+
 ### 3.6 Tracker
 
 - ByteTrack-style two-pass IoU association. The overhead cam is static, so plain IoU does most of the work.
