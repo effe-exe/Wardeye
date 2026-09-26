@@ -57,3 +57,20 @@ def test_index_roundtrip_and_encoder_guard(tmp_path):
     np.testing.assert_allclose(mat, enc.embed([load_fixture_image(r) for r in rows]), atol=2e-3)
     with pytest.raises(IndexModelMismatch):
         load_index(tmp_path, DHash(8))
+
+
+def test_pyramid_routes_queries_to_the_nearest_scale():
+    from rifteye_ml.retrieval import Pyramid, at_long_side
+
+    imgs = [synthetic_card(i) for i in range(16)]
+    small = at_long_side(imgs[0], 40)
+    assert max(small.size) == 40 and small.height > small.width
+    enc = ColorGrid()
+    pyr = Pyramid.build(enc, imgs, [40, 120])
+    # The log-space midpoint of 40 and 120 is 69 px.
+    assert (pyr.level_for(38), pyr.level_for(66), pyr.level_for(72), pyr.level_for(500)) == (40, 40, 120, 120)
+    queries = [at_long_side(im, 40 if i % 2 else 120) for i, im in enumerate(imgs)]
+    idx, _, _ = search(enc, pyr, queries, k=3, rotation_invariant=True)
+    assert idx.shape == (16, 3) and (idx[:, 0] == np.arange(16)).all()
+    with pytest.raises(ValueError):
+        Pyramid.build(enc, imgs, [])

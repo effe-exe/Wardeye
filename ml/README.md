@@ -63,9 +63,12 @@ python -m rifteye_ml.catalog download --catalog ~/rifteye-data/catalog/catalog-z
 python -m rifteye_ml.spike synthetic --catalog ~/rifteye-data/catalog/catalog.jsonl --cache ~/rifteye-data/art \
   --encoder colorgrid --encoder dhash \
   --encoder timm:vit_small_patch14_dinov2.lvd142m --encoder timm:vit_pe_core_small_patch16_384.fb@224 \
-  --realism camera --queries 300 --heights 40,60,80,120,160 --bitrates 2000,4000,6000 --out reports/m0-camera.csv
+  --realism camera --queries 300 --heights 40,60,80,120,160 --bitrates 4000 \
+  --gallery-scales 40,60,80,120,160 --embed-cache ~/rifteye-data/embed-cache --out reports/m0-camera.csv
 ```
 
+- `--gallery-scales 40,60,80,120,160` embeds the gallery at those on-screen sizes (a pyramid), and each crop is searched against the level nearest its size. Pretrained ViTs need it: with a single sharp gallery, DINOv2-S found 13% of clean 40 px cards; with the pyramid it found 62%. The detector knows each card's size, so the extension can do the same.
+- `--embed-cache DIR` keeps gallery embeddings between runs (private `.npy` files).
 - `--queries 300` degrades a seeded sample of 300 printings; the gallery stays complete. Pretrained ViTs embed about 10–40 images per second on a laptop CPU, and `rotation=search` embeds every query 4 times.
 - `--query-catalog catalog-zh-Hans.jsonl` degrades another language's printings of the same cards instead. For example, Chinese crops searched against the English gallery.
 - The simulation takes about a minute per setting for the whole catalogue at 1080p. The H.264 pass runs single-threaded so results are bit-exact between runs.

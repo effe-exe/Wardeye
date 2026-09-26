@@ -57,3 +57,27 @@ def test_query_set_searches_other_printings_against_the_gallery():
                                   query_set=("xx", other, list(range(6))))
     assert {r["queries"] for r in results} == {"xx"} and {r["n"] for r in results} == {6}
     assert max(r["top1_card"] for r in results) >= 0.8
+
+
+def test_gallery_scales_are_labeled(tmp_path):
+    out = tmp_path / "m0-demo.csv"
+    args = ["demo", "--cards", "12", "--heights", "60", "--bitrates", "3000", "--gallery-scales", "48,96",
+            "--out", str(out)]
+    assert spike.main(args) == 0
+    rows = list(csv.DictReader(open(out, encoding="utf-8")))
+    assert {r["gallery"] for r in rows} == {"px:48,96"}
+
+
+def test_gallery_cache_reuses_levels(tmp_path):
+    from rifteye_ml.encoders import get_encoder
+    from rifteye_ml.fixtures import load_fixture_image, synthetic_catalog
+
+    rows = synthetic_catalog(6, seed=0)
+    images = [load_fixture_image(r) for r in rows]
+    enc = get_encoder("colorgrid")
+    first = spike._gallery(enc, images, [40, 80], cache=tmp_path, key="k")
+    assert len(list(tmp_path.glob("*.npy"))) == 2
+    again = spike._gallery(enc, images, [40, 80], cache=tmp_path, key="k")
+    assert all((first.levels[x] == again.levels[x]).all() for x in (40, 80))
+    spike._gallery(enc, images, [], cache=tmp_path, key="k")
+    assert len(list(tmp_path.glob("*.npy"))) == 3  # plus the sharp gallery
