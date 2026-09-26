@@ -28,7 +28,7 @@ These are the rules reviewers enforce most often.
 2. **Permissive dependencies only.** Anything that ships (npm or pip packages, WASM, model weights) must be MIT, BSD, Apache-2.0, ISC, zlib or similarly permissive. No AGPL, GPL or LGPL code, and no "research-only" or "non-commercial" weights. Check the **weights'** licence separately from the code's. Say which licence it is in your PR.
 3. **Public information only.** No feature may read hand cams, face-down cards or other hidden information.
 4. **No secrets in client code.** The extension is public. Anything keyed goes behind a server.
-5. **Riot's rules apply.** Card data and art come only from the Riot API, via the catalogue server. No cross-match statistics (play rates, win rates). No Riot logos ([08](docs/research/08-legal-and-policy.md)).
+5. **Respect Riot's IP.** Never add card images or card text to the repository or to release assets; the extension loads them from Riot's public card gallery at display time. No cross-match statistics (play rates, win rates). No Riot logos ([D-015](docs/decisions.md#d-015-no-riot-api-no-riot-assets-distributed), [08](docs/research/08-legal-and-policy.md)).
 6. **Model changes need numbers.** A PR that changes a model or its pre-/post-processing includes a leaderboard row measured on the real test set. Maintainers run it for you if you do not have access ([04 §4.7](docs/research/04-data-and-evaluation.md#47-metrics-and-the-leaderboard)).
 7. **AI-assisted contributions are welcome.** You are responsible for them as for your own work: review them, test them, and make sure they do not reproduce code under incompatible licences. You sign the CLA for the whole pull request.
 
@@ -37,7 +37,27 @@ These are the rules reviewers enforce most often.
 - Keep PRs small and focused. Open an issue first for anything larger than a bug fix.
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/): `feat(extension): ...`, `fix(ml): ...`, `docs: ...`.
 - Describe **what** changed and **how you verified it**.
-- Development setup instructions will be added here as the first packages land in M1 and M2.
+- Run the checks before you push (see [Development setup](#development-setup)).
+
+### Development setup
+
+Requirements: Node 22+, Python 3.11+.
+
+```bash
+npm install                      # TypeScript workspaces: packages/*, apps/*
+npm run check                    # typecheck, unit tests, media guard, licence guard
+npm run test:e2e                 # browser tests (runs `npx playwright install chromium` once first)
+
+cd ml && python3 -m venv .venv && . .venv/bin/activate
+pip install -e '.[dev]' && pytest -q
+```
+
+| Path | What it is | Licence |
+|---|---|---|
+| `packages/schema` | Data formats and validators | Apache-2.0 |
+| `apps/logger` | Timeline logger for ground truth | AGPL-3.0-only |
+| `ml/` | Catalogue, stream simulator, encoders, M0 spike, index builder | AGPL-3.0-only |
+
 
 ## 4. Layout presets
 

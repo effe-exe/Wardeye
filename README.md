@@ -2,7 +2,7 @@
 
 **Open-source computer vision for Riftbound streams.** A timeline of every card played, and hover-to-inspect cards on Twitch and YouTube.
 
-> **Status: design phase.** The architecture, research and roadmap are written; code lands milestone by milestone. "RiftEye" is a working name ([why](docs/decisions.md#d-010-rifteye-is-a-working-name)).
+> **Status: M0 (foundations and feasibility).** Research, architecture and roadmap are written. So far the code covers the data formats (`packages/schema`), a timeline logger for ground truth (`apps/logger`) and the feasibility-spike toolkit (`ml/`). The extension comes in M2 ([roadmap](docs/ROADMAP.md)). "RiftEye" is a working name ([why](docs/decisions.md#d-010-rifteye-is-a-working-name)).
 
 ## What it will do
 
@@ -42,7 +42,7 @@ Details in [ARCHITECTURE.md](docs/ARCHITECTURE.md) and the [research](docs/resea
 - **Local first.** Inference runs in the viewer's browser, with WebGPU and a WASM fallback.
 - **Measured, not claimed.** Every model ships with results on a real, event-split test set.
 - **Open and clean.** AGPL code, and permissively licensed dependencies and weights only.
-- **No footage or card art in this repository.** Card data comes from sources Riot allows; broadcasts belong to their organisers.
+- **No footage, card art or card text in RiftEye.** The extension loads card data from Riot's public card gallery in your browser, and broadcasts belong to their organisers.
 
 ## Documents
 
@@ -53,18 +53,19 @@ Details in [ARCHITECTURE.md](docs/ARCHITECTURE.md) and the [research](docs/resea
 | [Roadmap](docs/ROADMAP.md) | Milestones M0–M5 with measurable exit criteria |
 | [Decision log](docs/decisions.md) | What is settled and why |
 
-## Planned repository layout
+## Repository layout
 
 ```
-apps/extension     Chrome/Edge extension: overlay, inference host, side panel
+apps/extension     Chrome/Edge extension: overlay, inference host, side panel   (M2)
+apps/logger        timeline logger for ground-truth match logs               (now)
 apps/web           VOD library with synced timelines            (later)
 apps/broadcaster   OBS sidecar for organisers                   (later)
 packages/core      tracker, event engine, fusion, shared types
 packages/vision    ONNX Runtime Web wrappers, pre/post-processing, gallery search
-packages/schema    timeline, catalogue and layout formats (Apache-2.0)
+packages/schema    timeline, catalogue and layout formats (Apache-2.0)        (now)
 layouts/           community broadcast layout presets (CC0)
-ml/                synthetic generator, training, export, evaluation (Python)
-services/          catalogue server, VOD pipeline                (later)
+ml/                catalogue, stream simulator, M0 spike, training, evaluation (now)
+services/          VOD pipeline                                  (later)
 ```
 
 ## Contributing

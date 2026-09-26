@@ -15,14 +15,15 @@ flowchart LR
 
 - [x] Repository, licence, CLA, contribution rules, architecture and research docs
 - [ ] **Final name** chosen after a trademark search ([D-010](decisions.md#d-010-rifteye-is-a-working-name))
-- [ ] **Riot:** register the product on the Developer Portal and apply for a Riftbound API key, with a mock-up of the hover and timeline UX. Queues of months are reported, so this starts now ([08 §8.8](research/08-legal-and-policy.md#88-checklist))
 - [ ] Footage: written agreements requested from 3–5 organisers; our own consented recording sessions planned; `sources.yaml` started
-- [ ] Catalogue v0: every printing in the `Card` / `Printing` schema, for internal research until the Riot API key arrives ([D-011](decisions.md#d-011-card-data-and-art-come-only-from-the-riot-api))
-- [ ] Timeline logger v0; first 5 matches logged
-- [ ] **Feasibility spike**: accuracy-vs-card-height curves, synthetic and real ([04 §4.8](research/04-data-and-evaluation.md#48-the-m0-feasibility-spike))
+- [ ] Catalogue v0: every printing from Riot's public card gallery in the `Card` / `Printing` schema, built on the Maintainer's machine and never redistributed ([D-015](decisions.md#d-015-no-riot-api-no-riot-assets-distributed))
+- [x] Timeline logger v0 (`apps/logger`)
+- [ ] First 5 matches logged with it
+- [x] Feasibility spike tooling (`ml/`: stream simulator with a real H.264 pass, encoders, retrieval metrics)
+- [ ] **Feasibility spike run**: accuracy-vs-card-height curves, synthetic and real ([04 §4.8](research/04-data-and-evaluation.md#48-the-m0-feasibility-spike))
 - [ ] Choose the embedder base model (DINOv2-S vs Perception Encoder S) and the browser detector (RT-DETRv2-OBB vs D-FINE) from the spike ([03](research/03-models-and-licensing.md))
 
-**Exit:** the M0 report is published in `docs/reports/`, with a go / adjust decision per broadcast framing (full-screen vs picture-in-picture, 1080p vs 720p). The Riot application has been submitted.
+**Exit:** the M0 report is published in `docs/reports/`, with a go / adjust decision per broadcast framing (full-screen vs picture-in-picture, 1080p vs 720p).
 
 ## M1: Recognition core and VOD runner (about 4–6 weeks)
 
@@ -40,7 +41,7 @@ flowchart LR
 - [ ] Manifest V3 extension for Chrome and Edge: overlay hitboxes and hover card on Twitch and YouTube, in theatre mode and fullscreen
 - [ ] Inference host prototype (extension iframe vs content-script worker vs `tabCapture` + offscreen document), then ONNX Runtime Web in a worker (WebGPU, WASM fallback), eco mode, pause when hidden
 - [ ] Side panel: live board and a simple timeline
-- [ ] Catalogue server holding the Riot API key; catalogue and index download with versioning and the model/index guard
+- [ ] Gallery adapter (card data loaded from Riot's public gallery at display time); index download with versioning and the model/index guard
 - [ ] Benchmarks on the reference machines ([ARCHITECTURE §9](ARCHITECTURE.md#9-performance-targets-to-be-validated-in-m2))
 
 **Exit:** ≥ 2 Hz detection on an Intel Iris Xe laptop without dropped video frames. Private alpha with about 20 community testers.
@@ -54,7 +55,7 @@ flowchart LR
 - [ ] Data engine running: about 2,000 verified frames and 5,000 identity crops
 - [ ] Chrome Web Store public beta, privacy policy, contributor docs for presets and labeling
 
-**Exit:** `card_played` F1 ≥ 0.85 at ±5 s and committed-identity precision ≥ 98% on the out-of-domain test set. **The public store listing waits for an approved Riot API key.**
+**Exit:** `card_played` F1 ≥ 0.85 at ±5 s and committed-identity precision ≥ 98% on the out-of-domain test set. Privacy policy and the Legal Jibber Jabber notice in the store listing.
 
 ## M4: RiftEye Web and more evidence (later)
 
@@ -67,7 +68,7 @@ flowchart LR
 
 - Production-PC sidecar (obs-websocket, not a native plugin) that reads the clean overhead camera and drives OBS overlays: card pop-ups on play, board graphics
 - Twitch video-overlay extension fed by the kit, so viewers get hover with nothing to install
-- Tools for tournament organisers: match timelines exported to their sites. Commercial terms only with Riot's written confirmation ([08](research/08-legal-and-policy.md))
+- Tools for tournament organisers: match timelines exported to their sites. Commercial terms only under a written licence from Riot ([08](research/08-legal-and-policy.md))
 
 ## Always open for contributors
 
