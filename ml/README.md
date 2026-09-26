@@ -10,6 +10,7 @@ Research, training and evaluation tools for RiftEye (Python 3.11+). Right now th
 | `retrieval` | Brute-force gallery search with 4-rotation matching; printing-level and card-level top-k |
 | `spike` | Accuracy vs card height × bitrate (synthetic), or vs crop height (real labeled crops) |
 | `report` | Markdown tables and an SVG accuracy-vs-height chart from spike CSVs (numbers only) |
+| `matcrops` | A classical bootstrap detector for M0: isolated cards on a known playmat, straightened into upright crops (not the product detector) |
 | `label` | Model-assisted labeling of real crops: ranked candidates and verification sheets; a person decides |
 | `adapter` | The M0 "quick fine-tune": a linear head on a frozen backbone, trained on synthetic camera-level crops, evaluated on held-out sets |
 | `index` | Writes the shipped index (float16 matrix + manifest) and refuses to load it with a different encoder |

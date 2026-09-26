@@ -106,7 +106,7 @@ These run on the Maintainer's and contributors' machines for the spike, training
 
 | Package or weights | Licence | Notes |
 |---|---|---|
-| numpy, Pillow, pytest | BSD-3-Clause, MIT-CMU, MIT | |
+| numpy, Pillow, pytest, scipy | BSD-3-Clause, MIT-CMU, MIT, BSD-3-Clause | scipy runs the bootstrap mat detector (`matcrops`) |
 | imageio-ffmpeg | BSD-2-Clause | Its bundled ffmpeg binary includes libx264 and is **GPL**. It is invoked as a separate process for the H.264 pass, on the developer's machine only, and never shipped or linked |
 | torch, torchvision | BSD-3-Clause | CPU wheels from download.pytorch.org are enough for the spike |
 | timm, huggingface_hub, safetensors | Apache-2.0 | timm's ImageNet weights keep the caveat in §3.7; the two backbones below are not ImageNet-trained |
