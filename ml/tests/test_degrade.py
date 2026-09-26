@@ -29,3 +29,43 @@ def test_simulate_returns_one_crop_per_card_at_the_requested_height():
         assert max(c.image.size) == 60
         up = c.upright()
         assert up.height > up.width  # portrait again once the known rotation is undone
+
+
+def test_realism_levels():
+    import pytest
+
+    from rifteye_ml.degrade import REALISM, with_realism
+
+    base = StreamSettings()
+    assert with_realism(base, "codec") == base
+    cam = with_realism(base, "camera")
+    assert cam.occlusion_prob > 0 and cam.box_jitter > 0 and cam.card_h == base.card_h
+    assert set(REALISM) == {"codec", "camera"}
+    with pytest.raises(ValueError):
+        with_realism(base, "cinematic")
+
+
+def test_perspective_coeffs_identity_and_camera_geometry():
+    from rifteye_ml.degrade import _camera_geometry, _perspective_coeffs
+
+    square = np.array([[0, 0], [10, 0], [10, 10], [0, 10]], np.float64)
+    assert np.allclose(_perspective_coeffs(square, square), [1, 0, 0, 0, 1, 0, 0, 0], atol=1e-9)
+    card = np.full((88, 63, 3), 200, np.uint8)
+    s = StreamSettings(tilt_deg=15, keystone=0.03, angle_jitter_deg=4)
+    out = _camera_geometry(card, s, np.random.default_rng(1))
+    assert out.shape[2] == 4 and out[..., 3].max() == 255
+    assert out[0, 0, 3] < 255 or out[-1, -1, 3] < 255  # table shows through at a corner
+
+
+def test_camera_level_changes_the_crops_but_keeps_one_per_card():
+    from rifteye_ml.degrade import with_realism
+
+    cards = [synthetic_card(i) for i in range(8)]
+    s = StreamSettings(frame_w=640, frame_h=360, card_h=60, bitrate_kbps=2000, frames_per_board=6, seed=5)
+    codec, again = simulate(cards, s), simulate(cards, s)
+    camera = simulate(cards, with_realism(s, "camera"))
+    assert all(np.array_equal(np.asarray(a.image), np.asarray(b.image)) for a, b in zip(codec, again))  # deterministic
+    assert [c.card_index for c in camera] == list(range(8))
+    assert all(min(c.image.size) >= 2 for c in camera)
+    assert any(a.image.size != b.image.size or not np.array_equal(np.asarray(a.image), np.asarray(b.image))
+               for a, b in zip(codec, camera))
