@@ -108,8 +108,16 @@ function placeHover(): void {
   hover.style.top = `${y}px`;
 }
 
+function leave(): void {
+  if (hot) polys.get(hot)?.classList.remove('hot');
+  hot = null;
+  hover.hidden = true;
+}
+
 document.addEventListener('pointermove', (e) => {
   pointer = { x: e.clientX, y: e.clientY };
+  // Anywhere but a card box closes the hover card, whatever events the boxes missed.
+  if (hot && !(e.target instanceof SVGPolygonElement)) leave();
   placeHover();
 });
 
@@ -128,16 +136,16 @@ function polygonFor(track: Track): SVGPolygonElement {
     if (track.faceDown) p.classList.add('facedown');
     else if (!g || g.p < 0.75) p.classList.add('unsure');
     p.addEventListener('pointerenter', () => {
+      if (hot && hot !== track.id) leave();
       hot = track.id;
       p!.classList.add('hot');
       showHover(track);
     });
     p.addEventListener('pointerleave', () => {
-      if (hot === track.id) hot = null;
-      p!.classList.remove('hot');
-      hover.hidden = true;
+      if (hot === track.id) leave();
     });
     polys.set(track.id, p);
+    overlay.append(p); // added once and kept: moving boxes in and out of the page loses pointer events
   }
   return p;
 }
@@ -145,22 +153,21 @@ function polygonFor(track: Track): SVGPolygonElement {
 let lastNow = '';
 function draw(): void {
   const t = video.currentTime || 0;
-  const visible: SVGPolygonElement[] = [];
   const names = new Set<string>();
   for (const track of bundle.tracks) {
     const s = sampleAt(track, t);
-    if (!s) continue;
-    const p = polygonFor(track);
+    const p = polys.get(track.id) ?? (s ? polygonFor(track) : undefined);
+    if (!p) continue;
+    if (!s) {
+      p.style.display = 'none';
+      if (hot === track.id) leave();
+      continue;
+    }
+    p.style.display = '';
     p.setAttribute('points', corners(s, bundle.frame).map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' '));
-    visible.push(p);
     const g = track.guesses?.[0];
     if (track.faceDown) names.add('a face-down card');
     else if (g && bundle.cards[g.card]) names.add(bundle.cards[g.card]!.name + (g.p < 0.75 ? '?' : ''));
-  }
-  overlay.replaceChildren(...visible);
-  if (hot && !visible.some((p) => p.dataset.track === hot)) {
-    hot = null;
-    hover.hidden = true;
   }
   const now = [...names].join(', ') || '–';
   if (now !== lastNow) {
