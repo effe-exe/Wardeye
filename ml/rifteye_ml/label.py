@@ -80,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
                    help="repeatable: e.g. the English catalogue plus a localised one")
     p.add_argument("--cache", required=True)
     p.add_argument("--crops", required=True)
-    p.add_argument("--encoder", default="colorgrid")
+    p.add_argument("--encoder", action="append", help="repeatable; candidates from several encoders are merged in turn")
     p.add_argument("--gallery-scales", default="")
     p.add_argument("--embed-cache")
     p.add_argument("--k", type=int, default=8)
@@ -96,12 +96,16 @@ def main(argv: list[str] | None = None) -> int:
     rows = [r for r in rows if not (r["image_url"] in seen or seen.add(r["image_url"]))]
     load = _cached_loader(a.cache, 512)
     images = [load(r) for r in rows]
-    enc = get_encoder(a.encoder)
-    gallery = _gallery(enc, images, _ints(a.gallery_scales), Path(a.embed_cache) if a.embed_cache else None,
-                       key=catalog_key(rows, 512))
     files = crop_files(Path(a.crops))
     crops = [Image.open(f).convert("RGB") for f in files]
-    idx, scores, rots = search(enc, gallery, crops, k=min(60, len(rows)), rotation_invariant=True)
+    specs = a.encoder or ["colorgrid"]
+    per_encoder = []  # (short tag, idx, scores, rots) per encoder
+    for spec in specs:
+        enc = get_encoder(spec)
+        gallery = _gallery(enc, images, _ints(a.gallery_scales), Path(a.embed_cache) if a.embed_cache else None,
+                           key=catalog_key(rows, 512))
+        idx, scores, rots = search(enc, gallery, crops, k=min(60, len(rows)), rotation_invariant=True)
+        per_encoder.append((spec.split(":")[-1].split(".")[0][:10], idx, scores, rots))
 
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -110,17 +114,29 @@ def main(argv: list[str] | None = None) -> int:
         sheets.mkdir(parents=True, exist_ok=True)
     with open(out, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["file", "rank", "printing_id", "card_id", "language", "score", "rotation"])
+        w.writerow(["file", "rank", "printing_id", "card_id", "language", "proposed_by", "rotation"])
         for n, (file, crop) in enumerate(zip(files, crops)):
-            ranked = candidates(idx[n], rows, a.k)
-            for rank, i in enumerate(ranked, 1):
-                pos = list(idx[n]).index(i)
-                w.writerow([file.name, rank, rows[i]["printing_id"], rows[i]["card_id"], rows[i]["language"],
-                            f"{float(scores[n][pos]):.4f}", int(rots[n][pos])])
+            lists = [(tag, candidates(idx[n], rows, a.k), idx, rots) for tag, idx, _, rots in per_encoder]
+            merged: list[int] = []  # round-robin over the encoders' lists, one entry per card
+            for depth in range(a.k):
+                for _, ranked, _, _ in lists:
+                    if depth < len(ranked) and rows[ranked[depth]]["card_id"] not in {rows[m]["card_id"] for m in merged}:
+                        merged.append(ranked[depth])
+            merged = merged[: a.k]
+
+            def who(i: int) -> str:
+                cid = rows[i]["card_id"]
+                return " ".join(f"{tag}{[rows[j]['card_id'] for j in ranked].index(cid) + 1}"
+                                for tag, ranked, _, _ in lists if cid in [rows[j]["card_id"] for j in ranked])
+
+            tag0, ranked0, idx0, rots0 = lists[0]
+            for rank, i in enumerate(merged, 1):
+                w.writerow([file.name, rank, rows[i]["printing_id"], rows[i]["card_id"], rows[i]["language"], who(i),
+                            int(rots0[n][list(idx0[n]).index(i)]) if i in list(idx0[n]) else ""])
             if sheets:
-                cands = [(f"{rows[i]['printing_id']} {rows[i]['language']}", images[i]) for i in ranked]
-                # Show the crop the way the top candidate matched it, so the two can be compared directly.
-                r0 = int(rots[n][list(idx[n]).index(ranked[0])]) if ranked else 0
+                cands = [(f"{rows[i]['printing_id']} {rows[i]['language']} [{who(i)}]", images[i]) for i in merged]
+                # Show the crop the way the first encoder's top candidate matched it.
+                r0 = int(rots0[n][list(idx0[n]).index(ranked0[0])]) if ranked0 else 0
                 shown = crop.rotate(r0, expand=True) if r0 else crop
                 sheet(shown, cands, f"{file.name}  ({crop.width}x{crop.height} px)").save(sheets / f"{file.stem}.jpg", quality=88)
     print(f"{len(files)} crops, {len(rows)} gallery rows -> {out}" + (f", sheets in {sheets}" if sheets else ""))

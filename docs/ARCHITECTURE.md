@@ -78,6 +78,7 @@ A cheap first layer that answers one question in real time: did the table change
 - The detector and embedder then run on the event's box. A full detection pass still runs at the start, after cuts, and every few seconds as a safety net.
 - The event engine uses the gate's timestamps for events, so a play is timed to the moment the card settled rather than to the next detection pass. Cutaways to player cams are skipped: the still table is kept, so changes made while the camera was away are found when it returns.
 - Measured on 10 minutes of the M0 reference VOD, 5 fps: 57 events, and a visual check of 40 found nearly all of them to be real board changes. Recall is next, against a logged timeline. Prototype: `ml/rifteye_ml/changegate.py`.
+- **Optional verifier (layer 2, M2 experiment).** A small typed-decision model can classify each gate event from its before and after crops, with calibrated probabilities: played, removed, moved, turned, stacked on, counter or die, hand only, or nothing. Laya's recipe fits: a non-generative model that answers `choice`/`noul` questions in one forward pass. Its authors say it must be fine-tuned per task, and the gate's events plus logged timelines are that training data. Events arrive a few times a minute, so a ~200M model is affordable even in a browser. It has to beat gate plus detector rules to earn its place ([03 §3.9](research/03-models-and-licensing.md#39-evaluated-typed-decision-models-laya)).
 
 ### 3.2 Detector
 

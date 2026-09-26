@@ -113,6 +113,17 @@ These run on the Maintainer's and contributors' machines for the spike, training
 | DINOv2 ViT-S/14 (`timm/vit_small_patch14_dinov2.lvd142m`) | Apache-2.0 (weights) | First embedder candidate |
 | Perception Encoder Core S16 (`timm/vit_pe_core_small_patch16_384.fb`, run at 224 px) | Apache-2.0 (weights) | Second embedder candidate |
 
+## 3.9 Evaluated: typed-decision models (Laya)
+
+Suggested by the Maintainer as a "layer 1" decision on whether a card was added to the table. Checked on 2026-09-26:
+
+| Model | What it is | Licence | Fit |
+|---|---|---|---|
+| Laya (github.com/NandhaKishorM/laya, Convai Innovations) | Non-autoregressive "System 1" decision engine: `choice`, `score` and `noul` (calibrated yes/no) in one forward pass. ModernBERT-large or mmBERT, 322–421M. PyTorch and ONNX, no browser runtime | Apache-2.0, code and weights | Text only. The README says base checkpoints are near chance on specialised tasks until fine-tuned |
+| Laya Vision (github.com/r33drichards/laya-vision, independent fork, experimental) | The same API over an image plus text: SmolVLM-256M-Instruct cut to 20 layers, 201M. About 41 ms per question on an L4 GPU | Code Apache-2.0. **Weights CC BY-NC-SA 4.0** (training data includes ScienceQA and CrisisMMD) | ✖ The published weights cannot ship. Our own checkpoint can: SmolVLM-256M (Apache-2.0) as the base, the Apache-2.0 code, and our own training data |
+
+Verdict: not layer 1. The pixel change gate ([ARCHITECTURE §3.1.1](../ARCHITECTURE.md#311-change-gate-layer-1)) does that job at almost no cost and already works on real footage. A Laya-style model is a candidate **verifier of the gate's events** in M2, trained on labeled events, and it must beat the gate plus detector rules.
+
 ## Sources
 
 - RF-DETR README, exports, keypoint docs, PML: github.com/roboflow/rf-detr, github.com/roboflow/rf-detr_plus ; PyPI `rfdetr`
@@ -123,6 +134,7 @@ These run on the Maintainer's and contributors' machines for the spike, training
 - MobileCLIP licences and the 2025-08-29 change: github.com/apple/ml-mobileclip (`LICENSE_MODELS`, commit `e15d36e`)
 - DINOv2: github.com/facebookresearch/dinov2 ; DINOv3: github.com/facebookresearch/dinov3 ; Perception Encoder: github.com/facebookresearch/perception_models ; SigLIP 2: github.com/google-research/big_vision ; RADIO: github.com/NVlabs/RADIO ; timm licences: github.com/huggingface/pytorch-image-models#licenses
 - pytorch-metric-learning: github.com/KevinMusgrave/pytorch-metric-learning ; ArcFace arXiv:1801.07698 ; SupCon arXiv:2004.11362
+- Laya: github.com/NandhaKishorM/laya ; Laya Vision: github.com/r33drichards/laya-vision and huggingface.co/thaitea/laya-vision (model card licence field `cc-by-nc-sa-4.0`) ; SmolVLM: huggingface.co/HuggingFaceTB/SmolVLM-256M-Instruct
 - ONNX Runtime Web: npmjs.com/package/onnxruntime-web ; v1.29.0 release notes ; WebGPU operator table (`js/web/docs/webgpu-operators.md`)
 - Transformers.js v4: github.com/huggingface/transformers.js ; LiteRT.js: github.com/google-ai-edge/LiteRT (`litert/js`) ; WebGPU status: github.com/gpuweb/gpuweb/wiki/Implementation-Status
 - In-browser RF-DETR measurements: github.com/Richard-S16/VISION-LAB

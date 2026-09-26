@@ -43,6 +43,7 @@ flowchart LR
 - [ ] Manifest V3 extension for Chrome and Edge: overlay hitboxes and hover card on Twitch and YouTube, in theatre mode and fullscreen
 - [ ] Inference host prototype (extension iframe vs content-script worker vs `tabCapture` + offscreen document), then ONNX Runtime Web in a worker (WebGPU, WASM fallback), eco mode, pause when hidden
 - [ ] Change gate in the extension (canvas or WebGL differences on a small table view) driving detection
+- [ ] Experiment: a typed-decision verifier for gate events (Laya-style, our own checkpoint from an Apache-2.0 base), kept only if it beats gate plus detector rules
 - [ ] Side panel: live board and a simple timeline
 - [ ] Gallery adapter (card data loaded from Riot's public gallery at display time); index download with versioning and the model/index guard
 - [ ] Benchmarks on the reference machines ([ARCHITECTURE §9](ARCHITECTURE.md#9-performance-targets-to-be-validated-in-m2))
