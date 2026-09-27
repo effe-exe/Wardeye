@@ -7,6 +7,7 @@ The question from [04 §4.8](../research/04-data-and-evaluation.md#48-the-m0-fea
 ## Summary
 
 - **Go for full-screen 1080p table cameras.** On **2,381 real crops** from a tournament broadcast (69 cards in 537 tracks, cards about 130 px long), a 16×16 colour grid with the sleeve edge trimmed names **94.7%** of isolated face-up cards (97.1% top-5); 93.7% counting each physical card once. The first, smaller set gave 97.1%; the reviewed set adds the hardest cards on purpose.
+- **720p costs the colour grid nothing on this camera.** The same 2,381 cards cut from Twitch's 720p60 rendition (about 87 px long) score 94.4%, against 94.7% at 1080p ([§5.3](#53-the-same-cards-at-720p)).
 - **Labelling by review works.** The Maintainer answered 400 of the model's guesses in 13.6 minutes (0.64 s median), labelling 960 crops ([§5.2](#52-reviewed-set-2381-crops), [D-018](../decisions.md#d-018-labels-come-from-reviewing-model-proposals)). The misses cluster on special printings, probably foils.
 - **Frozen general-purpose ViTs are the wrong tool.** On the reviewed real set, DINOv2-S names 32% and PE Core S16 13–15%. Under simulated camera conditions, no frozen ViT passes 55% even at 160 px.
 - **Training on synthetic crops transfers to real ones.** A linear layer on frozen DINOv2-S, trained only on simulated crops of three sets, takes the real set from 36% to **72%**, and from 30% to 61% for cards of sets it never saw ([§8](#8-quick-fine-tune)). In simulation the same head lifts unseen cards to 47–95% (40–160 px). PE-S gains more in simulation at small sizes but reaches only 48% on the real crops.
@@ -17,7 +18,7 @@ The question from [04 §4.8](../research/04-data-and-evaluation.md#48-the-m0-fea
 - **The change gate fires on real changes 77% of the time.** On 57 reviewed events, 44 were real card changes and 36 had the right kind ([§6](#6-layer-1-the-change-gate)).
 - **Decisions:**
   1. The first identifier is the colour grid with a gallery pyramid, behind the change gate ([D-016](../decisions.md#d-016-a-change-gate-decides-when-and-where-the-heavy-stages-run), [D-017](../decisions.md#d-017-the-embedding-index-holds-a-gallery-pyramid)). It needs no neural model in the browser.
-  2. **The M1 embedder is DINOv2-S, with PE Core S16 kept as the challenger.** DINOv2-S wins frozen everywhere and, with a trained head, on real crops (72% vs 48%). PE-S generalises better to unseen sets at 40–80 px in simulation only. M1 fine-tunes DINOv2-S first and re-runs PE-S once there are real small crops.
+  2. **The M1 embedder is DINOv2-S.** It wins frozen everywhere and, with a trained head, on real crops at 1080p and 720p alike (72% and 71%, against 48% and 49% for PE Core S16). PE-S generalises better at 40–80 px only in simulation.
   3. Training adds random covering (stacks), text-box scrambling (languages) and foil-like colour shifts (special printings).
   4. Real labels come from reviewing model guesses ([D-018](../decisions.md#d-018-labels-come-from-reviewing-model-proposals)).
 
@@ -169,6 +170,20 @@ Card-level top-1 (top-5 in brackets), orientation unknown, gallery pyramid at 12
 
 The review pack was chosen to be hard, so this set is harder than the broadcast as a whole. Among crops labelled in the first set, the trimmed colour grid is right on 96.3%; among crops labelled by review, 92.2%. The same limits as §5.1 apply: isolated cards only, one camera, one production.
 
+### 5.3 The same cards at 720p
+
+Viewers often watch the 720p rendition, and the M0 set lacked small real crops. The same labelled boxes were cut, scaled by 2/3, from Twitch's 720p60 rendition of the same moments. Frames come from segments fetched with the same tool and exact trim as the 1080p files; seeking the HLS playlist directly landed several seconds off, by a different amount on each seek. The 720p frames match the downscaled 1080p frames at 47 dB PSNR (median). Cards are about 87 px long instead of 131. Card-level top-1, gallery pyramid at 80 and 90 px ([CSV](m0-real-v2-720p.csv)):
+
+| Encoder | 1080p, ~131 px | 720p, ~87 px |
+|---|---:|---:|
+| colour grid 16×16 | 90.6% | 89.9% |
+| colour grid 16×16, 3% trimmed | **94.7%** | **94.4%** |
+| dHash 16, 3% trimmed | 91.3% | 89.1% |
+| DINOv2 ViT-S/14, frozen | 31.7% | 23.8% |
+| PE Core S16, frozen | 12.9% | 14.1% |
+
+On a clean full-screen table camera, stream resolution is not what limits identification down to about 90 px. That matches the codec-only simulation (§1). The trained heads keep their level too (§8).
+
 ## 6. Layer 1: the change gate
 
 On 10 minutes of Swiss R11 game 1 (5 fps, a 320 px view), the gate reported 57 settled changes. It ran faster than real time on the shared CPU, most of that decoding the 1080p60 video. The Maintainer reviewed all 57 in the reviewer: the table before (when the region last matched the still table) and after, with the gate's guess of the kind ([CSV](m0-gate-r11g1.csv)):
@@ -217,10 +232,12 @@ A proxy for the M1 fine-tune that fits a laptop CPU: a linear layer (dim × dim,
 | DINOv2 ViT-S/14 | 36 → **72%** | 38 → **72%** | 43 → **84%** | 30 → **61%** |
 | PE Core S16 | 13 → 48% | 11 → 53% | 13 → 54% | 13 → 43% |
 
+At 720p (§5.3), the same heads give DINOv2-S 28 → **71%** (all crops) and 32 → 66% (cards from other sets), and PE-S 14 → 49% and 16 → 45% ([CSV](m0-adapter-real-720p-dinov2.csv), [CSV](m0-adapter-real-720p-pe.csv)). So the head's gain holds on smaller real cards, and PE-S's advantage at small sizes in simulation does not appear on real ones.
+
 The frozen scores here are a few points above §5.2 because this run's gallery pyramid has different sizes: most crops meet the 120 px level here and the 140 px level there.
 
 - **Synthetic training transfers to footage.** One linear layer trained only on simulated crops doubles DINOv2-S on real ones, including cards from sets it never trained on. That is the premise of the M1 fine-tune, now measured.
-- **On real crops DINOv2-S is well ahead**, although PE-S generalised better at 40–80 px in simulation. The real crops are about 130 px, where the two tied in simulation. So the simulator still misses something that matters, and the small-size question needs real small crops.
+- **On real crops DINOv2-S is well ahead**, at 1080p and 720p alike, although PE-S generalised better at 40–80 px in simulation. The simulator still misses something that matters for PE-S.
 - **Still below the colour grid** (94.7%) on this clean 1080p set. The trained embedder is for what the colour grid cannot do: covered cards, other cameras and lighting, small cards. It must beat the colour grid on those before it replaces it.
 
 
@@ -229,15 +246,17 @@ The frozen scores here are a few points above §5.2 because this run's gallery p
 | Framing | Card size | Verdict |
 |---|---|---|
 | Full-screen overhead camera, 1080p | 110–140 px | **Go.** Colour grid plus pyramid for the first extension; the trained embedder for covered cards, other cameras and lighting |
-| Picture-in-picture or 720p | 60–95 px | **Adjust.** Synthetic camera-level top-1 is 60–65% for the best untrained encoder; one trained linear layer reaches 66–87% on unseen sets. Needs the trained embedder, priors and aggregation over frames (H2) |
+| Full-screen table camera at 720p | 85–95 px | **Go.** The same real cards score 94.4% at 720p against 94.7% at 1080p (§5.3) |
+| Picture-in-picture | 60–85 px | **Adjust.** Synthetic camera-level top-1 is 60–65% for the best untrained encoder; one trained linear layer reaches 66–87% on unseen sets. Needs the trained embedder, priors and aggregation over frames (H2). No real crops at this size yet |
 | Smaller than 50 px | | **Priors first.** Identity has to come from priors, production graphics and close-ups (H3). Detection still works |
 
 ## Next
 
 1. **A second broadcast**, in review: Riot's official English stream of the Los Angeles Regional Qualifier (2026-09-26). Navy mat, a different camera, English printings, many foils, cards about 155 px long. 617 table frames gave 2,345 crops in 541 tracks, and a 400-item pack is with the Maintainer. Still wanted: real crops of **stacked cards**.
-2. **The M1 embedder.** Fine-tune DINOv2-S with random covering, text scrambling and foil-like colour shifts on a GPU, scored first on this real set as the first leaderboard row. PE-S gets a second look on real small crops.
+2. **The M1 embedder.** Fine-tune DINOv2-S with random covering, text scrambling and foil-like colour shifts on a GPU, scored first on these real sets (1080p and 720p) as the first leaderboard rows.
 3. **The timeline** of Swiss R11 game 1, for change-gate recall and the first end-to-end test.
 4. **A gate verifier** trained on reviewed before/after pairs, once there are a few hundred.
+5. **A held-out test** of the Regional Qualifier format: the Barcelona Regional (PlusRB restream, same broadcast package as Los Angeles). 482 table frames, 1,935 crops, 450 tracks, and a 300-track random sample for review once Los Angeles is labelled.
 
 ## Reproduce
 
