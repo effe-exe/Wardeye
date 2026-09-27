@@ -83,6 +83,7 @@ A cheap first layer that answers one question in real time: did the table change
 ### 3.2 Detector
 
 - Classes: `card`, `card_back`. Orientation (upright, exhausted, opponent side) comes from geometry, not from separate classes.
+- Until the trained detector exists, a plain-colour test stands in for `card_back`: a sleeve back is nearly one colour. On the three M0 broadcasts it marks 128 of 129 face-down tracks and 1 of 1,117 face-up ones; the miss is a printed League of Legends card back, which the trained class must cover ([M0 §5.6](reports/m0-spike.md#56-the-held-out-test-barcelona)).
 - Trained on synthetic board renders plus real stream frames. See [data strategy](research/04-data-and-evaluation.md).
 - Input: the overhead ROI resized to 640 px on the long side. When cards fall under about 25 px at that scale, the ROI is tiled (SAHI-style) instead.
 

@@ -1,0 +1,17 @@
+mode,realism,queries,gallery,view,encoder,frame,card_h,bitrate_kbps,rotation,n,top1_printing,top5_printing,top1_card,top5_card,seconds
+real,,real,"px:120,140,160",full,colorgrid16,,120-,,search,947,0.6452,0.7656,0.6452,0.7761,1.9000
+real,,real,"px:120,140,160",full,colorgrid16-trim0.03,,120-,,search,947,0.7983,0.8395,0.8046,0.8448,1.5000
+real,,real,"px:120,140,160",full,dhash16-trim0.03,,120-,,search,947,0.8881,0.9504,0.9303,0.9525,0.6000
+real,,real,"px:120,140,160",full,colorgrid16-trim0.03+dhash16-trim0.03,,120-,,search,947,0.9229,0.9768,0.9588,0.9905,2.0000
+real,,real,"px:120,140,160",full,timm:vit_small_patch14_dinov2.lvd142m@224,,120-,,search,947,0.2735,0.4403,0.3094,0.4562,197.3000
+real,,real,"px:120,140,160",full,timm:vit_pe_core_small_patch16_384.fb@224,,120-,,search,947,0.1383,0.2872,0.1690,0.2946,124.5000
+real,,"real, Legend only","px:120,140,160",full,colorgrid16-trim0.03,,120-,,search,273,0.5128,0.5751,0.5128,0.5934,0.4000
+real,,"real, Legend only","px:120,140,160",full,dhash16-trim0.03,,120-,,search,273,0.9231,0.9707,0.9231,0.9707,0.2000
+real,,"real, Legend only","px:120,140,160",full,colorgrid16-trim0.03+dhash16-trim0.03,,120-,,search,273,0.9560,0.9927,0.9560,0.9927,0.5000
+real,,"real, not Legend","px:120,140,160",full,colorgrid16-trim0.03,,120-,,search,674,0.9139,0.9466,0.9228,0.9466,0.9000
+real,,"real, not Legend","px:120,140,160",full,dhash16-trim0.03,,120-,,search,674,0.8739,0.9421,0.9332,0.9451,0.4000
+real,,"real, not Legend","px:120,140,160",full,colorgrid16-trim0.03+dhash16-trim0.03,,120-,,search,674,0.9095,0.9703,0.9599,0.9896,1.2000
+real,,real,"px:120,140,160",full,colorgrid16-trim0.03*0.75+dhash16-trim0.03*0.25,,120-,,search,947,0.8300,0.9430,0.8543,0.9535,2.2000
+real,,real,"px:120,140,160",full,colorgrid16-trim0.03*0.6+dhash16-trim0.03*0.4,,120-,,search,947,0.8891,0.9747,0.9208,0.9873,1.7000
+real,,real,"px:120,140,160",full,colorgrid16-trim0.03*0.4+dhash16-trim0.03*0.6,,120-,,search,947,0.9271,0.9778,0.9630,0.9905,2.0000
+real,,real,"px:120,140,160",full,colorgrid16-trim0.03*0.25+dhash16-trim0.03*0.75,,120-,,search,947,0.9166,0.9715,0.9609,0.9842,1.9000

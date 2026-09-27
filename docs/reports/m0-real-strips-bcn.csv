@@ -1,0 +1,26 @@
+mode,realism,queries,gallery,view,encoder,frame,card_h,bitrate_kbps,rotation,n,top1_printing,top5_printing,top1_card,top5_card,seconds
+real,,"real, not Legend/Battlefield","px:120,140,160",full,colorgrid16-trim0.03,,120-,,search,477,0.8931,0.9245,0.9057,0.9245,0.6000
+real,,"real, not Legend/Battlefield","px:120,140,160",full,dhash16-trim0.03,,120-,,search,477,0.8218,0.9182,0.9057,0.9224,0.3000
+real,,"real, not Legend/Battlefield","px:120,140,160",full,colorgrid16-trim0.03+dhash16-trim0.03,,120-,,search,477,0.8721,0.9581,0.9434,0.9853,0.8000
+real,,"real, not Legend/Battlefield","px:120,140,160",full,timm:vit_small_patch14_dinov2.lvd142m@224,,120-,,search,477,0.3606,0.6394,0.4319,0.6709,93.4000
+real,,"real, not Legend/Battlefield","px:120,140,160",full,timm:vit_pe_core_small_patch16_384.fb@224,,120-,,search,477,0.2075,0.3396,0.2683,0.3543,58.3000
+real,,"real, not Legend/Battlefield","px:120,140,160",full,colorgrid16-trim0.03,,120-,,oracle,477,0.8931,0.9245,0.9057,0.9245,2.2000
+real,,"real, not Legend/Battlefield","px:120,140,160",top:0.4,colorgrid16-trim0.03,,120-,,oracle,477,0.8197,0.8616,0.8553,0.9057,3.4000
+real,,"real, not Legend/Battlefield","px:120,140,160",top:0.25,colorgrid16-trim0.03,,120-,,oracle,477,0.6792,0.7862,0.7191,0.8134,2.7000
+real,,"real, not Legend/Battlefield","px:120,140,160",left:0.3,colorgrid16-trim0.03,,120-,,oracle,477,0.6981,0.8491,0.6981,0.8491,2.6000
+real,,"real, not Legend/Battlefield","px:120,140,160",full,dhash16-trim0.03,,120-,,oracle,477,0.8218,0.9224,0.9099,0.9308,2.1000
+real,,"real, not Legend/Battlefield","px:120,140,160",top:0.4,dhash16-trim0.03,,120-,,oracle,477,0.7254,0.8595,0.8113,0.8868,2.5000
+real,,"real, not Legend/Battlefield","px:120,140,160",top:0.25,dhash16-trim0.03,,120-,,oracle,477,0.4654,0.6164,0.5010,0.6499,2.3000
+real,,"real, not Legend/Battlefield","px:120,140,160",left:0.3,dhash16-trim0.03,,120-,,oracle,477,0.3396,0.4423,0.3501,0.4465,2.4000
+real,,"real, not Legend/Battlefield","px:120,140,160",full,colorgrid16-trim0.03+dhash16-trim0.03,,120-,,oracle,477,0.8721,0.9581,0.9434,0.9853,2.3000
+real,,"real, not Legend/Battlefield","px:120,140,160",top:0.4,colorgrid16-trim0.03+dhash16-trim0.03,,120-,,oracle,477,0.8637,0.9497,0.9497,0.9790,3.0000
+real,,"real, not Legend/Battlefield","px:120,140,160",top:0.25,colorgrid16-trim0.03+dhash16-trim0.03,,120-,,oracle,477,0.7212,0.8491,0.7945,0.8805,3.0000
+real,,"real, not Legend/Battlefield","px:120,140,160",left:0.3,colorgrid16-trim0.03+dhash16-trim0.03,,120-,,oracle,477,0.5933,0.7191,0.6080,0.7233,3.1000
+real,,"real, not Legend/Battlefield","px:120,140,160",full,timm:vit_small_patch14_dinov2.lvd142m@224,,120-,,oracle,477,0.4067,0.6625,0.4780,0.6939,18.8000
+real,,"real, not Legend/Battlefield","px:120,140,160",top:0.4,timm:vit_small_patch14_dinov2.lvd142m@224,,120-,,oracle,477,0.2683,0.5010,0.3333,0.5493,20.0000
+real,,"real, not Legend/Battlefield","px:120,140,160",top:0.25,timm:vit_small_patch14_dinov2.lvd142m@224,,120-,,oracle,477,0.2180,0.3124,0.2369,0.3312,19.5000
+real,,"real, not Legend/Battlefield","px:120,140,160",left:0.3,timm:vit_small_patch14_dinov2.lvd142m@224,,120-,,oracle,477,0.2704,0.4319,0.3124,0.4696,20.1000
+real,,"real, not Legend/Battlefield","px:120,140,160",full,timm:vit_pe_core_small_patch16_384.fb@224,,120-,,oracle,477,0.1992,0.3669,0.2767,0.3983,16.6000
+real,,"real, not Legend/Battlefield","px:120,140,160",top:0.4,timm:vit_pe_core_small_patch16_384.fb@224,,120-,,oracle,477,0.1405,0.3166,0.2285,0.3354,17.1000
+real,,"real, not Legend/Battlefield","px:120,140,160",top:0.25,timm:vit_pe_core_small_patch16_384.fb@224,,120-,,oracle,477,0.0713,0.1866,0.0901,0.1887,17.9000
+real,,"real, not Legend/Battlefield","px:120,140,160",left:0.3,timm:vit_pe_core_small_patch16_384.fb@224,,120-,,oracle,477,0.1174,0.2935,0.1174,0.3103,17.0000
