@@ -1,0 +1,16 @@
+mode,realism,queries,gallery,view,encoder,frame,card_h,bitrate_kbps,rotation,n,top1_printing,top5_printing,top1_card,top5_card,seconds
+real,,"real, not Legend/Battlefield","px:120,140",full,colorgrid16-trim0.03,,120-,,search,1263,0.9422,0.9699,0.9454,0.9707,1.9000
+real,,"real, not Legend/Battlefield","px:120,140",full,dhash16-trim0.03,,120-,,search,1263,0.9169,0.9446,0.9240,0.9462,0.9000
+real,,"real, not Legend/Battlefield","px:120,140",full,colorgrid16-trim0.03+dhash16-trim0.03,,120-,,search,1263,0.9667,0.9865,0.9731,0.9881,2.6000
+real,,"real, not Legend/Battlefield","px:120,140",full,colorgrid16-trim0.03,,120-,,oracle,1263,0.9454,0.9786,0.9485,0.9794,2.0000
+real,,"real, not Legend/Battlefield","px:120,140",top:0.4,colorgrid16-trim0.03,,120-,,oracle,1263,0.8979,0.9493,0.9026,0.9549,2.1000
+real,,"real, not Legend/Battlefield","px:120,140",top:0.25,colorgrid16-trim0.03,,120-,,oracle,1263,0.7648,0.8622,0.7664,0.8662,1.9000
+real,,"real, not Legend/Battlefield","px:120,140",left:0.3,colorgrid16-trim0.03,,120-,,oracle,1263,0.7807,0.8496,0.7862,0.8583,2.0000
+real,,"real, not Legend/Battlefield","px:120,140",full,dhash16-trim0.03,,120-,,oracle,1263,0.9240,0.9612,0.9319,0.9652,1.8000
+real,,"real, not Legend/Battlefield","px:120,140",top:0.4,dhash16-trim0.03,,120-,,oracle,1263,0.8773,0.9248,0.8804,0.9248,1.8000
+real,,"real, not Legend/Battlefield","px:120,140",top:0.25,dhash16-trim0.03,,120-,,oracle,1263,0.7435,0.8329,0.7466,0.8329,1.7000
+real,,"real, not Legend/Battlefield","px:120,140",left:0.3,dhash16-trim0.03,,120-,,oracle,1263,0.5329,0.6611,0.5408,0.6619,1.9000
+real,,"real, not Legend/Battlefield","px:120,140",full,colorgrid16-trim0.03+dhash16-trim0.03,,120-,,oracle,1263,0.9723,0.9913,0.9786,0.9937,2.2000
+real,,"real, not Legend/Battlefield","px:120,140",top:0.4,colorgrid16-trim0.03+dhash16-trim0.03,,120-,,oracle,1263,0.9438,0.9667,0.9446,0.9715,2.3000
+real,,"real, not Legend/Battlefield","px:120,140",top:0.25,colorgrid16-trim0.03+dhash16-trim0.03,,120-,,oracle,1263,0.8765,0.9232,0.8804,0.9279,2.3000
+real,,"real, not Legend/Battlefield","px:120,140",left:0.3,colorgrid16-trim0.03+dhash16-trim0.03,,120-,,oracle,1263,0.7854,0.8630,0.7941,0.8638,2.3000

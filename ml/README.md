@@ -6,7 +6,7 @@ Research, training and evaluation tools for RiftEye (Python 3.11+). Right now th
 |---|---|
 | `catalog` | Saves Riot's public card gallery feed, normalises it into `catalog.jsonl` and caches the card images **locally** |
 | `degrade` | The stream simulator: cards on a table at a target on-screen height, sleeves, glare, sensor noise, then a **real libx264 encode and decode** at stream bitrates. The `camera` realism level adds tilt, lighting, defocus, occluders and detector box error; `foil` adds a holographic sheen to 20% of cards on top of that |
-| `encoders` | `colorgrid` and `dhash` baselines, plus any pretrained `timm:` backbone (e.g. DINOv2) |
+| `encoders` | `colorgrid` and `dhash` baselines, any pretrained `timm:` backbone (e.g. DINOv2), and fused encoders: `colorgrid/trim0.03+dhash/trim0.03` scores colour and structure together |
 | `retrieval` | Brute-force gallery search with 4-rotation matching; printing-level and card-level top-k |
 | `spike` | Accuracy vs card height × bitrate (synthetic), or vs crop height (real labeled crops) |
 | `report` | Markdown tables and an SVG accuracy-vs-height chart from spike CSVs (numbers only) |
@@ -122,6 +122,8 @@ python -m rifteye_ml.spike real --catalog ~/rifteye-data/catalog/catalog.jsonl -
 
 Crops stay private. The CSV results can be shared, and are what goes into `docs/reports/`.
 
+`--strips top:0.4,top:0.25,left:0.3` also scores each card from one band only, what a stack leaves visible. Each crop is first turned upright by its label (of its four turns, the one the colour grid matches best to its own card), and `full` scores the whole upright card as the baseline. `--skip-types Legend,Battlefield` keeps the cards that go in stacks; `--only-types Rune` keeps one type (types as in the catalogue).
+
 **5. More labels by review.** Naming crops one by one does not scale. `reviewpack identity` crops every overhead frame's cards ahead of time with `matcrops`, links the crops of one physical card across frames into a *track*, and writes a review pack of the model's guesses for [apps/reviewer](../apps/reviewer): one item per track, the least confident first, plus a random 10% of the confident rest as an audit. The reviewer answers correct or wrong, and `apply` gives every crop of each answered track its label:
 
 ```bash
@@ -149,7 +151,7 @@ python -m rifteye_ml.reviewpack events --events events.json --video seg.mp4 --ou
 - `rotation=search` is the realistic setting: all four rotations are tried.
 - `rotation=oracle` isolates the codec's effect by undoing the known rotation first.
 - `*_card` columns roll printings up to gameplay cards, which is the product metric; `*_printing` columns require the exact printing. Printings with identical art (reprints, some signature versions) cap printing-level accuracy below 100%.
-- `realism` is the simulator level; `queries` is `same` for degraded gallery images, a language tag such as `zh-Hans` for another language's printings, or `real`.
+- `realism` is the simulator level; `queries` is `same` for degraded gallery images, a language tag such as `zh-Hans` for another language's printings, or `real` (with the type filter, e.g. `real, not Legend/Battlefield`).
 
 ## Demo (no data needed)
 

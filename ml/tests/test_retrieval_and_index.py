@@ -9,7 +9,7 @@ from rifteye_ml.index import IndexModelMismatch, build_index, load_index
 from rifteye_ml.retrieval import accuracy, ranked_labels, search, topk
 
 
-@pytest.mark.parametrize("spec", ["colorgrid", "colorgrid:8", "dhash"])
+@pytest.mark.parametrize("spec", ["colorgrid", "colorgrid:8", "dhash", "colorgrid/trim0.03+dhash/trim0.03", "colorgrid*1+dhash*3"])
 def test_embeddings_are_unit_norm_and_deterministic(spec):
     enc = get_encoder(spec)
     imgs = [synthetic_card(i) for i in range(4)]
@@ -112,3 +112,21 @@ def test_trim_option_for_hash_encoders():
     assert float(t[0] @ t[1]) > float(g[0] @ g[1])
     with pytest.raises(ValueError):
         get_encoder("colorgrid:16/blur2")
+
+
+def test_fused_encoder_scores_the_weighted_mean_of_its_parts():
+    from rifteye_ml.encoders import Fused
+
+    imgs = [synthetic_card(i) for i in range(5)]
+    cg, dh = ColorGrid(16, trim=0.03), DHash(16, trim=0.03)
+    fused = get_encoder("colorgrid/trim0.03*1+dhash/trim0.03*3")
+    assert isinstance(fused, Fused) and fused.name == "colorgrid16-trim0.03*0.25+dhash16-trim0.03*0.75"
+    assert get_encoder("colorgrid+dhash").name == "colorgrid16+dhash16" and fused.dim == cg.dim + dh.dim
+    f = fused.embed(imgs)
+    want = 0.25 * (cg.embed(imgs) @ cg.embed(imgs).T) + 0.75 * (dh.embed(imgs) @ dh.embed(imgs).T)
+    np.testing.assert_allclose(f @ f.T, want, atol=1e-5)
+    assert fused.fingerprint() != get_encoder("colorgrid/trim0.03+dhash/trim0.03").fingerprint()
+    with pytest.raises(ValueError):
+        Fused([cg])
+    with pytest.raises(ValueError):
+        get_encoder("colorgrid*0+dhash")

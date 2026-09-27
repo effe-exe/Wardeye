@@ -11,3 +11,13 @@ real,,real,"px:120,140",full,timm:vit_small_patch14_dinov2.lvd142m@224,,80-120,,
 real,,real,"px:120,140",full,timm:vit_small_patch14_dinov2.lvd142m@224,,120-,,search,2380,0.2563,0.4874,0.3168,0.5067,421.6000
 real,,real,"px:120,140",full,timm:vit_pe_core_small_patch16_384.fb@224,,80-120,,search,1,1.0000,1.0000,1.0000,1.0000,0.2000
 real,,real,"px:120,140",full,timm:vit_pe_core_small_patch16_384.fb@224,,120-,,search,2380,0.1239,0.2261,0.1294,0.2412,288.3000
+real,,real,"px:120,140",full,colorgrid16-trim0.03+dhash16-trim0.03,,80-120,,search,1,1.0000,1.0000,1.0000,1.0000,0.0000
+real,,real,"px:120,140",full,colorgrid16-trim0.03+dhash16-trim0.03,,120-,,search,2380,0.9487,0.9731,0.9655,0.9739,5.4000
+real,,real,"px:120,140",full,colorgrid16-trim0.03*0.75+dhash16-trim0.03*0.25,,80-120,,search,1,1.0000,1.0000,1.0000,1.0000,0.0000
+real,,real,"px:120,140",full,colorgrid16-trim0.03*0.75+dhash16-trim0.03*0.25,,120-,,search,2380,0.9546,0.9807,0.9618,0.9811,5.1000
+real,,real,"px:120,140",full,colorgrid16-trim0.03*0.6+dhash16-trim0.03*0.4,,80-120,,search,1,1.0000,1.0000,1.0000,1.0000,0.0000
+real,,real,"px:120,140",full,colorgrid16-trim0.03*0.6+dhash16-trim0.03*0.4,,120-,,search,2380,0.9475,0.9748,0.9643,0.9765,5.1000
+real,,real,"px:120,140",full,colorgrid16-trim0.03*0.4+dhash16-trim0.03*0.6,,80-120,,search,1,1.0000,1.0000,1.0000,1.0000,0.0000
+real,,real,"px:120,140",full,colorgrid16-trim0.03*0.4+dhash16-trim0.03*0.6,,120-,,search,2380,0.9466,0.9727,0.9643,0.9731,5.1000
+real,,real,"px:120,140",full,colorgrid16-trim0.03*0.25+dhash16-trim0.03*0.75,,80-120,,search,1,1.0000,1.0000,1.0000,1.0000,0.0000
+real,,real,"px:120,140",full,colorgrid16-trim0.03*0.25+dhash16-trim0.03*0.75,,120-,,search,2380,0.9286,0.9676,0.9597,0.9685,5.2000

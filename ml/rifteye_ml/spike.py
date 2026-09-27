@@ -39,7 +39,7 @@ from . import catalog as cat
 from .degrade import REALISM, StreamSettings, simulate, with_realism
 from .encoders import Encoder, get_encoder
 from .fixtures import load_fixture_image, synthetic_catalog
-from .retrieval import Gallery, Pyramid, accuracy, at_long_side, band, ranked_labels, search
+from .retrieval import ROTATIONS, Gallery, Pyramid, accuracy, at_long_side, band, ranked_labels, search
 
 FIELDS = ["mode", "realism", "queries", "gallery", "view", "encoder", "frame", "card_h", "bitrate_kbps", "rotation", "n",
           "top1_printing", "top5_printing", "top1_card", "top5_card", "seconds"]
@@ -138,18 +138,72 @@ def run_synthetic(rows: Sequence[dict], load_image: Callable[[dict], Image.Image
     return results
 
 
+def _level(gallery: Gallery, long_side: int) -> np.ndarray:
+    return gallery.levels[gallery.level_for(long_side)] if isinstance(gallery, Pyramid) else gallery
+
+
+def upright(crops: Sequence[Image.Image], truth_idx: Sequence[int], images: Sequence[Image.Image],
+            gallery_scales: Sequence[int] = (), cache: Path | None = None, cache_key: str = "") -> list[Image.Image]:
+    """Each labelled crop turned upright: of its four 90° turns, the one the trimmed colour grid
+    matches best to the crop's own labelled printing. The label, not a search, picks the turn,
+    so a strip is always cut from the card's real top."""
+    enc = get_encoder("colorgrid/trim0.03")
+    gallery = _gallery(enc, images, gallery_scales, cache, cache_key)
+    views = [im.rotate(r, expand=True) if r else im for im in crops for r in ROTATIONS]
+    emb = enc.embed(views).reshape(len(crops), len(ROTATIONS), -1)
+    out = []
+    for n, (im, i) in enumerate(zip(crops, truth_idx)):
+        out.append(views[n * len(ROTATIONS) + int(np.argmax(emb[n] @ _level(gallery, max(im.size))[i]))])
+    return out
+
+
+def _score_strips(encoder: Encoder, images: Sequence[Image.Image], rows: Sequence[dict], crops: Sequence[Image.Image],
+                  truth_idx: Sequence[int], view: str, gallery_scales: Sequence[int],
+                  cache: Path | None, cache_key: str) -> dict[str, float]:
+    """Top-1/top-5 from one band of each upright crop, against the same band of every gallery card.
+    Each crop meets the pyramid level nearest its whole card's size, not the strip's."""
+    gallery = _gallery(encoder, images, gallery_scales, cache, cache_key, view=view)
+    k = min(50, len(rows))
+    idx = np.zeros((len(crops), k), np.int64)
+    groups: dict[int, list[int]] = {}
+    for n, im in enumerate(crops):
+        groups.setdefault(gallery.level_for(max(im.size)) if isinstance(gallery, Pyramid) else 0, []).append(n)
+    for level, members in groups.items():
+        g = gallery.levels[level] if isinstance(gallery, Pyramid) else gallery
+        idx[members] = search(encoder, g, [band(crops[n], view) for n in members], k=k, rotation_invariant=False)[0]
+    printings = [r["printing_id"] for r in rows]
+    cards = [r["card_id"] for r in rows]
+    p = accuracy(ranked_labels(idx, printings), [printings[i] for i in truth_idx])
+    c = accuracy(ranked_labels(idx, cards), [cards[i] for i in truth_idx])
+    return {"n": p["n"], "top1_printing": p["top1"], "top5_printing": p["top5"], "top1_card": c["top1"], "top5_card": c["top5"]}
+
+
 def run_real(rows: Sequence[dict], load_image: Callable[[dict], Image.Image], encoders: Sequence[Encoder],
              crops_dir: Path, labels_csv: Path, gallery_scales: Sequence[int] = (),
-             cache: Path | None = None, cache_key: str = "") -> list[dict]:
+             cache: Path | None = None, cache_key: str = "", strips: Sequence[str] = (),
+             skip_types: Sequence[str] = (), only_types: Sequence[str] = ()) -> list[dict]:
+    """Score labelled real crops, bucketed by size, orientation unknown. `strips` also scores each
+    portrait card from one band of its upright crop (see `upright`): what a stack leaves visible
+    ('full' scores the whole upright card, the baseline for the bands). Landscape cards
+    (battlefields) are left out of the strips; they are not stacked. `skip_types` leaves out
+    cards of those types, e.g. legends, which never go in a stack; `only_types` keeps only those."""
     by_pid = {r["printing_id"]: i for i, r in enumerate(rows)}
     labeled: list[tuple[Image.Image, int]] = []
+    skipped = 0
     with open(labels_csv, newline="", encoding="utf-8") as f:
         for rec in csv.DictReader(f):
             pid = (rec.get("printing_id") or "").strip()
             if pid not in by_pid:
                 print(f"  skipping {rec.get('file')}: {pid!r} not in catalogue", file=sys.stderr)
                 continue
+            kind = rows[by_pid[pid]].get("type")
+            if kind in skip_types or (only_types and kind not in only_types):
+                skipped += 1
+                continue
             labeled.append((Image.open(crops_dir / rec["file"]).convert("RGB"), by_pid[pid]))
+    if skipped:
+        print(f"  left out {skipped} crops by card type")
+    queries = "real" + (f", not {'/'.join(skip_types)}" if skip_types else "") + (f", {'/'.join(only_types)} only" if only_types else "")
     images = [load_image(r) for r in rows]
     results = []
     for enc in encoders:
@@ -160,12 +214,31 @@ def run_real(rows: Sequence[dict], load_image: Callable[[dict], Image.Image], en
                 continue
             t0 = time.time()
             m = _score(enc, gallery, rows, [im for im, _ in sel], [i for _, i in sel], True)
-            results.append({"mode": "real", "realism": "", "queries": "real", "gallery": _gallery_label(gallery_scales),
+            results.append({"mode": "real", "realism": "", "queries": queries, "gallery": _gallery_label(gallery_scales),
                             "view": "full",
                             "encoder": enc.name, "frame": "",
                             "card_h": f"{lo}-{hi if hi < 10_000 else ''}",
                             "bitrate_kbps": "", "rotation": "search", **m, "seconds": round(time.time() - t0, 1)})
             _print_row(results[-1])
+    if not strips:
+        return results
+    portrait = [(im, i) for im, i in labeled if rows[i].get("orientation") != "landscape"]
+    turned = upright([im for im, _ in portrait], [i for _, i in portrait], images, gallery_scales, cache, cache_key)
+    truth = [i for _, i in portrait]
+    for enc in encoders:
+        for view in strips:
+            for lo, hi in HEIGHT_BUCKETS:
+                sel = [n for n, im in enumerate(turned) if lo <= max(im.size) < hi]
+                if not sel:
+                    continue
+                t0 = time.time()
+                m = _score_strips(enc, images, rows, [turned[n] for n in sel], [truth[n] for n in sel], view,
+                                  gallery_scales, cache, cache_key)
+                results.append({"mode": "real", "realism": "", "queries": queries, "gallery": _gallery_label(gallery_scales),
+                                "view": view, "encoder": enc.name, "frame": "",
+                                "card_h": f"{lo}-{hi if hi < 10_000 else ''}",
+                                "bitrate_kbps": "", "rotation": "oracle", **m, "seconds": round(time.time() - t0, 1)})
+                _print_row(results[-1])
     return results
 
 
@@ -228,9 +301,9 @@ def main(argv: list[str] | None = None) -> int:
                            help="degrade a seeded sample of N printings; the gallery stays complete (0 = all)")
             p.add_argument("--realism", default="codec", choices=list(REALISM),
                            help="codec: perfect crops, codec only; camera: adds camera, occluders and detector error")
-        if name != "real":
-            p.add_argument("--strips", default="",
-                           help="also score cards from one band only, e.g. top:0.25,top:0.4,left:0.3 (stacked cards)")
+        p.add_argument("--strips", default="",
+                       help="also score cards from one band only, e.g. top:0.25,top:0.4,left:0.3 (stacked cards); "
+                            "real crops are turned upright by their label first")
         if name == "synthetic":
             p.add_argument("--query-catalog",
                            help="degrade this catalogue's printings (e.g. another language) instead of the gallery's; "
@@ -246,6 +319,8 @@ def main(argv: list[str] | None = None) -> int:
         if name == "real":
             p.add_argument("--crops", required=True)
             p.add_argument("--labels", required=True)
+            p.add_argument("--skip-types", default="", help="leave out cards of these types, e.g. Legend,Battlefield")
+            p.add_argument("--only-types", default="", help="keep only cards of these types, e.g. Rune")
     a = ap.parse_args(argv)
     encoders = [get_encoder(e) for e in (a.encoder or ["colorgrid"])]
 
@@ -279,7 +354,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if a.mode == "real":
         results = run_real(rows, loader, encoders, Path(a.crops), Path(a.labels), _ints(a.gallery_scales),
-                           cache, cache_key)
+                           cache, cache_key, strips=[v for v in a.strips.split(",") if v.strip()],
+                           skip_types=[t for t in a.skip_types.split(",") if t.strip()],
+                           only_types=[t for t in a.only_types.split(",") if t.strip()])
     else:
         fw, fh = (int(x) for x in a.frame.lower().split("x"))
         base = with_realism(StreamSettings(frame_w=fw, frame_h=fh, seed=a.seed), a.realism)

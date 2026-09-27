@@ -91,3 +91,60 @@ def test_strip_views_are_scored_and_labeled(tmp_path):
     rows = list(csv.DictReader(open(out, encoding="utf-8")))
     assert [r["view"] for r in rows] == ["full", "full", "top:0.4", "left:0.5"]
     assert {r["gallery"] for r in rows[2:]} == {"px:120"} and {r["rotation"] for r in rows[2:]} == {"oracle"}
+
+
+def test_upright_turns_a_crop_by_its_label():
+    import numpy as np
+
+    from rifteye_ml.fixtures import load_fixture_image, synthetic_catalog
+
+    images = [load_fixture_image(r) for r in synthetic_catalog(6, seed=1)]
+    card = images[2].resize((94, 130))
+    turned = spike.upright([card.rotate(180), card.rotate(90, expand=True), card], [2, 2, 2], images, [130])
+    assert all(np.array_equal(np.asarray(t), np.asarray(card)) for t in turned)
+
+
+def test_real_strips_are_cut_from_the_card_top(tmp_path):
+    from rifteye_ml.encoders import get_encoder
+    from rifteye_ml.fixtures import load_fixture_image, synthetic_catalog
+
+    rows = synthetic_catalog(12, seed=0)
+    rows[5] = {**rows[5], "orientation": "landscape"}  # a battlefield: scored whole, left out of the strips
+    labels = tmp_path / "labels.csv"
+    with open(labels, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["file", "printing_id"])
+        for n, r in enumerate(rows):
+            im = load_fixture_image(r).resize((94, 130))
+            (im.rotate(180) if n % 2 else im).save(tmp_path / f"c{n}.png")  # odd cards face the other player
+            w.writerow([f"c{n}.png", r["printing_id"]])
+    res = spike.run_real(rows, load_fixture_image, [get_encoder("colorgrid")], tmp_path, labels,
+                         gallery_scales=[130], strips=["top:0.4"])
+    full = [r for r in res if r["view"] == "full"]
+    strip = [r for r in res if r["view"] == "top:0.4"]
+    assert full[0]["n"] == 12 and full[0]["rotation"] == "search"
+    assert len(strip) == 1 and strip[0]["n"] == 11 and strip[0]["rotation"] == "oracle"
+    assert strip[0]["top1_card"] == 1.0  # clean fake cards: the top band alone names every one
+
+
+def test_real_mode_can_leave_out_card_types(tmp_path):
+    from rifteye_ml.fixtures import load_fixture_image, synthetic_catalog
+
+    rows = synthetic_catalog(6, seed=3)
+    rows[0] = {**rows[0], "type": "Legend"}
+    labels = tmp_path / "labels.csv"
+    with open(labels, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["file", "printing_id"])
+        for n, r in enumerate(rows):
+            load_fixture_image(r).resize((94, 130)).save(tmp_path / f"c{n}.png")
+            w.writerow([f"c{n}.png", r["printing_id"]])
+    from rifteye_ml.encoders import get_encoder
+
+    res = spike.run_real(rows, load_fixture_image, [get_encoder("colorgrid")], tmp_path, labels,
+                         gallery_scales=[130], strips=["full", "top:0.4"], skip_types=["Legend"])
+    assert {r["queries"] for r in res} == {"real, not Legend"} and {r["n"] for r in res} == {5}
+    assert [r["view"] for r in res] == ["full", "full", "top:0.4"]  # searched whole, upright whole, strip
+    only = spike.run_real(rows, load_fixture_image, [get_encoder("colorgrid")], tmp_path, labels,
+                          gallery_scales=[130], only_types=["Legend"])
+    assert [(r["queries"], r["n"]) for r in only] == [("real, Legend only", 1)]

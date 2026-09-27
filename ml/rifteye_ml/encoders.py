@@ -155,8 +155,43 @@ def parse_timm_spec(arg: str) -> tuple[str, int, str]:
     return model, int(size) if size else 224, pool
 
 
+class Fused:
+    """Several encoders as one: their rows side by side, each scaled by the square root of its
+    weight, so a dot product is the weighted mean of the parts' cosines and rows stay unit length.
+    Every part sees the same turn of a query, so a search keeps one orientation for all of them.
+
+    Colour and structure fail differently: a die on a card or a foil sheen moves the colour grid,
+    a washed-out camera moves dHash less (M0 §5.4)."""
+
+    def __init__(self, parts: Sequence[Encoder], weights: Sequence[float] | None = None):
+        if len(parts) < 2:
+            raise ValueError("a fused encoder needs at least two parts")
+        w = np.asarray(weights if weights is not None else [1.0] * len(parts), np.float64)
+        if len(w) != len(parts) or (w <= 0).any():
+            raise ValueError(f"need one positive weight per part, got {list(w)}")
+        self.parts = list(parts)
+        self.weights = w / w.sum()
+        equal = np.allclose(self.weights, self.weights[0])
+        self.name = "+".join(p.name + ("" if equal else f"*{x:g}") for p, x in zip(self.parts, self.weights))
+        self.dim = sum(p.dim for p in self.parts)
+
+    def embed(self, images: Sequence[Image.Image]) -> np.ndarray:
+        return np.hstack([np.float32(np.sqrt(w)) * p.embed(images) for p, w in zip(self.parts, self.weights)]).astype(np.float32)
+
+    def fingerprint(self) -> str:
+        h = hashlib.sha256(self.name.encode())
+        for p in self.parts:
+            h.update(p.fingerprint().encode())
+        return h.hexdigest()
+
+
 def get_encoder(spec: str) -> Encoder:
-    """'colorgrid', 'colorgrid:8', 'dhash', 'dhash:8', or 'timm:<model>[@<size>][/<pool>]'."""
+    """'colorgrid', 'colorgrid:8', 'dhash', 'dhash:8', or 'timm:<model>[@<size>][/<pool>]'.
+    Parts joined by '+' make a `Fused` encoder, equally weighted unless a part ends in '*<weight>',
+    e.g. 'colorgrid/trim0.03+dhash/trim0.03' or 'colorgrid*1+dhash*3'."""
+    if "+" in spec:
+        parts = [p.strip().partition("*") for p in spec.split("+")]
+        return Fused([get_encoder(p) for p, _, _ in parts], [float(w) if w else 1.0 for _, _, w in parts])
     kind = spec.split(":")[0].split("/")[0]
     rest = spec[len(kind):]
     arg = rest[1:] if rest.startswith(":") else rest
