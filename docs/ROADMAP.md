@@ -30,7 +30,7 @@ flowchart LR
 
 ## M1: Recognition core and VOD runner (about 4–6 weeks)
 
-- [x] `ml/synth` v0: synthetic boards with the real codec pass (`python -m rifteye_ml.synth`, [ml/README](../ml/README.md#synthetic-boards-m1))
+- [x] `ml/synth` v0: synthetic boards with the real codec pass (`python -m rifteye_ml.synth`, [ml/README](../ml/README.md#synthetic-boards-m1)), calibrated once against the M0 broadcasts: fully visible synthetic cards are now about as hard to name as Shenyang's, legends still easier than at Los Angeles and Barcelona ([report](reports/m1-synth-v0.md)). 400 boards rendered
 - [x] Synthetic stacks: fanned piles, rune rows and columns, attached gear and piles, with full-quad ground truth, visible fractions and id maps
 - [ ] Detector v0 (`card`, `card_back`), amodal (full quad plus visible fraction): synthetic data plus about 500 verified real frames
 - [ ] Rectifier: corner heatmap network retrained on stream crops

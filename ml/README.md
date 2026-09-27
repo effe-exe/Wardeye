@@ -170,6 +170,8 @@ python -m rifteye_ml.synth --fixtures 60 --boards 4 --out /tmp/synth-demo   # pr
 - **Output**: `frames/*.png` (lossless), `ids/*.png` (16-bit: card id + 1 where that card is uppermost, 65535 under a hand, die or counter, 65534 on a broadcast graphic), `annotations.jsonl` and `manifest.json`. Each card has its zone, controller, exhausted state, pile, `quad` (TL, TR, BR, BL of the card as printed, in frame pixels, even where it is covered or cut off), `visible` (the uncovered share of the card), `visible_box` and, when face up, its `printing_id`. Face-down cards never carry an identity.
 - **Mats** are procedural (dark and muted, with a faint printed emblem). `--mats` takes a folder of your own mat images; official mats are Riot IP and are never bundled.
 
+**Realism check.** `python -m rifteye_ml.synth.check --run ~/rifteye-data/synth/v0 --catalog … --cache …` cuts every fully visible face-up card out through its quad, with the box a few per cent off as a detector's would be, and names it with the M0 baselines. Synthetic cards should be about as hard to name as the reviewed real crops of the M0 broadcasts; the first version was far easier, and the looks were calibrated ([report](../docs/reports/m1-synth-v0.md)).
+
 Frames made from Riot's art are private, like the art itself (D-015).
 
 ## Demo (no data needed)

@@ -24,7 +24,7 @@ from typing import Callable, Sequence
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from ..degrade import StreamSettings, _add_foil, _add_glare, _camera_photometry
+from ..degrade import StreamSettings, _add_glare, _camera_photometry, _rainbow
 from .layout import CARD_H_MM, CARD_W_MM, MAT_H_MM, MAT_W_MM, Board, Instance, Occluder
 
 OCCLUDER_ID = 65535   # id map value under a hand, die, counter or marker
@@ -219,6 +219,43 @@ def card_back(sleeve: tuple[int, int, int] | None, style: str, size: tuple[int, 
     return img
 
 
+def printed(img: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    """A physical print is not the digital art: its own contrast, saturation, brightness and cast."""
+    a = img.astype(np.float32) / 255
+    lum = (a @ np.array([0.299, 0.587, 0.114], np.float32))[..., None]
+    a = lum + (a - lum) * rng.uniform(0.8, 1.15)
+    a = np.clip((a - 0.5) * rng.uniform(0.85, 1.1) + 0.5 + rng.uniform(-0.06, 0.06), 0, 1) ** np.exp(rng.uniform(-0.2, 0.2))
+    return np.clip(a * rng.uniform(0.94, 1.06, size=3) * 255, 0, 255).astype(np.uint8)
+
+
+def foil(card: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    """Holographic foil under stage light, as the M0 broadcasts show it: a rainbow sheen drifting
+    across the card and a bright band where the light catches it, stronger than the M0 simulator's."""
+    h, w = card.shape[:2]
+    th = rng.uniform(0, np.pi)
+    ys, xs = np.mgrid[0:h, 0:w].astype(np.float32)
+    u = (xs * np.cos(th) + ys * np.sin(th)) / max(w, h)
+    sheen = _rainbow((u * rng.uniform(0.8, 3.0) + rng.uniform(0, 1)) % 1.0)
+    band = np.exp(-(((u - rng.uniform(-0.2, 1.2)) / rng.uniform(0.08, 0.3)) ** 2))
+    a = (rng.uniform(0.25, 0.5) * (0.5 + band))[..., None]
+    out = card.astype(np.float32) * (1 - a) + sheen * 255 * a + 70 * band[..., None] * a
+    # the whole card's hue drifts with the viewing angle
+    hsv = np.asarray(Image.fromarray(np.clip(out, 0, 255).astype(np.uint8)).convert("HSV")).copy()
+    hsv[..., 0] = (hsv[..., 0].astype(np.int16) + int(rng.uniform(-30, 30))) % 256
+    return np.asarray(Image.fromarray(hsv, "HSV").convert("RGB"))
+
+
+def sleeve_streak(card: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    """A glossy sleeve reflecting a stage light: a long bright streak across the card."""
+    h, w = card.shape[:2]
+    th = rng.uniform(0, np.pi)
+    ys, xs = np.mgrid[0:h, 0:w].astype(np.float32)
+    d = ((xs - rng.uniform(0, w)) * np.cos(th) + (ys - rng.uniform(0, h)) * np.sin(th)) / max(w, h)
+    m = np.exp(-(d / rng.uniform(0.04, 0.15)) ** 2)[..., None] * rng.uniform(0.3, 0.7)
+    a = card.astype(np.float32)
+    return np.clip(a + (255 - a) * m, 0, 255).astype(np.uint8)
+
+
 def _with_sleeve(img: Image.Image, colour: tuple[int, int, int]) -> Image.Image:
     """The rim of a sleeve's coloured back, about 1.5 mm around the card."""
     w, h = img.size
@@ -284,10 +321,12 @@ def _card_image(inst: Instance, rows: Sequence[dict], load: Callable[[dict], Ima
     else:
         img = card_back(inst.sleeve, inst.back, size, rng)
     arr = np.asarray(img)
+    if inst.face_up:
+        arr = printed(arr, rng)
     if inst.foil:
-        arr = _add_foil(arr, rng)
+        arr = foil(arr, rng)
     if inst.glare:
-        arr = _add_glare(arr, rng)
+        arr = sleeve_streak(arr, rng) if inst.sleeve is not None and rng.random() < 0.7 else _add_glare(arr, rng)
     alpha = _rounded_alpha(size[0], size[1], 3.0 * ppm)
     rgba = Image.fromarray(arr).convert("RGBA")
     rgba.putalpha(alpha)
@@ -318,13 +357,18 @@ def _occluder_image(o: Occluder, ppm: float, rng: np.random.Generator) -> tuple[
         img = Image.new("RGB", (W, H), o.colour); d = ImageDraw.Draw(img)
         ink = (20, 20, 20) if sum(o.colour) > 380 else (235, 235, 235)
         if o.kind == "die":
-            pip = W * 0.09
+            side = max(1, round(W * 0.14))  # the visible sides of the cube
+            face = Image.new("RGB", (W, H), tuple(int(c * 0.62) for c in o.colour))
+            face.paste(img.resize((W - side, H - side)), (0, 0))
+            img = face; d = ImageDraw.Draw(img)
+            W0 = W - side
+            pip = W0 * 0.09
             spots = {1: [(0.5, 0.5)], 2: [(0.28, 0.28), (0.72, 0.72)], 3: [(0.25, 0.25), (0.5, 0.5), (0.75, 0.75)],
                      4: [(0.28, 0.28), (0.72, 0.28), (0.28, 0.72), (0.72, 0.72)],
                      5: [(0.25, 0.25), (0.75, 0.25), (0.5, 0.5), (0.25, 0.75), (0.75, 0.75)],
                      6: [(0.28, 0.22), (0.72, 0.22), (0.28, 0.5), (0.72, 0.5), (0.28, 0.78), (0.72, 0.78)]}[o.value]
             for fx, fy in spots:
-                d.ellipse([W * fx - pip, H * fy - pip, W * fx + pip, H * fy + pip], fill=ink)
+                d.ellipse([W0 * fx - pip, W0 * fy - pip, W0 * fx + pip, W0 * fy + pip], fill=ink)
             shade = np.asarray(img, np.float32) * (0.8 + 0.2 * np.linspace(1, 0, H)[:, None, None])
             img = Image.fromarray(np.clip(shade, 0, 255).astype(np.uint8))
         else:

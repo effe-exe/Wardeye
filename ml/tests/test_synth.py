@@ -79,3 +79,23 @@ def test_the_generator_is_reproducible(tmp_path):
     manifest = json.loads((tmp_path / "a" / "manifest.json").read_text())
     assert manifest["boards"] == 3 and manifest["codec"] is True
     assert (tmp_path / "a" / "previews" / "000000.jpg").exists()
+
+
+def test_the_realism_check_names_fake_cards(tmp_path):
+    from rifteye_ml.synth.check import main as check
+
+    run = tmp_path / "run"
+    assert main(["--fixtures", "20", "--boards", "2", "--clip", "2", "--frames-per-board", "3", "--sizes", "960x540",
+                 "--layouts", "full", "--view-mm", "600,600", "--out", str(run)]) == 0
+    out = tmp_path / "check.csv"
+    assert check(["--run", str(run), "--fixtures", "20", "--encoder", "colorgrid/trim0.03", "--gallery-scales", "60,80",
+                  "--out", str(out)]) == 0
+    rows = {r["group"]: r for r in csv_rows(out)}
+    assert int(rows["all"]["n"]) > 5 and float(rows["all"]["top1_card"]) >= 0.8  # clean fake cards are easy
+
+
+def csv_rows(path):
+    import csv
+
+    with open(path, encoding="utf-8") as f:
+        return list(csv.DictReader(f))

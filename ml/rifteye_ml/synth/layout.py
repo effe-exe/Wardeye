@@ -81,6 +81,11 @@ class _Builder:
         self.rows, self.rng, self.board = rows, rng, Board()
         self.next_pile = 0
 
+    def foil_prob(self, row: int | None) -> float:
+        """Competitive legends are often foil or showcase printings (M0 §5.4-5.6); other cards less so."""
+        kind = self.rows[row].get("type") if row is not None else None
+        return 0.6 if kind == "Legend" else 0.1 if kind == "Rune" else 0.15
+
     def pile(self, kind: str) -> int:
         self.next_pile += 1
         self.board.piles[self.next_pile] = kind
@@ -95,7 +100,7 @@ class _Builder:
         inst = Instance(id=len(self.board.instances), row=row if face_up else None, face_up=face_up, zone=zone, controller=who,
                         centre=(float(x), float(y)), angle=facing + turn + float(rng.uniform(-jitter, jitter)),
                         landscape=land, exhausted=exhausted, pile=pile, pile_index=index, sleeve=sleeve,
-                        foil=face_up and rng.random() < 0.12, glare=rng.random() < 0.2, back=back)
+                        foil=face_up and rng.random() < self.foil_prob(row), glare=rng.random() < 0.35, back=back)
         self.board.instances.append(inst)
         return inst
 
@@ -123,6 +128,8 @@ def sample_board(rows: Sequence[dict], rng: np.random.Generator) -> Board:
             leg = b.add(legend, True, "legend", who, side * 215.0, s * 205.0, exhausted=rng.random() < 0.15, sleeve=main_sleeve)
             if rng.random() < 0.6:
                 _die(b, leg)
+                if rng.random() < 0.25:  # two counters' worth
+                    _die(b, leg)
         if rng.random() < 0.5:
             champ = _by(rows, rng, ["Unit"], domains)
             if champ is not None:
@@ -169,8 +176,12 @@ def _die(b: _Builder, on: Instance) -> None:
     rng = b.rng
     white = rng.random() < 0.75
     colour = (240, 240, 236) if white else tuple(int(c) for c in rng.integers(20, 230, 3))
-    cx, cy = on.centre
-    b.board.occluders.append(Occluder("die", (cx + rng.normal(0, 8), cy + rng.normal(0, 12)), float(rng.uniform(14, 17)),
+    # over the art: the upper middle of the card as printed, turned with the card
+    dx, dy = rng.normal(0, 6), -10 + rng.normal(0, 8)
+    t = np.deg2rad(on.angle)
+    cx, cy = on.centre[0] + dx * np.cos(t) + dy * np.sin(t), on.centre[1] - dx * np.sin(t) + dy * np.cos(t)
+    # a third of the card's width on the M0 broadcasts: a 16-20 mm cube and the sides seen from above
+    b.board.occluders.append(Occluder("die", (float(cx), float(cy)), float(rng.uniform(18, 25)),
                                       float(rng.uniform(0, 90)), on=on.id, value=int(rng.integers(1, 7)), colour=colour))
 
 
