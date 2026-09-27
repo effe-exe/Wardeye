@@ -1,0 +1,29 @@
+encoder,head,split,card_h,n,top1_card,top5_card,top1_printing
+timm:vit_small_patch14_dinov2.lvd142m@224,frozen,held-out sets,40,150,0.1267,0.2333,0.1133
+timm:vit_small_patch14_dinov2.lvd142m@224,frozen,held-out sets,60,150,0.2067,0.2867,0.1867
+timm:vit_small_patch14_dinov2.lvd142m@224,frozen,held-out sets,80,150,0.3200,0.4533,0.3067
+timm:vit_small_patch14_dinov2.lvd142m@224,frozen,held-out sets,120,150,0.4667,0.6133,0.4533
+timm:vit_small_patch14_dinov2.lvd142m@224,frozen,held-out sets,160,150,0.5467,0.7267,0.5267
+timm:vit_small_patch14_dinov2.lvd142m@224,linear,held-out sets,40,150,0.4733,0.7000,0.4467
+timm:vit_small_patch14_dinov2.lvd142m@224,linear,held-out sets,60,150,0.6600,0.8533,0.6333
+timm:vit_small_patch14_dinov2.lvd142m@224,linear,held-out sets,80,150,0.7067,0.8733,0.6800
+timm:vit_small_patch14_dinov2.lvd142m@224,linear,held-out sets,120,150,0.9133,0.9800,0.8933
+timm:vit_small_patch14_dinov2.lvd142m@224,linear,held-out sets,160,150,0.9533,0.9933,0.9200
+timm:vit_small_patch14_dinov2.lvd142m@224,frozen,training sets,40,150,0.1733,0.3067,0.1533
+timm:vit_small_patch14_dinov2.lvd142m@224,frozen,training sets,60,150,0.2000,0.3667,0.1733
+timm:vit_small_patch14_dinov2.lvd142m@224,frozen,training sets,80,150,0.3667,0.4667,0.3333
+timm:vit_small_patch14_dinov2.lvd142m@224,frozen,training sets,120,150,0.4533,0.6067,0.4333
+timm:vit_small_patch14_dinov2.lvd142m@224,frozen,training sets,160,150,0.5133,0.6400,0.4533
+timm:vit_small_patch14_dinov2.lvd142m@224,linear,training sets,40,150,0.6867,0.8533,0.6533
+timm:vit_small_patch14_dinov2.lvd142m@224,linear,training sets,60,150,0.8333,0.9400,0.8000
+timm:vit_small_patch14_dinov2.lvd142m@224,linear,training sets,80,150,0.8733,0.9800,0.8200
+timm:vit_small_patch14_dinov2.lvd142m@224,linear,training sets,120,150,0.9533,0.9867,0.9200
+timm:vit_small_patch14_dinov2.lvd142m@224,linear,training sets,160,150,0.9800,0.9867,0.9400
+timm:vit_small_patch14_dinov2.lvd142m@224,frozen,real,real,947,0.3358,0.4879,nan
+timm:vit_small_patch14_dinov2.lvd142m@224,linear,real,real,947,0.6864,0.7909,nan
+timm:vit_small_patch14_dinov2.lvd142m@224,frozen,"real, one per track",real,176,0.4432,0.6136,nan
+timm:vit_small_patch14_dinov2.lvd142m@224,linear,"real, one per track",real,176,0.7273,0.8295,nan
+timm:vit_small_patch14_dinov2.lvd142m@224,frozen,"real, training sets",real,485,0.2144,0.4103,nan
+timm:vit_small_patch14_dinov2.lvd142m@224,linear,"real, training sets",real,485,0.7196,0.8371,nan
+timm:vit_small_patch14_dinov2.lvd142m@224,frozen,"real, held-out sets",real,462,0.4632,0.5693,nan
+timm:vit_small_patch14_dinov2.lvd142m@224,linear,"real, held-out sets",real,462,0.6515,0.7424,nan
