@@ -11,7 +11,7 @@ The question from [04 §4.8](../research/04-data-and-evaluation.md#48-the-m0-fea
 - **The gallery lacks tokens that are played.** Half of the model's misses in the Los Angeles review were one missing token, the Sand Soldier (67 tracks); Shenyang had the Mech (7 tracks). They need a supplement ([04 §4.2](../research/04-data-and-evaluation.md#42-catalogue)).
 - **Labelling by review works.** The Maintainer answered 400 of the model's guesses in 13.6 minutes at Shenyang and 18.2 at Los Angeles ([§5.2](#52-reviewed-set-2381-crops), [D-018](../decisions.md#d-018-labels-come-from-reviewing-model-proposals)).
 - **Frozen general-purpose ViTs are the wrong tool.** On the reviewed real sets, DINOv2-S names 32% (Shenyang) and 42% (Los Angeles), PE Core S16 13% and 37%. Under simulated camera conditions, no frozen ViT passes 55% even at 160 px.
-- **Training on synthetic crops transfers to real ones.** A linear layer on frozen DINOv2-S, trained only on simulated crops of three sets, takes the real set from 36% to **72%**, and from 30% to 61% for cards of sets it never saw ([§8](#8-quick-fine-tune)). In simulation the same head lifts unseen cards to 47–95% (40–160 px). PE-S gains more in simulation at small sizes but reaches only 48% on the real crops.
+- **Training on synthetic crops transfers to real ones.** A linear layer on frozen DINOv2-S, trained only on simulated crops of three sets, takes the real set from 36% to **72%**, and from 30% to 61% for cards of sets it never saw; at Los Angeles from 40% to 64%, and 24% to 48% ([§8](#8-quick-fine-tune)). In simulation the same head lifts unseen cards to 47–95% (40–160 px). PE-S gains more in simulation at small sizes but reaches only 48% and 54% on the real sets.
 - **The codec is not the bottleneck.** With clean crops, identity survives H.264 at 2–6 Mbps down to 40 px: the colour grid and dHash name 99–100% of cards. Across 2–6 Mbps, accuracy moves by 2 points at most, with or without camera effects.
 - **What hurts is the camera and the table.** With tilt, lighting, defocus, occluders and detector error added, the best encoder drops to 51–71% (40–160 px).
 - **A real strip keeps most of a card's identity.** Cut from real crops of cards that go in stacks, the top 40% alone gives colour grid + dHash 94.5% (Shenyang) and 99.5% (Los Angeles), the top quarter 88.0% and 97.5%, a side strip 79% and 52% ([§7](#7-stacked-cards-identity-from-a-strip)). These are upper bounds: exact cuts of isolated cards, orientation known. Simulation had suggested far less (50% from the top 40% for the colour grid). Real stacks from footage are next.
@@ -19,7 +19,7 @@ The question from [04 §4.8](../research/04-data-and-evaluation.md#48-the-m0-fea
 - **The change gate fires on real changes 77% of the time.** On 57 reviewed events, 44 were real card changes and 36 had the right kind ([§6](#6-layer-1-the-change-gate)).
 - **Decisions:**
   1. The first identifier scores the colour grid and dHash together, with a gallery pyramid, behind the change gate ([D-016](../decisions.md#d-016-a-change-gate-decides-when-and-where-the-heavy-stages-run), [D-017](../decisions.md#d-017-the-embedding-index-holds-a-gallery-pyramid), [D-019](../decisions.md#d-019-the-first-identifier-scores-colour-and-structure-together)). It needs no neural model in the browser. Legends come from context: one per player, all game, in a fixed zone.
-  2. **The M1 embedder is DINOv2-S.** It wins frozen everywhere and, with a trained head, on real crops at 1080p and 720p alike (72% and 71%, against 48% and 49% for PE Core S16). PE-S generalises better at 40–80 px only in simulation.
+  2. **The M1 embedder is DINOv2-S.** It wins frozen everywhere and, with a trained head, on real crops at 1080p and 720p alike (72% and 71%, against 48% and 49% for PE Core S16) and on the second broadcast (64% against 54%). PE-S generalises better at 40–80 px only in simulation.
   3. Training adds random covering (stacks), text-box scrambling (languages) and foil-like colour shifts (special printings).
   4. Real labels come from reviewing model guesses ([D-018](../decisions.md#d-018-labels-come-from-reviewing-model-proposals)).
 
@@ -281,17 +281,22 @@ A stack leaves part of each card visible. On both broadcasts, runes lie in overl
 | colour grid 16×16, 3% trimmed | 94.9% | 90.3% | 76.6% | 78.6% |
 | dHash 16, 3% trimmed | 93.2% | 88.0% | 74.7% | 54.1% |
 | colour grid + dHash | **97.9%** | **94.5%** | **88.0%** | **79.4%** |
+| DINOv2 ViT-S/14, frozen | 43.9% | 40.8% | 18.4% | 16.4% |
+| PE Core S16, frozen | 26.8% | 26.7% | 11.6% | 3.7% |
 
 | Los Angeles, 638 crops | whole card | top 40% | top 25% | left 30% |
 |---|---:|---:|---:|---:|
 | colour grid 16×16, 3% trimmed | 98.6% | 98.7% | 82.4% | **52.5%** |
 | dHash 16, 3% trimmed | 98.3% | 96.6% | 69.6% | 13.2% |
 | colour grid + dHash | **100%** | **99.5%** | **97.5%** | 52.0% |
+| DINOv2 ViT-S/14, frozen | 59.9% | 60.5% | 51.7% | 36.1% |
+| PE Core S16, frozen | 57.8% | 44.8% | 29.2% | 5.2% |
 
 Runes alone, as a rune column shows them (180 Los Angeles crops): colour grid + dHash names 98.3% from the top quarter, the colour grid alone 76.1%.
 
 - **A real strip keeps most of a card's identity**, far more than the simulator's camera level suggested: from the top 40%, 90% for the colour grid against 50%. The camera level is harsher than both real tables; its magnitudes were assumptions (Setup).
 - **Colour and structure together** lose the least from the top bands. A side strip, as in a fanned pile, holds mostly frame and text, and stays hard.
+- **Frozen DINOv2-S again keeps as much from the top 40% as from the whole card**, as in simulation, but from a far lower level. PE-S loses more.
 - **These are upper bounds for a stack.** Each band is cut exactly from an isolated card: no covering card, no shadow, no detection error, and the label gives the orientation. In a real stack the detector must find the visible part and which edge it is, and the matcher must still try both ways up ([ARCHITECTURE §3.8](../ARCHITECTURE.md#38-stacks-and-covered-cards)).
 - **What is still missing is real stacks from footage** (Next, 2). The embedder is still trained with random covering, and the tracker still keeps a covered card's identity: most covered cards were seen whole when they were played.
 
@@ -315,7 +320,9 @@ A proxy for the M1 fine-tune that fits a laptop CPU: a linear layer (dim × dim,
 
 At 720p (§5.3), the same heads give DINOv2-S 28 → **71%** (all crops) and 32 → 66% (cards from other sets), and PE-S 14 → 49% and 16 → 45% ([CSV](m0-adapter-real-720p-dinov2.csv), [CSV](m0-adapter-real-720p-pe.csv)). So the head's gain holds on smaller real cards, and PE-S's advantage at small sizes in simulation does not appear on real ones.
 
-The frozen scores here are a few points above §5.2 because this run's gallery pyramid has different sizes: most crops meet the 120 px level here and the 140 px level there.
+On the second broadcast (§5.4), the same heads give DINOv2-S 40 → **64%** (all crops), 50 → 73% (each track once) and 24 → 48% (cards from other sets), and PE-S 37 → 54%, 41 → 65% and 23 → 30% ([CSV](m0-adapter-real-la-dinov2.csv), [CSV](m0-adapter-real-la-pe.csv)). The gain holds on another camera, DINOv2-S keeps its lead, and both stay well below colour and structure together (81.0%).
+
+The frozen scores here differ by a few points from §5.2 and §5.4 because this run's gallery pyramid has different sizes: most Shenyang crops meet the 120 px level here and the 140 px level there.
 
 - **Synthetic training transfers to footage.** One linear layer trained only on simulated crops doubles DINOv2-S on real ones, including cards from sets it never trained on. That is the premise of the M1 fine-tune, now measured.
 - **On real crops DINOv2-S is well ahead**, at 1080p and 720p alike, although PE-S generalised better at 40–80 px in simulation. The simulator still misses something that matters for PE-S.

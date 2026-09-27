@@ -14,3 +14,13 @@ real,,"real, not Legend/Battlefield","px:120,140",full,colorgrid16-trim0.03+dhas
 real,,"real, not Legend/Battlefield","px:120,140",top:0.4,colorgrid16-trim0.03+dhash16-trim0.03,,120-,,oracle,1263,0.9438,0.9667,0.9446,0.9715,2.3000
 real,,"real, not Legend/Battlefield","px:120,140",top:0.25,colorgrid16-trim0.03+dhash16-trim0.03,,120-,,oracle,1263,0.8765,0.9232,0.8804,0.9279,2.3000
 real,,"real, not Legend/Battlefield","px:120,140",left:0.3,colorgrid16-trim0.03+dhash16-trim0.03,,120-,,oracle,1263,0.7854,0.8630,0.7941,0.8638,2.3000
+real,,"real, not Legend/Battlefield","px:120,140",full,timm:vit_small_patch14_dinov2.lvd142m@224,,120-,,search,1263,0.2676,0.5265,0.3325,0.5455,213.3000
+real,,"real, not Legend/Battlefield","px:120,140",full,timm:vit_pe_core_small_patch16_384.fb@224,,120-,,search,1263,0.1789,0.2985,0.1845,0.3088,149.4000
+real,,"real, not Legend/Battlefield","px:120,140",full,timm:vit_small_patch14_dinov2.lvd142m@224,,120-,,oracle,1263,0.3705,0.6255,0.4386,0.6437,45.6000
+real,,"real, not Legend/Battlefield","px:120,140",top:0.4,timm:vit_small_patch14_dinov2.lvd142m@224,,120-,,oracle,1263,0.3998,0.5756,0.4078,0.6049,85.5000
+real,,"real, not Legend/Battlefield","px:120,140",top:0.25,timm:vit_small_patch14_dinov2.lvd142m@224,,120-,,oracle,1263,0.1837,0.2803,0.1837,0.2827,84.8000
+real,,"real, not Legend/Battlefield","px:120,140",left:0.3,timm:vit_small_patch14_dinov2.lvd142m@224,,120-,,oracle,1263,0.1591,0.3017,0.1639,0.3040,87.0000
+real,,"real, not Legend/Battlefield","px:120,140",full,timm:vit_pe_core_small_patch16_384.fb@224,,120-,,oracle,1263,0.2581,0.3634,0.2676,0.3729,40.4000
+real,,"real, not Legend/Battlefield","px:120,140",top:0.4,timm:vit_pe_core_small_patch16_384.fb@224,,120-,,oracle,1263,0.2565,0.4038,0.2668,0.4117,76.6000
+real,,"real, not Legend/Battlefield","px:120,140",top:0.25,timm:vit_pe_core_small_patch16_384.fb@224,,120-,,oracle,1263,0.1140,0.2225,0.1164,0.2288,76.6000
+real,,"real, not Legend/Battlefield","px:120,140",left:0.3,timm:vit_pe_core_small_patch16_384.fb@224,,120-,,oracle,1263,0.0372,0.1219,0.0372,0.1322,76.1000
