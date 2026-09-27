@@ -276,6 +276,9 @@ function openEntry(type: EventType, t: number, existing?: TimelineEvent): void {
 }
 
 function closeEntry(resume: boolean): void {
+  // Release focus before hiding the form. Chrome moves focus off a hidden element a frame later,
+  // and if the next hotkey has reopened the form by then, that late move would steal its focus.
+  if (entry.contains(document.activeElement)) (document.activeElement as HTMLElement).blur();
   entry.hidden = true;
   suggestions.hidden = true;
   if (resume && pending?.wasPlaying) void video.play();
@@ -321,6 +324,12 @@ entry.addEventListener('keydown', (e) => {
 
 document.addEventListener('keydown', (e) => {
   const target = e.target as HTMLElement;
+  // Enter saves an open entry even if focus has wandered out of the form.
+  if (!entry.hidden && e.key === 'Enter' && !entry.contains(target) && !target.closest('input, select, textarea')) {
+    e.preventDefault();
+    entry.requestSubmit();
+    return;
+  }
   if (target.closest('input, select, textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
   if (!entry.hidden || !state) return;
   const key = e.key.toLowerCase();
