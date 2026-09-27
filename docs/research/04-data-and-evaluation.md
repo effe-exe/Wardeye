@@ -46,6 +46,7 @@ flowchart LR
 - **The codec pass is not optional.** Frames go through a real ffmpeg H.264 encode at 2–8 Mbps with a 2 s keyframe interval, then get decoded. JPEG artifacts are the wrong artifacts. Blocking, ringing, chroma bleed and motion smear from inter-frame prediction are what stream crops actually look like.
 - **Mat and table textures** are supplied locally by whoever runs the generator. Official playmat art is Riot IP and is not bundled.
 - Physically based rendering (Blender) is a possible v2. The 2D compositor is good enough to start and far cheaper to iterate on.
+- **Status: v0 is in `ml/rifteye_ml/synth`** ([ml/README](../../ml/README.md#synthetic-boards-m1)): the layout sampler with rune columns and fans, fanned bases, tucked gear, piles, facedown slots, dice, counters and hands; the camera and photometry; full-screen, RQ-panel and picture-in-picture layouts; the real codec pass; exact full quads, visible fractions and 16-bit id maps. Not yet: player-cam video in the panels, lower thirds, motion between frames, and calibration of the camera magnitudes against the M0 broadcasts.
 
 ## 4.4 Stream footage: the data engine
 

@@ -30,8 +30,8 @@ flowchart LR
 
 ## M1: Recognition core and VOD runner (about 4–6 weeks)
 
-- [ ] `ml/synth` v0: synthetic boards with the real codec pass
-- [ ] Synthetic stacks: fanned piles, rune rows, attached gear and piles, with full-quad ground truth
+- [x] `ml/synth` v0: synthetic boards with the real codec pass (`python -m rifteye_ml.synth`, [ml/README](../ml/README.md#synthetic-boards-m1))
+- [x] Synthetic stacks: fanned piles, rune rows and columns, attached gear and piles, with full-quad ground truth, visible fractions and id maps
 - [ ] Detector v0 (`card`, `card_back`), amodal (full quad plus visible fraction): synthetic data plus about 500 verified real frames
 - [ ] Rectifier: corner heatmap network retrained on stream crops
 - [ ] Embedder v0: DINOv2-S fine-tuned with random covering, text scrambling and foil-like colour shifts, exported to ONNX (fp16 and int8), float16 index plus manifest, with strip views and a gallery pyramid

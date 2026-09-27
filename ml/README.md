@@ -16,6 +16,7 @@ Research, training and evaluation tools for RiftEye (Python 3.11+). Right now th
 | `demo` | A preview bundle for `apps/viewer`: the M0 pipeline run offline on a VOD window (detector, identifier, tracks, change gate), so a recorded match can be hovered |
 | `reviewpack` | Review packs for `apps/reviewer`: the model's guesses, one per track of the same card, least confident first plus a random audit; and exported answers back into labels |
 | `adapter` | The M0 "quick fine-tune": a linear head on a frozen backbone, trained on synthetic camera-level crops, evaluated on held-out sets |
+| `synth` | M1's synthetic board generator: whole 1v1 boards with stacks, face-down piles, dice and hands, filmed by a camera model into a broadcast layout, through the real H.264 pass, with every card's full quad and visible fraction |
 | `index` | Writes the shipped index (float16 matrix + manifest) and refuses to load it with a different encoder |
 | `fixtures` | Procedural fake cards for tests and demos. No Riot content |
 
@@ -152,6 +153,24 @@ python -m rifteye_ml.reviewpack events --events events.json --video seg.mp4 --ou
 - `rotation=oracle` isolates the codec's effect by undoing the known rotation first.
 - `*_card` columns roll printings up to gameplay cards, which is the product metric; `*_printing` columns require the exact printing. Printings with identical art (reprints, some signature versions) cap printing-level accuracy below 100%.
 - `realism` is the simulator level; `queries` is `same` for degraded gallery images, a language tag such as `zh-Hans` for another language's printings, or `real` (with the type filter, e.g. `real, not Legend/Battlefield`).
+
+## Synthetic boards (M1)
+
+`python -m rifteye_ml.synth` writes whole broadcast frames of plausible 1v1 boards with exact annotations, for training the detector and the embedder ([docs/research/04 §4.3](../docs/research/04-data-and-evaluation.md#43-synthetic-board-generator-mlsynth)):
+
+```bash
+python -m rifteye_ml.synth --catalog ~/rifteye-data/catalog/catalog.jsonl --cache ~/rifteye-data/art \
+  --boards 400 --previews 12 --out ~/rifteye-data/synth/v0
+python -m rifteye_ml.synth --fixtures 60 --boards 4 --out /tmp/synth-demo   # procedural cards, no data needed
+```
+
+- **Layout** (`synth/layout.py`): the tournament table (Tournament Rules 508). Each player has runes in a spread row, a fanned row or short columns with the top of each rune showing; units in the base, some fanned and some with gear tucked under; the legend (often with a die) and the chosen champion; decks and trash as piles; units at the two battlefields; hidden cards in the facedown slots. Ready cards face their controller, and exhausted ones are turned a quarter turn. Counters, markers and hands go on top.
+- **Filming** (`synth/compose.py`): sleeves, foil and glare from the M0 stream simulator; a soft shadow under every card; a camera with a quarter turn, yaw, keystone tilt and lens distortion in one mesh warp; white balance, exposure, stage light, a muted broadcast tone and defocus. The camera window fills the frame, sits between side panels with a featured-card graphic (the RQ package), or is a picture-in-picture. The camera frames 550–950 mm of table, so card size follows from the window: about 100–165 px full screen at 1080p, 35–100 px in a picture-in-picture.
+- **Codec**: boards are grouped into clips of one resolution (1080p, 720p or 480p) and bitrate (2.5–8 Mbps), held for 10 frames with sensor noise, and pushed through libx264, keeping the last frame of each board. Runs are bit-exact for a seed.
+- **Output**: `frames/*.png` (lossless), `ids/*.png` (16-bit: card id + 1 where that card is uppermost, 65535 under a hand, die or counter, 65534 on a broadcast graphic), `annotations.jsonl` and `manifest.json`. Each card has its zone, controller, exhausted state, pile, `quad` (TL, TR, BR, BL of the card as printed, in frame pixels, even where it is covered or cut off), `visible` (the uncovered share of the card), `visible_box` and, when face up, its `printing_id`. Face-down cards never carry an identity.
+- **Mats** are procedural (dark and muted, with a faint printed emblem). `--mats` takes a folder of your own mat images; official mats are Riot IP and are never bundled.
+
+Frames made from Riot's art are private, like the art itself (D-015).
 
 ## Demo (no data needed)
 
