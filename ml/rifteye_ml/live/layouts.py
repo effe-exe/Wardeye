@@ -21,6 +21,10 @@ class Layout:
     split: str = "vertical"                   # vertical: players left and right; horizontal: top and bottom
     mask: str = "notmat"                      # notmat: anything unlike the mat; border: dark card borders (red mat)
     mat_tol: int = 45
+    # The mat's colour, and the least share of the table window it fills on the table camera (measured on
+    # the M0 frames): how a run tells the table camera from the other shots before it knows the overlay.
+    mat: tuple[int, int, int] | None = None
+    mat_share: float = 0.6
 
     def card_px(self, frame_h: int) -> float:
         return self.card_long_1080 * frame_h / 1080
@@ -43,9 +47,11 @@ class Layout:
 LAYOUTS = {
     # Riot's official English stream of the US Regional Qualifiers (Atomic): the table camera in the
     # middle 62%, a player panel on each side, the navy mat; each player plays on their panel's side.
-    "la-rq": Layout("la-rq", "Riftbound Regional Qualifier, official stream", (0.19, 0.06, 0.81, 1.0), 155),
+    "la-rq": Layout("la-rq", "Riftbound Regional Qualifier, official stream", (0.19, 0.06, 0.81, 1.0), 155,
+                    mat=(34, 44, 55), mat_share=0.62),
     # PlusRB's restream of the Barcelona Regional, the same broadcast package.
-    "plusrb": Layout("plusrb", "PlusRB restream", (0.19, 0.06, 0.81, 1.0), 140),
+    "plusrb": Layout("plusrb", "PlusRB restream", (0.19, 0.06, 0.81, 1.0), 140, mat=(43, 54, 61), mat_share=0.55),
     # The Shenyang broadcast (M0 reference): full-screen overhead camera, red mat, HUD bands.
-    "shenyang": Layout("shenyang", "Shenyang Regional", (0.17, 0.09, 0.86, 0.884), 131, mask="border"),
+    "shenyang": Layout("shenyang", "Shenyang Regional", (0.17, 0.09, 0.86, 0.884), 131, mask="border",
+                       mat=(151, 0, 54), mat_share=0.35),
 }

@@ -85,7 +85,7 @@
     var latencyMs = Math.round((state.latency_s || 0) * 1000);
     statsEl.textContent = fps.toFixed(1) + " fps · " + latencyMs + " ms";
 
-    var showBanner = (state.status === "error" || state.status === "ended") && !!state.message;
+    var showBanner = (state.status === "error" || state.status === "ended" || state.status === "away") && !!state.message;
     bannerEl.hidden = !showBanner;
     bannerEl.textContent = showBanner ? state.message : "";
     bannerEl.className = state.status === "error" ? "error" : "";

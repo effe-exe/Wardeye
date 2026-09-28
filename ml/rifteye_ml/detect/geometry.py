@@ -52,8 +52,8 @@ def _clip(subject: list, clip: np.ndarray) -> list:
     return out
 
 
-def quad_iou(a, b) -> float:
-    """Intersection over union of two convex quads (any corner order that goes round the quad)."""
+def overlap_area(a, b) -> float:
+    """The area two convex quads share (any corner order that goes round the quad)."""
     a = np.asarray(a, np.float64).reshape(-1, 2)
     b = np.asarray(b, np.float64).reshape(-1, 2)
     if _signed(a) < 0:
@@ -64,10 +64,15 @@ def quad_iou(a, b) -> float:
             or a[:, 1].max() <= b[:, 1].min() or b[:, 1].max() <= a[:, 1].min()):
         return 0.0
     inter = _clip([tuple(p) for p in a], b)
-    if len(inter) < 3:
+    return polygon_area(np.array(inter)) if len(inter) >= 3 else 0.0
+
+
+def quad_iou(a, b) -> float:
+    """Intersection over union of two convex quads (any corner order that goes round the quad)."""
+    ia = overlap_area(a, b)
+    if ia <= 0:
         return 0.0
-    ia = polygon_area(np.array(inter))
-    union = polygon_area(a) + polygon_area(b) - ia
+    union = polygon_area(np.asarray(a, np.float64).reshape(-1, 2)) + polygon_area(np.asarray(b, np.float64).reshape(-1, 2)) - ia
     return ia / union if union > 0 else 0.0
 
 

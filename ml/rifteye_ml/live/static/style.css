@@ -33,6 +33,7 @@ h3 { font-size: 11px; margin: 14px 0 6px; color: var(--muted); text-transform: u
 .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; border: 1px solid var(--line); color: var(--muted); }
 .pill-live { color: #0e1712; background: var(--good); border-color: var(--good); }
 .pill-error { color: #fff; background: var(--bad); border-color: var(--bad); }
+.pill-away { color: #0e1712; background: var(--warn); border-color: var(--warn); }
 
 #banner { margin: 10px 16px 0; background: #3a1f24; border: 1px solid #7a3340; padding: 10px; border-radius: 6px; }
 

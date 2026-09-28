@@ -8,7 +8,8 @@ from rifteye_ml.live.pipeline import Recognizer, Track, card_crop, quad
 from rifteye_ml.matcrops import CardBox
 
 MAT = (30, 40, 55)
-LAYOUT = Layout("test", "a test table", (0.0, 0.0, 1.0, 1.0), card_long_1080=156)  # 78 px cards in a 540 px frame
+LAYOUT = Layout("test", "a test table", (0.0, 0.0, 1.0, 1.0), card_long_1080=156,  # 78 px cards in a 540 px frame
+                mat=MAT, mat_share=0.5)
 
 
 def _setup(n=6, **kw):
@@ -203,3 +204,49 @@ def test_boxes_are_eased_while_a_card_barely_moves():
     old = CardBox((100.0, 100.0), 78.0, 56.0, 90.0, 1.0)
     assert smooth(old, CardBox((104.0, 100.0), 78.0, 56.0, 92.0, 1.0)).centre[0] == pytest.approx(101.4)
     assert smooth(old, CardBox((150.0, 100.0), 78.0, 56.0, 90.0, 1.0)).centre == (150.0, 100.0)  # moved: followed
+
+
+def test_off_the_table_camera_nothing_is_looked_at_and_the_board_waits():
+    rows, art, rec = _setup(gate=False)
+    a = (art[0], 100, 100)
+    looked = []
+    player_cam = np.asarray(Image.new("RGB", (960, 540), (200, 30, 120)))
+    events, away = [], []
+    for k in range(int(100 * 5)):
+        t = k / 5
+        rec.finder = lambda t_, im: looked.append(t_) or _boxes([a])
+        state, ev = rec.step(t, player_cam if 5 <= t < 95 else _frame([a]))  # 90 s on the players
+        events += ev
+        if 5 <= t < 95:
+            away.append(state["status"] == "away" and all(tr["hidden"] for tr in state["tracks"]))
+    assert all(away) and not [lt for lt in looked if 5 <= lt < 95]  # no card looked at while away (D-005)
+    named = [tr for tr in state["tracks"] if tr["state"] == "named"]
+    assert [tr["id"] for tr in named] == ["t0"] and state["status"] == "live" and events == []
+
+
+def test_a_view_framed_anew_keeps_every_id_by_name():
+    rows, art, rec = _setup(gate=False)
+    spots = [(100, 100), (250, 100), (400, 100), (100, 300), (250, 300), (400, 300)]
+
+    def plan(t):
+        dx, dy = (120, 60) if t >= 8 else (0, 0)  # the table camera pans at 8 s
+        cards = [(art[i], x + dx, y + dy) for i, (x, y) in enumerate(spots)]
+        return cards, cards
+
+    state, events = _run(rec, plan, 16)
+    named = {tr["name"]: tr["id"] for tr in state["tracks"] if tr["state"] == "named"}
+    assert named == {rows[i]["name"]: f"t{i}" for i in range(6)}  # every card keeps the id it had before
+    assert all(not tr["hidden"] for tr in state["tracks"]) and events == []
+
+
+def test_a_box_across_two_cards_side_by_side_is_dropped():
+    from rifteye_ml.live.pipeline import detector_boxes
+
+    def card(x, score, visible):
+        return {"cls": "card", "score": score, "visible": visible, "quad": [x, 100, x + 56, 100, x + 56, 178, x, 178]}
+
+    left, right = card(100, 0.95, [1, 1, 1, 1]), card(158, 0.93, [1, 1, 1, 1])
+    across = card(129, 0.6, [0.9, 0.9, 0.9, 0.9])  # half on each, claiming to be whole
+    under = card(129, 0.6, [0.1, 0.9, 0.9, 0.1])   # the same box with covered corners: a card under the two
+    assert len(detector_boxes([left, right, across])) == 2
+    assert len(detector_boxes([left, right, under])) == 3

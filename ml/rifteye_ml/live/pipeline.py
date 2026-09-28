@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import math
 import time
+from itertools import combinations
 from dataclasses import dataclass, field
 from typing import Sequence
 
@@ -27,6 +28,7 @@ import numpy as np
 from PIL import Image
 
 from ..changegate import ChangeGate, GateSettings
+from ..detect.geometry import overlap_area
 from ..matcrops import FACE_DOWN_DETAIL, CardBox, detail, find_cards, mat_colour, notmat_mask
 from ..retrieval import Pyramid, ROTATIONS
 from .layouts import Layout
@@ -115,8 +117,122 @@ def detector_boxes(dets: Sequence[dict], min_score: float = 0.4) -> list[CardBox
         long_e = e[0] if a >= b else e[1]
         box = CardBox(tuple(q.mean(axis=0)), max(a, b), min(a, b), math.degrees(math.atan2(long_e[1], long_e[0])) % 180, 1.0)
         box.back = d["cls"] == "card_back"  # type: ignore[attr-defined]
+        box.score = d["score"]  # type: ignore[attr-defined]
+        box.vis = float(np.min(d.get("visible") or [1.0]))  # type: ignore[attr-defined]  # its least visible corner
         out.append(box)
-    return out
+    return drop_straddlers(out)
+
+
+def drop_straddlers(boxes: list[CardBox]) -> list[CardBox]:
+    """The detector's slips across two neighbouring cards. Such a box lies almost wholly on two cards that
+    lie side by side, scores below both, and still claims its four corners visible. A card under a stack
+    has covered corners, and the cards of a column overlap each other, so neither is dropped."""
+    quads = [np.array(quad(b)) for b in boxes]
+    areas = [b.long_px * b.short_px for b in boxes]
+    keep = []
+    for i, b in enumerate(boxes):
+        score = getattr(b, "score", 1.0)
+        if getattr(b, "vis", 0.0) >= 0.5:
+            near = [j for j in range(len(boxes)) if j != i and getattr(boxes[j], "score", 1.0) > score
+                    and math.dist(boxes[j].centre, b.centre) < b.long_px]
+            share = {j: overlap_area(quads[i], quads[j]) / areas[i] for j in near}
+            on = [j for j in near if share[j] >= 0.25]
+            if any(share[j] + share[k] >= 0.75 and overlap_area(quads[j], quads[k]) <= 0.1 * min(areas[j], areas[k])
+                   for j, k in combinations(on, 2)):
+                continue
+        keep.append(b)
+    return keep
+
+
+def similarity(src: np.ndarray, dst: np.ndarray) -> tuple[float, np.ndarray, np.ndarray]:
+    """The scale, rotation and shift that take the points `src` onto `dst`, least squares (Umeyama)."""
+    ms, md = src.mean(axis=0), dst.mean(axis=0)
+    a, b = src - ms, dst - md
+    u, sv, vt = np.linalg.svd(b.T @ a / len(src))
+    d = np.diag([1.0, np.sign(np.linalg.det(u @ vt)) or 1.0])
+    rot = u @ d @ vt
+    scale = float((sv * np.diag(d)).sum() / max(1e-9, (a ** 2).sum() / len(src)))
+    return scale, rot, md - scale * rot @ ms
+
+
+class Scene:
+    """Whether a frame shows the table camera, on any broadcast. The other shots (player cams, a wide shot
+    of the stage, a title card) show players' hands and the cards they hold: hidden information, never
+    processed (D-005), and nothing on the board changes while they are on.
+
+    It learns the table camera from the footage itself: the parts of a 96 x 54 thumbnail that stay put
+    while the board changes (the broadcast's overlay, the mat's edges and print) and their colours. A
+    frame is the table camera when those parts match; a cut replaces them, play does not (the M0 final:
+    table frames score 0.5 to 0.8, other shots about 0). To start, a frame is taken as the table camera
+    when the mat fills the table window as it does there (a layout that knows its mat colour) or when
+    at least five cards lie in it; if the view stays unrecognised but looks like a table again for a few
+    seconds (the camera itself moved), it learns again. The thumbnail is too coarse to show any card."""
+
+    def __init__(self, layout: Layout, corr: float = 0.45, learn_every: float = 2.0, relearn_after: float = 20.0):
+        self.layout, self.corr, self.learn_every, self.relearn_after = layout, corr, learn_every, relearn_after
+        self.n = 0
+        self.mean: np.ndarray | None = None
+        self.var: np.ndarray | None = None
+        self.last_learn = -1e9
+        self.away_since: float | None = None
+        self.looks = 0  # table-like frames in a row while away (checked every learn_every)
+        self.last_look = -1e9
+
+    @staticmethod
+    def small(image: np.ndarray) -> np.ndarray:
+        return np.asarray(Image.fromarray(image).resize((96, 54), Image.BOX), np.float32)
+
+    def table_like(self, image: np.ndarray, count) -> bool:
+        if self.layout.mat is not None:
+            h, w = image.shape[:2]
+            x0, y0, x1, y1 = self.layout.box(w, h)
+            a = np.asarray(Image.fromarray(image[y0:y1, x0:x1]).resize((160, 120), Image.BOX), np.float32)
+            mat = np.asarray(self.layout.mat, np.float32)
+            return float((np.abs(a - mat).max(axis=2) < self.layout.mat_tol).mean()) >= self.layout.mat_share
+        return count() >= 5
+
+    def score(self, x: np.ndarray) -> float | None:
+        """How well the frame's still parts match the table camera's, or None when those parts have no
+        pattern to match (a plain mat and no overlay): then the mat share or the cards decide."""
+        std = np.sqrt(self.var).max(axis=2)
+        still = std < 12 if (std < 12).mean() >= 0.1 else std <= np.quantile(std, 0.3)
+        a, b = x[still].ravel(), self.mean[still].ravel()
+        if b.std() < 8:
+            return None
+        a, b = a - a.mean(), b - b.mean()
+        return float((a * b).sum() / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-6))
+
+    def learn(self, t: float, x: np.ndarray) -> None:
+        if t - self.last_learn < self.learn_every:
+            return
+        self.last_learn, self.n = t, self.n + 1
+        if self.mean is None:
+            self.mean, self.var = x.copy(), np.full_like(x, 400.0)  # unsure at first: nothing counts as still
+            return
+        k = max(1.0 / self.n, 0.02)  # the mean of the first fifty, then a slow drift (light, overlay updates)
+        d = x - self.mean
+        self.mean += k * d
+        self.var = (1 - k) * (self.var + k * d * d)
+
+    def on_table(self, t: float, image: np.ndarray, count=lambda: 0) -> bool:
+        x = self.small(image)
+        sc = self.score(x) if self.n >= 5 else None
+        if sc is None:
+            ok = self.table_like(image, count)
+        else:
+            ok = sc >= self.corr
+            if not ok and self.away_since is not None and t - self.away_since > self.relearn_after \
+                    and t - self.last_look >= self.learn_every:
+                self.last_look = t
+                self.looks = self.looks + 1 if self.table_like(image, count) else 0
+                if self.looks >= 3:  # the table again, but not as it was learnt: the camera moved
+                    self.n, self.mean, self.var, self.looks, ok = 0, None, None, 0, True
+        if ok:
+            self.learn(t, x)
+            self.away_since = None
+        elif self.away_since is None:
+            self.away_since = t
+        return ok
 
 
 class Recognizer:
@@ -156,6 +272,17 @@ class Recognizer:
         # ponytail: the first confident legend wins for the whole run; reset per game once games are detected
         self.legends: dict[str, dict] = {}
         self.boxes_now: dict[str, tuple[float, float, float, float]] = {}  # track id -> its box's extent, this frame
+        # Camera cuts: frames off the table camera are skipped and the board's clocks stop (`pause`). After a
+        # cut the view may be framed differently, so tracks found again by name re-anchor the rest (`cut`).
+        self.scene = Scene(layout)
+        self.gate_settings = GateSettings(fps=fps, card_long_frac=layout.card_long_1080 / 1080) if gate else None
+        self.last_t: float | None = None
+        self.away = False
+        self.cut_at: float | None = None
+        self.anchor_base: dict[str, CardBox] = {}   # track id -> its box before the cut
+        self.anchor_pairs: list[tuple[tuple[float, float], tuple[float, float]]] = []  # (before, after) centres
+        self.prev_seen: set[str] = set()     # confirmed tracks the last frame matched
+        self.before_away: set[str] = set()   # ... the last frame before a cut away
 
     # --- finding ---------------------------------------------------------------
 
@@ -371,14 +498,85 @@ class Recognizer:
 
     # --- one frame -------------------------------------------------------------
 
+    def pause(self, dt: float) -> None:
+        """Off the table camera: the board's clocks stop, so nothing is forgotten or re-read for the time away."""
+        for tr in self.tracks.values():
+            tr.last += dt
+            tr.last_read += dt
+        for gh in self.ghosts:
+            gh["t"] += dt
+        self.plays = [(pt + dt, c, x, y) for pt, c, x, y in self.plays]
+        self.pending, self.flashes = [], []
+
+    def cut(self, t: float) -> None:
+        """The view is framed anew: cards found again by name re-anchor the rest (`reanchor`), the gate starts
+        over, and the cards first seen now were on the table already, not played."""
+        self.cut_at = t
+        self.anchor_base = {k: tr.box for k, tr in self.tracks.items()}
+        self.anchor_pairs = []
+        if self.gate_settings is not None:
+            self.gate = ChangeGate(self.gate_settings)
+
+    def reanchor(self) -> None:
+        """Move the tracks not seen since the cut as the view moved (scale, turn and shift fitted to the cards
+        found again by name); a new track lying where a moved one now is, is that card and takes its id."""
+        if len(self.anchor_pairs) < 2 or self.cut_at is None:
+            return
+        scale, rot, shift = similarity(np.array([a for a, _ in self.anchor_pairs]), np.array([b for _, b in self.anchor_pairs]))
+        if not 0.5 <= scale <= 2.0:
+            return
+        turn = math.degrees(math.atan2(rot[1, 0], rot[0, 0]))
+        old = [o for o in self.tracks.values() if o.first < self.cut_at and o.last < self.cut_at and o.id in self.anchor_base]
+        for o in old:
+            b = self.anchor_base[o.id]
+            c = scale * rot @ np.asarray(b.centre) + shift
+            o.box = CardBox((float(c[0]), float(c[1])), b.long_px * scale, b.short_px * scale, (b.angle_deg + turn) % 180, b.fill)
+        for n in [n for n in self.tracks.values() if n.first >= self.cut_at]:
+            near = [o for o in old if math.dist(o.box.centre, n.box.centre) < 0.35 * n.box.long_px
+                    and abs(o.box.long_px / n.box.long_px - 1) < 0.25 and (o.named is None or n.named in (None, o.named))]
+            if not near:
+                continue
+            o = min(near, key=lambda o: math.dist(o.box.centre, n.box.centre))
+            o.box, o.last, o.hits, o.side = n.box, n.last, o.hits + n.hits, n.side
+            if o.named is None and n.reads:
+                o.reads, o.prob, o.best_row, o.down, o.named, o.kind = n.reads, n.prob, n.best_row, n.down, n.named, n.kind
+            del self.tracks[n.id]
+            old.remove(o)
+
     def step(self, t: float, image: np.ndarray, budget: int = 10) -> tuple[dict, list[dict]]:
         tic = time.perf_counter()
         if self.t0 is None:
             self.t0 = t
         h, w = image.shape[:2]
-        boxes = self.find(t, image)
+        dt = t - self.last_t if self.last_t is not None else 0.0
+        self.last_t = t
+        boxes: list[CardBox] | None = None
+
+        def count() -> int:  # the scene asks only while it learns a broadcast with no known mat colour
+            nonlocal boxes
+            boxes = self.find(t, image)
+            return len(boxes)
+
+        if not self.scene.on_table(t, image, count):
+            if not self.away:
+                self.away, self.before_away = True, set(self.prev_seen)
+            self.pause(dt)
+            state = self.state(t, w, h)
+            for tr in state["tracks"]:
+                tr["hidden"] = True  # the video is not the table: list the board, draw nothing on it
+            state["status"], state["message"] = "away", "the table camera is off; nothing is looked at until it is back"
+            return state, []
+        back, self.away = self.away, False
+        if boxes is None:
+            boxes = self.find(t, image)
         tf = time.perf_counter()
         seen = self.match(t, boxes, w, h)
+        before = self.before_away if back else self.prev_seen
+        if len(before) >= 6 and len(before - {tr.id for tr in seen}) >= 0.7 * len(before) and len(boxes) >= 3:
+            self.cut(t)  # most of the board moved at once: the view is framed anew
+        elif back and self.gate_settings is not None:
+            self.gate = ChangeGate(self.gate_settings)  # the same view again: only the gate starts over
+        self.prev_seen = {tr.id for tr in seen if tr.hits >= 2}
         self.boxes_now = {k: aabb(tr.box) for k, tr in self.tracks.items()}
         frame = Image.fromarray(image)
         # New and uncertain cards first, then the oldest re-checks; a budget keeps each frame in time.
@@ -433,11 +631,22 @@ class Recognizer:
                 changed = tr.named is not None
                 tr.named = g[0]["card_id"]
                 tr.kind = (self.row_of.get(g[0]["printing_id"]) or {}).get("type", "")
+                after_cut = self.cut_at is not None and not changed and 0 <= tr.first - self.cut_at < 30
+                if after_cut:  # a card on the table before the cut, found again by name in the new view
+                    olds = [o for o in self.tracks.values() if o is not tr and o.named == tr.named
+                            and o.first < self.cut_at and o.last < self.cut_at]
+                    if len(olds) == 1:
+                        o = olds[0]
+                        self.anchor_pairs.append((self.anchor_base.get(o.id, o.box).centre, tr.box.centre))
+                        o.box, o.last, o.hits, o.side = tr.box, tr.last, o.hits + tr.hits, tr.side
+                        del self.tracks[tr.id]  # it keeps its first id
+                        self.reanchor()
+                        continue
                 if tr.kind in STATIC:
                     tr.pinned = True  # set up before the game: nothing to announce, and it stays put
                 if tr.kind in QUIET + STATIC:
                     continue
-                if not changed and (was := self.vanished(t, tr)) is not None:
+                if not changed and not after_cut and (was := self.vanished(t, tr)) is not None:
                     far = math.dist(was.box.centre, tr.box.centre) > 0.6 * tr.box.long_px
                     was.box, was.last, was.hits, was.side = tr.box, tr.last, was.hits + tr.hits, tr.side
                     del self.tracks[tr.id]  # the same card: it keeps its first id and what was read of it
@@ -451,6 +660,8 @@ class Recognizer:
                     continue
                 if tr.first - (self.t0 or 0.0) < self.settle_s and not changed:
                     continue  # on the table when we tuned in, not played now
+                if after_cut and tr.first - self.cut_at < self.settle_s + 2:
+                    continue  # on the table when the view changed
                 if changed:
                     events.append(self.event(t, "changed", f"{g[0]['name']} (read again)", tr, g[0]["printing_id"]))
                 elif not self.recently_played(t, tr.named, *tr.box.centre, skip=tr.id):
