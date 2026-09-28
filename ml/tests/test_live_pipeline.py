@@ -250,3 +250,23 @@ def test_a_box_across_two_cards_side_by_side_is_dropped():
     under = card(129, 0.6, [0.1, 0.9, 0.9, 0.1])   # the same box with covered corners: a card under the two
     assert len(detector_boxes([left, right, across])) == 2
     assert len(detector_boxes([left, right, under])) == 3
+
+
+def test_a_card_in_a_case_outlined_three_times_is_one_card():
+    from rifteye_ml.live.pipeline import detector_boxes
+
+    def outline(pad, score):  # the card, and a magnetic case's inner and outer edge around it
+        x0, y0, x1, y1 = 100 - pad, 100 - pad, 156 + pad, 178 + pad
+        return {"cls": "card", "score": score, "visible": [1, 1, 1, 1], "quad": [x0, y0, x1, y0, x1, y1, x0, y1]}
+
+    boxes = detector_boxes([outline(8, 0.9), outline(0, 0.7), outline(4, 0.8)])
+    assert len(boxes) == 1 and boxes[0].long_px == pytest.approx(78)  # the card itself stays
+
+
+def test_a_legend_read_the_same_way_four_times_is_named_with_less_certainty():
+    rows, art, rec = _setup()
+    rows[1]["type"] = "Legend"
+    box = CardBox((100.0, 100.0), 78.0, 56.0, 90.0, 1.0)
+    legend = Track("a", box, 0.0, 0.0, reads=4, prob={rows[1]["card_id"]: 1.4, rows[2]["card_id"]: 1.2})  # 0.35 vs 0.30
+    unit = Track("b", box, 0.0, 0.0, reads=4, prob={rows[2]["card_id"]: 1.4, rows[3]["card_id"]: 1.2})
+    assert rec.label(legend)[0] == "named" and rec.label(unit)[0] == "unsure"

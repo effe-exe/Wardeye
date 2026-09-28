@@ -422,9 +422,11 @@
 
   function formatTime(t) {
     var s = Math.max(0, Math.floor(t || 0));
-    var m = Math.floor(s / 60);
+    var h = Math.floor(s / 3600);
+    var m = Math.floor((s % 3600) / 60);
     var r = s % 60;
-    return m + ":" + (r < 10 ? "0" : "") + r;
+    var ms = (r < 10 ? "0" : "") + r;
+    return h > 0 ? h + ":" + (m < 10 ? "0" : "") + m + ":" + ms : m + ":" + ms; // a VOD's clock: 14:59:55
   }
 
   connect();

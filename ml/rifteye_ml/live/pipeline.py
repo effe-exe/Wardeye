@@ -120,7 +120,19 @@ def detector_boxes(dets: Sequence[dict], min_score: float = 0.4) -> list[CardBox
         box.score = d["score"]  # type: ignore[attr-defined]
         box.vis = float(np.min(d.get("visible") or [1.0]))  # type: ignore[attr-defined]  # its least visible corner
         out.append(box)
-    return drop_straddlers(out)
+    return drop_straddlers(drop_nested(out))
+
+
+def drop_nested(boxes: list[CardBox]) -> list[CardBox]:
+    """One card, one box. The detector can outline a card in a magnetic case or toploader two or three
+    times (the card, the case's inner and outer edge): boxes on nearly the same centre, turned the same
+    way and of nearly the same size are one card, and the smallest, the card itself, stays."""
+    keep: list[CardBox] = []
+    for b in sorted(boxes, key=lambda b: b.long_px * b.short_px):
+        if not any(math.dist(b.centre, k.centre) <= 0.15 * b.long_px and abs((b.angle_deg - k.angle_deg + 90) % 180 - 90) <= 12
+                   and b.long_px / k.long_px <= 1.43 for k in keep):
+            keep.append(b)
+    return keep
 
 
 def drop_straddlers(boxes: list[CardBox]) -> list[CardBox]:
@@ -604,6 +616,8 @@ class Recognizer:
             guesses.append({"printing_id": r["printing_id"], "card_id": c, "name": r["name"], "p": round(p, 3)})
         p0 = top[0][1]
         named = p0 >= self.sure_p or (p0 >= self.min_p and tr.reads >= 2)
+        if not named and tr.reads >= 4 and p0 >= 0.3 and self.rows[self.first_row[top[0][0]]].get("type") == "Legend":
+            named = True  # a legend, read the same way four times: one a player, and its frame is like no other card's
         return ("named" if named else "unsure"), p0, guesses
 
     def announce(self, t: float) -> list[dict]:
