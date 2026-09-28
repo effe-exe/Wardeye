@@ -104,10 +104,31 @@ def jpeg(image: np.ndarray, width: int = 1280, quality: int = 78) -> bytes:
     return buf.getvalue()
 
 
+def find_layout(frames, det, every: float = 1.0, give_up: float = 120.0):
+    """`--layout auto`: a layout from the first table shots (`autolayout.py`), one look a second over the
+    last five; SystemExit when none shows a table in the first two minutes."""
+    from .autolayout import auto_layout
+
+    detect = (lambda f, box, px: det.detect(Image.fromarray(f), box, px)) if det is not None else None
+    seen, last_t, t0 = [], None, None
+    for fr in frames:
+        t0 = fr.t if t0 is None else t0
+        if last_t is not None and fr.t - last_t < every:
+            continue
+        last_t = fr.t
+        seen = (seen + [fr.image])[-5:]
+        if len(seen) == 5 and (layout := auto_layout(seen, detect)) is not None:
+            return layout
+        if fr.t - t0 > give_up:
+            break
+    raise SystemExit("no table found in the first two minutes: name the broadcast's layout with --layout")
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m rifteye_ml.live", description=__doc__.split("\n\n")[0])
     ap.add_argument("--source", required=True, help="a video file, a Twitch channel or VOD URL, a YouTube URL, or an HLS URL")
-    ap.add_argument("--layout", default="la-rq", choices=sorted(LAYOUTS), help="the broadcast's layout")
+    ap.add_argument("--layout", default="la-rq", choices=sorted(LAYOUTS) + ["auto"],
+                    help="the broadcast's layout, or auto: found from its first table shots")
     ap.add_argument("--start", default="0", help="where to start in a recording or VOD: seconds or HH:MM:SS")
     ap.add_argument("--fps", type=float, default=5.0, help="frames looked at per second")
     ap.add_argument("--fast", action="store_true", help="a recording as fast as it decodes, not at 1x (tests)")
@@ -127,53 +148,64 @@ def main(argv: list[str] | None = None) -> int:
     a = ap.parse_args(argv)
 
     from ..encoders import get_encoder
-    from .pipeline import Recognizer
+    from .pipeline import Recognizer, detector_boxes
     from .server import LiveServer
     from .source import open_source
 
-    layout = LAYOUTS[a.layout]
     catalog = ensure_catalogue(a.catalog, a.cache)
     rows = [r for r in cat.read_catalog(catalog) if cat.cache_path(a.cache, r["image_url"]).exists()]
     if not rows:
         raise SystemExit(f"no card art cached in {a.cache} for {catalog}")
     by_pid = {r["printing_id"]: r for r in rows}
     enc = get_encoder(a.encoder)
-    px = layout.card_px(1080)
-    scales = sorted({int(round(px * f / 10) * 10) for f in (0.8, 0.9, 1.0)})
-    pyr = gallery(enc, rows, a.cache, a.embed_cache, scales)
-    finder = None
+    det = None
     if a.detector:
         os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")  # a Mac GPU runs what it can, the CPU the rest
         from ..detect.model import Detector
-        from .pipeline import detector_boxes
 
         det = Detector(a.detector, a.device or best_device())
-
-        def finder(t: float, image: np.ndarray) -> list:
-            h, w = image.shape[:2]
-            return detector_boxes(det.detect(Image.fromarray(image), layout.box(w, h), layout.card_px(h)),
-                                  min_score=a.det_score)
-    rec = Recognizer(layout, rows, enc, pyr, title=a.title, fps=a.fps, finder=finder)
 
     def art(pid: str) -> Path | None:
         r = by_pid.get(pid)
         return cat.cache_path(a.cache, r["image_url"]) if r else None
 
-    server = LiveServer(a.host, a.port, art=art, title=a.title or layout.title)
+    title = a.title or (LAYOUTS[a.layout].title if a.layout in LAYOUTS else "RiftEye live")
+    server = LiveServer(a.host, a.port, art=art, title=title)
     url = server.start()
-    print(f"RiftEye live: {url}  ({len(rows)} printings, {a.encoder}, layout {layout.name})", flush=True)
-    server.publish_state({"t": 0, "status": "starting", "message": f"opening {a.source}", "title": rec.title,
-                          "frame": {"width": 1920, "height": 1080}, "fps": {"source": a.fps, "processed": 0},
-                          "latency_s": 0, "players": [], "tracks": []})
+    print(f"RiftEye live: {url}  ({len(rows)} printings, {a.encoder}, layout {a.layout})", flush=True)
+
+    def status(kind: str, message: str, size: tuple[int, int] = (1920, 1080)) -> None:
+        server.publish_state({"t": 0, "status": kind, "message": message, "title": title,
+                              "frame": {"width": size[0], "height": size[1]}, "fps": {"source": a.fps, "processed": 0},
+                              "latency_s": 0, "players": [], "tracks": []})
+
+    status("starting", f"opening {a.source}")
     if not a.no_browser:
         threading.Timer(0.5, webbrowser.open, args=(url,)).start()
 
-    rate, last, status, message = 0.0, None, "ended", "the stream ended"
+    rate, last, end_status, message = 0.0, None, "ended", "the stream ended"
     size = (1920, 1080)
+    rec = None
     try:
         with open_source(a.source, fps=a.fps, realtime=not a.fast, start=seconds(a.start), height=1080) as src:
             print(f"{src.kind}: {src.width}x{src.height} at {src.fps:g} fps", flush=True)
-            for fr in src:
+            frames = iter(src)
+            if a.layout == "auto":
+                status("starting", "finding the table and the size of a card")
+                layout = find_layout(frames, det)
+                print(f"layout found: table {layout.table}, cards {layout.card_long_1080:g} px long at 1080p", flush=True)
+            else:
+                layout = LAYOUTS[a.layout]
+            px = layout.card_px(1080)
+            pyr = gallery(enc, rows, a.cache, a.embed_cache, sorted({int(round(px * f / 10) * 10) for f in (0.8, 0.9, 1.0)}))
+            finder = None
+            if det is not None:
+                def finder(t: float, image: np.ndarray) -> list:
+                    h, w = image.shape[:2]
+                    return detector_boxes(det.detect(Image.fromarray(image), layout.box(w, h), layout.card_px(h)),
+                                          min_score=a.det_score)
+            rec = Recognizer(layout, rows, enc, pyr, title=title, fps=a.fps, finder=finder)
+            for fr in frames:
                 state, events = rec.step(fr.t, fr.image)
                 size = (fr.image.shape[1], fr.image.shape[0])
                 now = time.monotonic()
@@ -192,15 +224,14 @@ def main(argv: list[str] | None = None) -> int:
                     break
     except KeyboardInterrupt:
         message = "stopped"
-    except Exception as e:  # noqa: BLE001 - shown on the page, then raised
-        server.publish_state({"t": 0, "status": "error", "message": str(e), "title": rec.title,
-                              "frame": {"width": size[0], "height": size[1]}, "fps": {"source": a.fps, "processed": 0},
-                              "latency_s": 0, "players": [], "tracks": []})
+    except (Exception, SystemExit) as e:  # noqa: BLE001 - shown on the page, then raised
+        status("error", str(e), size)
         time.sleep(1)
         server.stop()
         raise
-    t_end = max((tr.last for tr in rec.tracks.values()), default=0.0)
-    server.publish_state({**rec.state(t_end, *size), "status": status, "message": message})
+    if rec is not None:
+        t_end = max((tr.last for tr in rec.tracks.values()), default=0.0)
+        server.publish_state({**rec.state(t_end, *size), "status": end_status, "message": message})
     stay = not a.max_seconds and message != "stopped"  # Ctrl+C quits; a test run (--max-seconds) ends here
     print(message + (" - the page stays up; Ctrl+C to quit" if stay else ""), flush=True)
     try:
