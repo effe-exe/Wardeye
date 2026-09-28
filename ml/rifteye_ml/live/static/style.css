@@ -50,6 +50,7 @@ main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap:
 #overlay .box-unsure { stroke: var(--warn); stroke-dasharray: 7 5; }
 #overlay .box-facedown { stroke: #7f8794; stroke-dasharray: 1.5 5; stroke-linecap: round; }
 #overlay .box-new { stroke: #5b616c; stroke-width: 1.5; }
+#overlay .box-rune { stroke: #5b616c; stroke-width: 1; stroke-dasharray: none; cursor: default; }
 #overlay .box.hot { stroke: #fff; stroke-width: 3.5; fill: rgba(255, 255, 255, 0.1); }
 #overlay.hide-boxes .box:not(.hot) { stroke: transparent; }
 #overlay .box-label { font: 700 30px/1 system-ui, sans-serif; fill: #fff; paint-order: stroke; stroke: rgba(8, 9, 12, 0.9); stroke-width: 6px; stroke-linejoin: round; pointer-events: none; }

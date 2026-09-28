@@ -117,6 +117,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--encoder", default=ENCODER)
     ap.add_argument("--detector", type=Path, help="trained detector weights (detector-v0.pth); default: the bootstrap finder")
     ap.add_argument("--device", help="for the detector: cuda, mps or cpu (default: the best there is)")
+    ap.add_argument("--det-score", type=float, default=0.4,
+                    help="the detector's confidence below which a box is dropped (higher: fewer stray boxes)")
     ap.add_argument("--title", default="")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8765)
@@ -149,7 +151,8 @@ def main(argv: list[str] | None = None) -> int:
 
         def finder(t: float, image: np.ndarray) -> list:
             h, w = image.shape[:2]
-            return detector_boxes(det.detect(Image.fromarray(image), layout.box(w, h), layout.card_px(h)))
+            return detector_boxes(det.detect(Image.fromarray(image), layout.box(w, h), layout.card_px(h)),
+                                  min_score=a.det_score)
     rec = Recognizer(layout, rows, enc, pyr, title=a.title, fps=a.fps, finder=finder)
 
     def art(pid: str) -> Path | None:

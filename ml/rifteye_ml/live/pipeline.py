@@ -32,6 +32,11 @@ from ..retrieval import Pyramid, ROTATIONS
 from .layouts import Layout
 
 TEMPERATURE = 0.0212  # fitted on the M0 real labels (reviewpack identity)
+KEEP_S = 60.0   # a named card out of sight this long has gone: not a hand over it, dice, a card on top
+MOVE_S = 10.0   # a named card that vanished this recently and is named again elsewhere has moved
+STATIC = ("Legend", "Battlefield")  # set up before the game and never moved: pinned where they are named
+QUIET = ("Rune",)                   # tracked, but never labelled, listed or announced: not worth watching
+KINDS = {"Legend": "legend", "Battlefield": "battlefield", "Rune": "rune"}
 
 
 @dataclass
@@ -48,6 +53,8 @@ class Track:
     last_read: float = -1e9
     named: str | None = None                         # card_id once the track has been announced
     side: str = ""
+    kind: str = ""                                   # the named card's type (Unit, Rune, Legend, ...)
+    pinned: bool = False                             # a legend or battlefield: kept where it is all game
 
     def top(self) -> list[tuple[str, float]]:
         if not self.reads:
@@ -63,6 +70,24 @@ def quad(box: CardBox) -> list[list[float]]:
     vx, vy = -math.sin(a) * box.short_px / 2, math.cos(a) * box.short_px / 2
     return [[round(cx + ux + vx, 1), round(cy + uy + vy, 1)], [round(cx + ux - vx, 1), round(cy + uy - vy, 1)],
             [round(cx - ux - vx, 1), round(cy - uy - vy, 1)], [round(cx - ux + vx, 1), round(cy - uy + vy, 1)]]
+
+
+def aabb(box: CardBox) -> tuple[float, float, float, float]:
+    q = np.asarray(quad(box))
+    return float(q[:, 0].min()), float(q[:, 1].min()), float(q[:, 0].max()), float(q[:, 1].max())
+
+
+def smooth(old: CardBox, new: CardBox, k: float = 0.35) -> CardBox:
+    """The new box eased from the old one while the card barely moves: the detector's boxes jitter by a
+    few pixels from frame to frame. A card that moves or turns (exhausted) is followed at once."""
+    da = (new.angle_deg - old.angle_deg + 90) % 180 - 90
+    if math.dist(old.centre, new.centre) > 0.1 * new.long_px or abs(da) > 10:
+        return new
+    b = CardBox(((1 - k) * old.centre[0] + k * new.centre[0], (1 - k) * old.centre[1] + k * new.centre[1]),
+                (1 - k) * old.long_px + k * new.long_px, (1 - k) * old.short_px + k * new.short_px,
+                (old.angle_deg + k * da) % 180, new.fill)
+    b.back = getattr(new, "back", False)  # type: ignore[attr-defined]
+    return b
 
 
 def card_crop(frame: Image.Image, box: CardBox) -> Image.Image:
@@ -130,6 +155,7 @@ class Recognizer:
         # A legend never changes during a game (M0 §5.4): once one is named on a side, that player keeps it.
         # ponytail: the first confident legend wins for the whole run; reset per game once games are detected
         self.legends: dict[str, dict] = {}
+        self.boxes_now: dict[str, tuple[float, float, float, float]] = {}  # track id -> its box's extent, this frame
 
     # --- finding ---------------------------------------------------------------
 
@@ -152,26 +178,57 @@ class Recognizer:
     # --- tracking --------------------------------------------------------------
 
     def match(self, t: float, boxes: Sequence[CardBox], w: int, h: int) -> list[Track]:
-        """Each box continues the nearest live track of about its size, or starts a new one."""
-        # ponytail: greedy nearest-box matching; Hungarian assignment if tracks swap in the detector's dense stacks
-        free = {k: tr for k, tr in self.tracks.items()}
+        """Boxes to tracks one to one at the least total distance (Hungarian assignment). A box continues a
+        track of about its size within a third of a card, in view or out of sight for a while, so a card
+        found again where it was keeps its id and name; any other box starts a new track."""
+        from scipy.optimize import linear_sum_assignment
+
+        tracks = list(self.tracks.values())
+        pairs: dict[int, Track] = {}
+        if tracks and boxes:
+            cost = np.full((len(boxes), len(tracks)), 1e6)
+            for i, b in enumerate(boxes):
+                for j, tr in enumerate(tracks):
+                    d = math.dist(tr.box.centre, b.centre) / b.long_px
+                    if d < 0.35 and abs(tr.box.long_px / b.long_px - 1) < 0.25:
+                        cost[i, j] = d + (0.25 if t - tr.last > 1.0 else 0.0)  # the ones in view first
+            for i, j in zip(*linear_sum_assignment(cost)):
+                if cost[i, j] < 1e6:
+                    pairs[int(i)] = tracks[int(j)]
         seen = []
-        for b in sorted(boxes, key=lambda b: -b.long_px):
-            best, best_d = None, 0.3 * b.long_px
-            for k, tr in free.items():
-                d = math.dist(tr.box.centre, b.centre)
-                if d < best_d and abs(tr.box.long_px / b.long_px - 1) < 0.2:
-                    best, best_d = k, d
-            if best is None:
+        for i, b in enumerate(boxes):
+            tr = pairs.get(i)
+            if tr is None:
                 tr = Track(f"t{self.next_id}", b, t, t, side=self.layout.side(*b.centre, w, h))
                 self.next_id += 1
                 self.tracks[tr.id] = tr
             else:
-                tr = free.pop(best)
-                tr.box, tr.last, tr.hits = b, t, tr.hits + 1
-                tr.side = self.layout.side(*b.centre, w, h)
+                tr.box = smooth(tr.box, b) if t - tr.last <= 1.0 else b
+                tr.last, tr.hits = t, tr.hits + 1
+                if not tr.pinned:
+                    tr.side = self.layout.side(*tr.box.centre, w, h)
             seen.append(tr)
         return seen
+
+    def covered(self, t: float, tr: Track) -> bool:
+        """Something newer lies on this card: a card put on it or overlapping it. A covered card keeps its
+        name (no re-reads of a half-hidden face) and stays on the board until its spot clears."""
+        ax0, ay0, ax1, ay1 = self.boxes_now.get(tr.id) or aabb(tr.box)
+        area = max(1.0, (ax1 - ax0) * (ay1 - ay0))
+        for oid, (bx0, by0, bx1, by1) in self.boxes_now.items():
+            o = self.tracks.get(oid)
+            if o is None or o is tr or o.first <= tr.first or t - o.last > 1.0:
+                continue
+            ix, iy = min(ax1, bx1) - max(ax0, bx0), min(ay1, by1) - max(ay0, by0)
+            if ix > 0 and iy > 0 and ix * iy >= 0.25 * area:
+                return True
+        return False
+
+    def vanished(self, t: float, tr: Track) -> Track | None:
+        """Another track of `tr`'s card that went out of sight around when `tr` appeared: the card moved."""
+        gone = [o for o in self.tracks.values() if o is not tr and o.named == tr.named and not o.pinned
+                and t - o.last > 0.5 and o.last < tr.first + 0.5 and t - o.last < MOVE_S and not self.covered(t, o)]
+        return max(gone, key=lambda o: o.last) if gone else None
 
     # --- naming ----------------------------------------------------------------
 
@@ -183,6 +240,8 @@ class Recognizer:
     def due(self, tr: Track, t: float) -> bool:
         if self.face_down(tr):
             return t - tr.last_read > self.recheck_s  # looked at now and then, never identified
+        if tr.named and self.covered(t, tr):
+            return False  # its name is locked while something lies on it
         top = tr.top()
         if not top or top[0][1] < self.sure_p and tr.reads < self.max_reads:
             return True
@@ -267,9 +326,9 @@ class Recognizer:
             cands = self.identify([region])[0]
             card, p, sc, i = cands[0]
             cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
-            if p < self.gate_p or self.recently_played(t, card, cx, cy):
-                continue
             r = self.rows[i]
+            if p < self.gate_p or r.get("type") in QUIET + STATIC or self.recently_played(t, card, cx, cy):
+                continue
             side = self.layout.side(cx, cy, w, h)
             self.plays.append((t, card, cx, cy))
             q = [[box[0], box[1]], [box[2], box[1]], [box[2], box[3]], [box[0], box[3]]]
@@ -277,7 +336,8 @@ class Recognizer:
                        for c, pc, _, j in cands[:3]]
             self.flashes.append({"id": f"g{len(self.plays)}", "quad": [[round(x, 1), round(y, 1)] for x, y in q],
                                  "side": side, "state": "named", "printing_id": r["printing_id"], "name": r["name"],
-                                 "confidence": round(p, 3), "guesses": guesses, "since": round(t, 2), "until": t + 5})
+                                 "confidence": round(p, 3), "guesses": guesses, "since": round(t, 2), "until": t + 5,
+                                 "kind": "card", "hidden": False})
             events.append({"t": round(t, 2), "kind": "played", "text": f"{r['name']} played", "printing_id": r["printing_id"],
                            "track": self.flashes[-1]["id"], "side": side})
         return events
@@ -287,6 +347,12 @@ class Recognizer:
         x0, y0, x1, y1 = box
         gx, gy = (x1 - x0) * 0.1, (y1 - y0) * 0.1
         inside = lambda x, y: x0 - gx <= x <= x1 + gx and y0 - gy <= y <= y1 + gy  # noqa: E731
+        for tr in sorted(self.tracks.values(), key=lambda tr: -tr.last):
+            if tr.named and not tr.pinned and t - tr.last > self.forget_s and inside(*tr.box.centre):
+                del self.tracks[tr.id]
+                g = self.label(tr)[2]
+                return [self.event(t, "left", f"{g[0]['name'] if g else tr.named} left the table", tr,
+                                   g[0]["printing_id"] if g else None)]
         for gh in sorted(self.ghosts, key=lambda gh: -gh["t"]):
             if inside(gh["x"], gh["y"]):
                 self.ghosts.remove(gh)
@@ -313,9 +379,12 @@ class Recognizer:
         boxes = self.find(t, image)
         tf = time.perf_counter()
         seen = self.match(t, boxes, w, h)
+        self.boxes_now = {k: aabb(tr.box) for k, tr in self.tracks.items()}
         frame = Image.fromarray(image)
         # New and uncertain cards first, then the oldest re-checks; a budget keeps each frame in time.
-        todo = sorted((tr for tr in seen if self.due(tr, t)), key=lambda tr: (tr.reads > 0, tr.last_read))[:budget]
+        # A box seen once may be the detector's slip (between two cards): only tracks seen twice are read.
+        todo = sorted((tr for tr in seen if tr.hits >= 2 and self.due(tr, t)),
+                      key=lambda tr: (tr.reads > 0, tr.last_read))[:budget]
         self.read(t, frame, todo)
         tr_ = time.perf_counter()
         events = self.announce(t) + self.watch(t, image, frame)
@@ -340,12 +409,18 @@ class Recognizer:
         return ("named" if named else "unsure"), p0, guesses
 
     def announce(self, t: float) -> list[dict]:
-        """'played' when a card is first named; a lost named card becomes a ghost (see `ghosts`)."""
+        """'played' when a card is first named, 'moved' when a named card that just vanished is named again
+        elsewhere (it keeps its first id). A card out of sight keeps its track: an unnamed one `forget_s`,
+        a named one `KEEP_S` or as long as something lies on it, a legend or battlefield all game. Then a
+        named card becomes a ghost (see `ghosts`). Runes, legends and battlefields are never announced."""
         events = []
         self.ghosts = [gh for gh in self.ghosts if t - gh["t"] < 60]
         for tr in list(self.tracks.values()):
+            if tr.id not in self.tracks:
+                continue  # merged into the track it moved from
             gone = t - tr.last
-            if gone > self.forget_s:
+            limit = KEEP_S if tr.named else self.forget_s if tr.hits >= 2 else 1.0
+            if not tr.pinned and gone > limit and not (tr.named and self.covered(t, tr)):
                 del self.tracks[tr.id]
                 if tr.named:
                     g = self.label(tr)[2]
@@ -357,6 +432,18 @@ class Recognizer:
             if state == "named" and tr.named != g[0]["card_id"]:
                 changed = tr.named is not None
                 tr.named = g[0]["card_id"]
+                tr.kind = (self.row_of.get(g[0]["printing_id"]) or {}).get("type", "")
+                if tr.kind in STATIC:
+                    tr.pinned = True  # set up before the game: nothing to announce, and it stays put
+                if tr.kind in QUIET + STATIC:
+                    continue
+                if not changed and (was := self.vanished(t, tr)) is not None:
+                    far = math.dist(was.box.centre, tr.box.centre) > 0.6 * tr.box.long_px
+                    was.box, was.last, was.hits, was.side = tr.box, tr.last, was.hits + tr.hits, tr.side
+                    del self.tracks[tr.id]  # the same card: it keeps its first id and what was read of it
+                    if far:
+                        events.append(self.event(t, "moved", f"{g[0]['name']} moved", was, g[0]["printing_id"]))
+                    continue
                 reach = 1.5 * self.layout.card_long_1080
                 back = [gh for gh in self.ghosts if gh["card"] == tr.named and math.dist((gh["x"], gh["y"]), tr.box.centre) < reach]
                 if back and not changed:
@@ -379,14 +466,18 @@ class Recognizer:
     def state(self, t: float, w: int, h: int) -> dict:
         tracks = []
         for tr in self.tracks.values():
-            if t - tr.last > 1.0:
-                continue  # not in view right now (a hand over it, or lost); kept, but not drawn
+            if tr.hits < 2:
+                continue  # seen once: maybe the detector's slip (a box between two cards), not shown yet
+            hidden = t - tr.last > 1.0 and not tr.pinned
+            if hidden and not tr.named:
+                continue
             state, p, g = self.label(tr)
             top = g[0] if g and state == "named" else None
+            # hidden: out of sight (under a hand or another card) but still on the board, so listed, not drawn
             tracks.append({"id": tr.id, "quad": quad(tr.box), "side": tr.side, "state": state,
                            "printing_id": top["printing_id"] if top else None, "name": top["name"] if top else "",
                            "confidence": round(p, 3), "guesses": g if state != "facedown" else [],
-                           "since": round(tr.first, 2)})
+                           "since": round(tr.first, 2), "kind": KINDS.get(tr.kind, "card"), "hidden": hidden})
         tracks += [{k: v for k, v in f.items() if k != "until"} for f in self.flashes]
         for tr in tracks:
             pid = tr["printing_id"]

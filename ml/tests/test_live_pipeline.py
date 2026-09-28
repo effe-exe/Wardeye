@@ -11,7 +11,7 @@ MAT = (30, 40, 55)
 LAYOUT = Layout("test", "a test table", (0.0, 0.0, 1.0, 1.0), card_long_1080=156)  # 78 px cards in a 540 px frame
 
 
-def _setup(n=6):
+def _setup(n=6, **kw):
     pytest.importorskip("scipy")
     from rifteye_ml.encoders import get_encoder
     from rifteye_ml.retrieval import Pyramid, at_long_side
@@ -20,7 +20,7 @@ def _setup(n=6):
     art = [load_fixture_image(r) for r in rows]
     enc = get_encoder("colorgrid/trim0.03+dhash/trim0.03")
     pyr = Pyramid({s: enc.embed([at_long_side(im, s) for im in art]) for s in (70, 80)})
-    return rows, art, Recognizer(LAYOUT, rows, enc, pyr, fps=5.0)
+    return rows, art, Recognizer(LAYOUT, rows, enc, pyr, fps=5.0, **kw)
 
 
 def _frame(cards):
@@ -120,3 +120,86 @@ def test_face_down_takes_two_looks_in_a_row_and_never_unnames_a_card():
     assert rec.label(new)[0] == "facedown" and not rec.due(new, 5.0) and rec.due(new, 9.5)
     new.down = 1
     assert rec.label(new)[0] == "new"  # one look is not enough
+
+
+def _boxes(cards):
+    return [CardBox((x + 28.0, y + 39.0), 78.0, 56.0, 90.0, 1.0) for _, x, y in cards]
+
+
+def _run(rec, plan, seconds, fps=5):
+    """plan(t) -> (cards on the table, the ones the detector reports); the last state and every event."""
+    events, state = [], {}
+    for k in range(int(seconds * fps)):
+        t = k / fps
+        shown, found = plan(t)
+        rec.finder = lambda t_, im, found=found: _boxes(found)
+        state, ev = rec.step(t, _frame(shown))
+        events += ev
+    return state, events
+
+
+def test_a_card_out_of_sight_keeps_its_id_and_name_where_it_was():
+    rows, art, rec = _setup(gate=False)
+    a = (art[0], 100, 100)
+    state, events = _run(rec, lambda t: ([a], [] if 3 <= t < 23 else [a]), 26)  # 20 s under a hand
+    named = [tr for tr in state["tracks"] if tr["state"] == "named"]
+    assert [tr["id"] for tr in named] == ["t0"] and named[0]["name"] == rows[0]["name"] and not named[0]["hidden"]
+    assert not [e for e in events if e["kind"] in ("played", "left", "moved")]  # on the table when we tuned in
+
+
+def test_a_card_picked_up_and_put_elsewhere_moves_with_its_id():
+    rows, art, rec = _setup(gate=False)
+
+    def plan(t):
+        c = (art[1], 100, 100) if t < 6 else (art[1], 500, 300)
+        return [c], ([] if 6 <= t < 6.6 else [c])  # in the player's hand for a moment
+
+    state, events = _run(rec, plan, 10)
+    moved = [e for e in events if e["kind"] == "moved"]
+    assert [e["text"] for e in moved] == [f"{rows[1]['name']} moved"] and moved[0]["track"] == "t0"
+    assert [tr["id"] for tr in state["tracks"] if tr["state"] == "named"] == ["t0"]
+    assert not [e for e in events if e["kind"] == "played"]
+
+
+def test_a_card_under_another_keeps_its_name_while_covered(monkeypatch):
+    from rifteye_ml.live import pipeline
+
+    monkeypatch.setattr(pipeline, "KEEP_S", 3.0)
+    rows, art, rec = _setup(gate=False)
+    under, top = (art[2], 100, 100), (art[4], 118, 125)  # the new card lies across most of it
+    state, events = _run(rec, lambda t: ([under], [under]) if t < 5 else ([under, top], [top]), 15)
+    by_id = {tr["id"]: tr for tr in state["tracks"]}
+    assert by_id["t0"]["name"] == rows[2]["name"] and by_id["t0"]["hidden"]  # still on the board, 10 s later
+    assert [e["text"] for e in events if e["kind"] == "played"] == [f"{rows[4]['name']} played"]
+
+
+def test_legends_and_battlefields_stay_pinned_and_runes_are_quiet():
+    rows, art, rec = _setup(gate=False)
+    rows[0]["type"], rows[1]["type"], rows[2]["type"] = "Battlefield", "Legend", "Rune"
+    bf, lg, rune = (art[0], 100, 100), (art[1], 300, 100), (art[2], 500, 100)
+
+    def plan(t):
+        if t < 4:
+            return [], []
+        return [bf, lg, rune], ([bf, lg, rune] if t < 8 else [rune])  # then a hand over the legend and battlefield
+
+    state, events = _run(rec, plan, 14)
+    by_kind = {tr["kind"]: tr for tr in state["tracks"]}
+    assert by_kind["battlefield"]["name"] == rows[0]["name"] and not by_kind["battlefield"]["hidden"]
+    assert by_kind["legend"]["name"] == rows[1]["name"] and by_kind["rune"]["name"] == rows[2]["name"]
+    assert events == []  # set-up cards and runes are never announced
+
+
+def test_a_box_seen_once_is_neither_shown_nor_read():
+    rows, art, rec = _setup(gate=False)
+    a = (art[0], 100, 100)
+    state, _ = _run(rec, lambda t: ([a], [a] if t == 1.0 else []), 3)
+    assert state["tracks"] == [] and all(tr.reads == 0 for tr in rec.tracks.values())
+
+
+def test_boxes_are_eased_while_a_card_barely_moves():
+    from rifteye_ml.live.pipeline import smooth
+
+    old = CardBox((100.0, 100.0), 78.0, 56.0, 90.0, 1.0)
+    assert smooth(old, CardBox((104.0, 100.0), 78.0, 56.0, 92.0, 1.0)).centre[0] == pytest.approx(101.4)
+    assert smooth(old, CardBox((150.0, 100.0), 78.0, 56.0, 90.0, 1.0)).centre == (150.0, 100.0)  # moved: followed

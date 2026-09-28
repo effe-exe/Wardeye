@@ -109,6 +109,12 @@
         entry = trackEls[track.id] = makeTrackEls(track.id);
       }
       entry.track = track;
+      // Out of sight (under a hand or another card) but still on the board: listed, not drawn.
+      entry.poly.style.display = track.hidden ? "none" : "";
+      if (track.hidden) {
+        entry.label.style.display = "none";
+        continue;
+      }
 
       var quad = track.quad || [];
       var pts = [];
@@ -120,10 +126,11 @@
         ys.push(quad[j][1]);
       }
       entry.poly.setAttribute("points", pts.join(" "));
-      entry.poly.setAttribute("class", "box box-" + track.state + (hotTrack === track.id ? " hot" : ""));
+      entry.poly.setAttribute("class", "box box-" + track.state + (track.kind === "rune" ? " box-rune" : "") +
+        (hotTrack === track.id ? " hot" : ""));
       entry.label.style.display = "none"; // candidates below turn their own label back on
 
-      if (track.state === "named" && track.name && xs.length > 0) {
+      if (track.state === "named" && track.name && track.kind !== "rune" && xs.length > 0) {
         var w = Math.max.apply(null, xs) - Math.min.apply(null, xs);
         var h = Math.max.apply(null, ys) - Math.min.apply(null, ys);
         if (Math.min(w, h) >= LABEL_MIN_PX) {
@@ -208,7 +215,7 @@
   function onHover(id) {
     hotTrack = id;
     var entry = trackEls[id];
-    if (!entry) return;
+    if (!entry || (entry.track && entry.track.kind === "rune")) return; // runes are tracked, not shown
     entry.poly.classList.add("hot");
     showHoverCard(entry.track);
   }
@@ -309,9 +316,15 @@
     var named = [];
     var unsureN = 0;
     var facedownN = 0;
+    var runesN = 0;
     for (var i = 0; i < tracks.length; i++) {
       var t = tracks[i];
       if (t.side !== side) continue;
+      if (t.kind === "rune") {
+        runesN++;
+        continue;
+      }
+      if (t.kind === "legend") continue; // shown above as the player's legend
       if (t.state === "named") named.push(t);
       else if (t.state === "unsure") unsureN++;
       else if (t.state === "facedown") facedownN++;
@@ -371,8 +384,9 @@
       li.appendChild(span);
       list.appendChild(li);
     }
-    if (unsureN > 0 || facedownN > 0) {
+    if (unsureN > 0 || facedownN > 0 || runesN > 0) {
       var bits = [];
+      if (runesN > 0) bits.push(runesN + (runesN > 1 ? " runes" : " rune"));
       if (unsureN > 0) bits.push(unsureN + " unsure");
       if (facedownN > 0) bits.push(facedownN + " face-down");
       var muted = document.createElement("li");
