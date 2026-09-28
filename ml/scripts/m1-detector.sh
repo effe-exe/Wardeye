@@ -69,7 +69,10 @@ if [ ! -x "$VENV/bin/python" ]; then
       if "$c" -c 'import torch, sys; sys.exit(0 if torch.cuda.is_available() else 1)' 2>/dev/null; then BASE=$c; break; fi
     done
   fi
-  if [ -n "$BASE" ]; then "$BASE" -m venv --system-site-packages "$VENV"; else python3 -m venv "$VENV"; fi
+  if [ -n "$BASE" ]; then "$BASE" -m venv --system-site-packages "$VENV"
+  elif ! python3 -m venv "$VENV" 2>/dev/null; then  # Ubuntu ships venv separately
+    rm -rf "$VENV"; sudo apt-get -qq update && sudo apt-get -qq install -y python3-venv >/dev/null && python3 -m venv "$VENV"
+  fi
 fi
 . "$VENV/bin/activate"
 if [ "${SKIP_INSTALL:-0}" != 1 ]; then
