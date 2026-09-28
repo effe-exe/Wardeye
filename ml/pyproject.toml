@@ -19,6 +19,9 @@ dependencies = [
 # the DINOv2 weights are Apache-2.0 (see docs/research/03-models-and-licensing.md).
 torch = ["torch>=2.4", "timm>=1.0"]
 dev = ["pytest>=8", "scipy>=1.11"]  # scipy: the bootstrap mat detector (matcrops)
+# The M1 card detector: RF-DETR keypoint. Code and the keypoint weights are Apache-2.0; its training
+# extras are Apache-2.0, MIT or BSD (checked 2026-09-28, see docs/research/03-models-and-licensing.md).
+detect = ["torch>=2.4", "timm>=1.0", "torchvision>=0.17", "rfdetr[train]==1.11.0"]
 
 [tool.setuptools.packages.find]
 include = ["rifteye_ml*"]

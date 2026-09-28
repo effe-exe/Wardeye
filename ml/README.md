@@ -174,6 +174,29 @@ python -m rifteye_ml.synth --fixtures 60 --boards 4 --out /tmp/synth-demo   # pr
 
 Frames made from Riot's art are private, like the art itself (D-015).
 
+## Card detector (M1)
+
+`python -m rifteye_ml.detect` trains the amodal detector of [ARCHITECTURE §3.8](../docs/ARCHITECTURE.md#38-stacks-and-covered-cards): every card's *full* quad, even where other cards, hands or dice cover it. The model is RF-DETR keypoint with four keypoints, the card's corners (code and weights Apache-2.0, [03 §3.2](../docs/research/03-models-and-licensing.md#32-detectors)). Install it with `pip install -e '.[detect]'`.
+
+```bash
+python -m rifteye_ml.detect export --run ~/rifteye-data/synth/v0 --out ~/rifteye-data/detect/tiles --scales 2
+python -m rifteye_ml.detect train --dataset ~/rifteye-data/detect/tiles --out ~/rifteye-data/detect/v0 --device cuda
+python -m rifteye_ml.detect evaluate --run ~/rifteye-data/synth/v0 --checkpoint ~/rifteye-data/detect/v0/checkpoint_best_total.pth \
+  --out m1-detector-v0-synth.csv
+python -m rifteye_ml.detect pack --checkpoint ~/rifteye-data/detect/v0/checkpoint_best_total.pth --out ~/rifteye-data/detect/detector-v0.pth
+python -m rifteye_ml.detect run --frames ~/rifteye-data/vods/<vod>/frames/seg-000 --table 0.17,0.09,0.86,0.884 --card-px 131 \
+  --checkpoint ~/rifteye-data/detect/detector-v0.pth --out dets.jsonl
+```
+
+`pack` keeps only the float16 weights, about 80 MB instead of 160 MB, for moving a trained detector between machines.
+
+- **Tiles.** `export` scales each frame's camera window so its cards are 45–110 px on the long side, and cuts it into overlapping 576 px squares, in RF-DETR's COCO layout (`train/`, `valid/`; every 10th board is held out). Each card that shows at least 8% of itself in a tile is a target. Its box is the full card, clipped to the tile, and its four keypoints are the corners in image order (the one up and left of the centre first, then clockwise): 2 when the corner shows, 1 when it is covered, 0 outside the tile. The class is `card` or `card_back`, and no identity is ever written.
+- **Detection.** `run` and `evaluate` scale the window so cards are about 70 px, detect tile by tile, and merge. Tiles overlap by more than a card, so a detection cut by a shared tile edge is dropped and the whole copy next door is kept. Nothing is suppressed below IoU 0.8, because stacked cards overlap each other by design. Each detection has the quad in frame pixels, the class, the score, and per corner the chance it was found and that it shows. The order of the corners does not say which way the card is printed; the matcher tries all four turns (§3.3).
+- **Scores.** A card is found when a detection of its class overlaps its full quad with IoU ≥ 0.75. The usual 0.5 is too loose, since the cards of a rune column overlap each other by 0.5–0.7. Recall is split by how much of the card shows: whole, half or more, a strip (15–50%), a sliver (8–15%).
+- **On a GPU machine.** [`scripts/m1-detector.sh`](scripts/m1-detector.sh) does everything from public sources on any Linux machine with an NVIDIA GPU: the catalogue and art, 2,000 synthetic boards on every CPU core, the tiles, training (resumable) and the scores. `SMOKE=1` runs a short version first (8 boards, 1 epoch), and the full run reuses its downloads. It refuses to start while another process uses the GPU. What it writes is private, except the CSV of numbers.
+
+RF-DETR 1.11.0 keeps the keypoint checkpoint's class head, two logits, and counts it as one class plus a no-object slot. Its default loss trains both logits as classes, so `card` and `card_back` both learn, but its own `predict()` calls `card_back` "`__background__`". `Detector` decodes the two logits itself.
+
 ## Demo (no data needed)
 
 ```bash

@@ -112,6 +112,7 @@ These run on the Maintainer's and contributors' machines for the spike, training
 | timm, huggingface_hub, safetensors | Apache-2.0 | timm's ImageNet weights keep the caveat in §3.7; the two backbones below are not ImageNet-trained |
 | DINOv2 ViT-S/14 (`timm/vit_small_patch14_dinov2.lvd142m`) | Apache-2.0 (weights) | First embedder candidate |
 | Perception Encoder Core S16 (`timm/vit_pe_core_small_patch16_384.fb`, run at 224 px) | Apache-2.0 (weights) | Second embedder candidate |
+| `rfdetr[train]` 1.11.0 and the keypoint preview weights (`rf-detr-keypoint-preview-xlarge.pth`, served with the Apache-2.0 package, not `rfdetr_plus`) | Apache-2.0 | The M1 detector. Its training extras, checked 2026-09-28: pytorch-lightning, torchmetrics, peft, faster-coco-eval, torch-hungarian, pyDeprecate and roboflow (Apache-2.0); supervision, hotcoco and simplejpeg (MIT); ultrafast-pycocotools (BSD-2-Clause); vernier (MIT or Apache-2.0). supervision pulls in PyAV, whose wheels bundle FFmpeg libraries; like imageio-ffmpeg it stays on training machines |
 
 ## 3.9 Evaluated: typed-decision models (Laya)
 
