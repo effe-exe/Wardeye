@@ -308,3 +308,26 @@ def test_a_pinned_card_keeps_its_name_and_a_second_outline_on_a_legend_is_no_car
     assert rec.label(twin)[0] == "unsure"
     rec.tracks["y"] = twin
     assert "y" not in [tr["id"] for tr in rec.state(t, 640, 360)["tracks"]]  # another outline of it: not drawn
+
+
+def test_a_card_tucked_under_another_keeps_its_name_and_shows_under_it():
+    rows, art, rec = _setup(gate=False, recheck_s=0.5)
+    rows[3]["type"], rows[4]["type"] = "Gear", "Unit"
+    rec.row_of = {r["printing_id"]: r for r in rows}
+    gear, unit = (328.0, 139.0), (328.0, 169.0)
+
+    def boxes(t):  # the gear, and from 4 s the unit laid over most of it
+        return [CardBox(gear, 78.0, 56.0, 90.0, 1.0)] + ([CardBox(unit, 78.0, 56.0, 90.0, 1.0)] if t >= 4 else [])
+
+    reads = None
+    for k in range(60):  # 12 s at 5 fps; the unit goes on the gear at 4 s
+        t = k / 5
+        rec.finder = lambda t_, im, t=t: boxes(t)
+        state, _ = rec.step(t, _frame([(art[3], 300, 100)] + ([(art[4], 300, 130)] if t >= 4 else [])))
+        if k == 25:
+            reads = next(tr.reads for tr in rec.tracks.values() if tr.named == rows[3]["card_id"])
+    by_name = {tr["name"]: tr for tr in state["tracks"] if tr["state"] == "named"}
+    assert rows[3]["name"] in by_name and rows[4]["name"] in by_name  # the gear keeps its name under the unit
+    assert [u["name"] for u in by_name[rows[4]["name"]]["under"]] == [rows[3]["name"]]
+    assert by_name[rows[3]["name"]]["under"] == []
+    assert next(tr.reads for tr in rec.tracks.values() if tr.named == rows[3]["card_id"]) == reads  # not read again

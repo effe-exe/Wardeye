@@ -382,6 +382,43 @@ class Recognizer:
                 return True
         return False
 
+    def share(self, a: Track, b: Track) -> float:
+        """The part of card `a` that card `b` overlaps, on their outlines."""
+        return overlap_area(quad(a.box), quad(b.box)) / max(1.0, a.box.long_px * a.box.short_px)
+
+    def stacked_on(self, t: float, tr: Track) -> Track | None:
+        """Another named card in view, not this card outlined twice, that overlaps a quarter of this one or
+        more: gear tucked under a unit, a card put on another. Legends, battlefields and runes are not stacks.
+        (The detector's corner visibility would say which lies on top, but it is not reliable enough yet.)"""
+        if tr.kind in STATIC + QUIET or t - tr.last > 1.0:
+            return None
+        best, top = 0.25, None
+        for o in self.tracks.values():
+            if o is tr or not o.named or o.named == tr.named or o.kind in STATIC + QUIET or t - o.last > 1.0:
+                continue
+            if (sh := self.share(tr, o)) >= best:
+                best, top = sh, o
+        return top
+
+    def stacks(self, t: float) -> dict[str, list[Track]]:
+        """The named cards under each card: a gear that overlaps a unit goes with the unit, and a card out of
+        sight under a newer one (`covered`) lies under it. Units side by side at a battlefield are no stack."""
+        out: dict[str, list[Track]] = {}
+        for u in self.tracks.values():
+            if not u.named or u.kind in STATIC + QUIET:
+                continue
+            host = self.stacked_on(t, u) if u.kind == "Gear" else None
+            if host is not None and host.kind == "Gear":
+                host = None
+            if host is None and t - u.last > 1.0 and self.covered(t, u):
+                host = max((o for o in self.tracks.values() if o is not u and o.named and o.named != u.named
+                            and o.kind not in STATIC + QUIET and o.first > u.first and t - o.last <= 1.0
+                            and self.share(u, o) >= 0.25),
+                           key=lambda o: o.first, default=None)
+            if host is not None:
+                out.setdefault(host.id, []).append(u)
+        return out
+
     def vanished(self, t: float, tr: Track) -> Track | None:
         """Another track of `tr`'s card that went out of sight around when `tr` appeared: the card moved."""
         gone = [o for o in self.tracks.values() if o is not tr and o.named == tr.named and not o.pinned
@@ -398,8 +435,8 @@ class Recognizer:
     def due(self, tr: Track, t: float) -> bool:
         if self.face_down(tr):
             return t - tr.last_read > self.recheck_s  # looked at now and then, never identified
-        if tr.named and self.covered(t, tr):
-            return False  # its name is locked while something lies on it
+        if tr.named and (self.covered(t, tr) or self.stacked_on(t, tr) is not None):
+            return False  # its name is locked while something lies on it, or it lies on something
         top = tr.top()
         if not top or top[0][1] < self.sure_p and tr.reads < self.max_reads:
             return True
@@ -719,6 +756,7 @@ class Recognizer:
 
     def state(self, t: float, w: int, h: int) -> dict:
         tracks = []
+        under = self.stacks(t)
         for tr in self.tracks.values():
             if tr.hits < 2:
                 continue  # seen once: maybe the detector's slip (a box between two cards), not shown yet
@@ -733,7 +771,9 @@ class Recognizer:
             tracks.append({"id": tr.id, "quad": quad(tr.box), "side": tr.side, "state": state,
                            "printing_id": top["printing_id"] if top else None, "name": top["name"] if top else "",
                            "confidence": round(p, 3), "guesses": g if state != "facedown" else [],
-                           "since": round(tr.first, 2), "kind": KINDS.get(tr.kind, "card"), "hidden": hidden})
+                           "since": round(tr.first, 2), "kind": KINDS.get(tr.kind, "card"), "hidden": hidden,
+                           "under": [{"id": u.id, "name": gu[0]["name"], "printing_id": gu[0]["printing_id"]}
+                                     for u in under.get(tr.id, []) if (gu := self.label(u)[2])]})
         tracks += [{k: v for k, v in f.items() if k != "until"} for f in self.flashes]
         for tr in tracks:
             pid = tr["printing_id"]

@@ -264,6 +264,12 @@
     } else {
       hoverEl.textContent = "New card, not identified yet";
     }
+    if (track.under && track.under.length && track.state !== "facedown") {
+      var stack = document.createElement("div");
+      stack.className = "hover-under";
+      stack.textContent = "Under it: " + track.under.map(function (u) { return u.name; }).join(", ");
+      hoverEl.appendChild(stack);
+    }
     hoverEl.hidden = false;
     positionHover();
   }
@@ -335,10 +341,11 @@
       var track = named[n];
       var key = track.printing_id || track.name || track.id;
       if (!groups[key]) {
-        groups[key] = { printing_id: track.printing_id, name: track.name || "(unnamed)", count: 0 };
+        groups[key] = { printing_id: track.printing_id, name: track.name || "(unnamed)", count: 0, under: [] };
         order.push(key);
       }
       groups[key].count++;
+      (track.under || []).forEach(function (u) { if (groups[key].under.indexOf(u.name) < 0) groups[key].under.push(u.name); });
     }
 
     var section = document.createElement("section");
@@ -382,6 +389,12 @@
       var span = document.createElement("span");
       span.textContent = group.name + (group.count > 1 ? " ×" + group.count : "");
       li.appendChild(span);
+      if (group.under.length) {
+        var withEl = document.createElement("span");
+        withEl.className = "with";
+        withEl.textContent = " + " + group.under.join(", ");
+        li.appendChild(withEl);
+      }
       list.appendChild(li);
     }
     if (unsureN > 0 || facedownN > 0 || runesN > 0) {
