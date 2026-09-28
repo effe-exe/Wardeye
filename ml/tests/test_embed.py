@@ -136,3 +136,37 @@ def test_the_cli_runs_end_to_end(tmp_path):
     full = [r for r in got if r["view"] == "full" and r["encoder"] == "colorgrid"]
     assert sum(int(r["n"]) for r in full) == 9 * 2  # every printing at both heights
     assert json.loads((tmp_path / "bank" / "printings.json").read_text())[0] == "FAKE-000"
+
+
+def test_real_crops_become_a_bank_upright_and_repeated_that_trains_beside_the_synthetic_one(tmp_path):
+    pytest.importorskip("timm")
+    from rifteye_ml.embed.__main__ import main
+
+    rows = _catalogue(tmp_path, n=9)
+    base = ["--catalog", str(tmp_path / "catalog.jsonl"), "--cache", str(tmp_path / "art")]
+    crops = tmp_path / "real" / "crops"
+    crops.mkdir(parents=True)
+    labels = [("a.png", rows[1], 90), ("b.png", rows[4], 180), ("c.png", rows[4], 0)]
+    for name, r, turn in labels:  # a real crop lies in any orientation
+        load_fixture_image(r).resize((70, 98)).rotate(turn, expand=True).save(crops / name)
+    Image.new("RGB", (70, 98), (20, 20, 90)).save(crops / "sleeve.png")
+    with open(tmp_path / "real" / "labels.csv", "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["file", "track", "printing_id", "card_id"])
+        w.writerows([(n, "t1", r["printing_id"], r["card_id"]) for n, r, _ in labels])
+        w.writerows([("sleeve.png", "t2", "back", "back"), ("gone.png", "t3", rows[2]["printing_id"], "x"),
+                     ("tok.png", "t4", "none", "none")])
+    assert main(["crops", *base, "--out", str(tmp_path / "bank"), "--seeds", "1", "--heights", "40",
+                 "--frame", "480x270", "--workers", "1"]) == 0
+    assert main(["real-bank", *base, "--crops", str(crops), "--labels", str(tmp_path / "real" / "labels.csv"),
+                 "--out", str(tmp_path / "real-x"), "--repeat", "3"]) == 0
+    real = Bank([tmp_path / "real-x"])
+    assert len(real) == 3 * 3 and list(real.rows) == [1, 1, 1, 4, 4, 4, 4, 4, 4]  # the sleeve and the others left out
+    assert all(real.crop(i).shape[:2] == (98, 70) for i in range(len(real)))  # all upright, the turned ones too
+    want = np.asarray(load_fixture_image(rows[4]).resize((70, 98)).convert("RGB"), np.float32)
+    assert np.abs(real.crop(3) - want).mean() < np.abs(real.crop(3) - want[::-1, ::-1]).mean()  # b.png, turned back
+    both = Bank([tmp_path / "bank", tmp_path / "real-x"])
+    assert len(both) == len(Bank([tmp_path / "bank"])) + 9
+    assert main(["train", *base, "--bank", str(tmp_path / "bank"), str(tmp_path / "real-x"), "--out", str(tmp_path / "run"),
+                 "--epochs", "1", "--batch-size", "4", "--clean", "1", "--workers", "0", "--backbone", "test_vit",
+                 "--img-size", "32", "--dim", "16", "--no-pretrained"]) == 0

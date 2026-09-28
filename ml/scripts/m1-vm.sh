@@ -6,7 +6,8 @@
 #
 #   bash m1-vm.sh status            one line per job, "name|service state|finished ok|last step", then "ok"
 #   bash m1-vm.sh start-embedder    m1-embedder.sh as the service rifteye-m1-embed. It waits for the detector's
-#                                   service (rifteye-m1) to finish, then takes the GPU.
+#                                   service (rifteye-m1) to finish, then takes the GPU. REAL, REAL_TEST, REAL_REPEAT,
+#                                   REAL_SCALES, SEEDS, EPOCHS, CLEAN and BATCH are passed on when set.
 #   bash m1-vm.sh resume-detector   m1-detector.sh again as the service rifteye-m1; it resumes where it stopped
 #   bash m1-vm.sh pack detector|embedder   the job's results and log in ~/rifteye-m1-out/<job>.tgz
 #
@@ -60,8 +61,12 @@ case "${1:-}" in
     status embedder rifteye-m1-embed "$EMB"
     echo ok ;;
   start-embedder)
+    pass=()
+    for v in REAL REAL_TEST REAL_REPEAT REAL_SCALES SEEDS EPOCHS CLEAN BATCH; do
+      if [ -n "${!v:-}" ]; then pass+=("$v=${!v}"); fi
+    done
     start rifteye-m1-embed "$SRC/ml/scripts/m1-embedder.sh" "RIFTEYE_DIR=$SRC" AFTER_UNIT=rifteye-m1 \
-      "AFTER_LOG=$DET/logs/run.log" STOP_WHEN_DONE=1 STOP_DELAY=1800 ;;
+      "AFTER_LOG=$DET/logs/run.log" STOP_WHEN_DONE=1 STOP_DELAY=1800 ${pass[@]+"${pass[@]}"} ;;
   resume-detector)
     start rifteye-m1 "$HOME/RiftEye-src/ml/scripts/m1-detector.sh" "RIFTEYE_DIR=$HOME/RiftEye-src" \
       STOP_WHEN_DONE=1 STOP_DELAY=1800 ;;

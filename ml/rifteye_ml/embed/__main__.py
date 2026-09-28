@@ -4,6 +4,7 @@
 
     python -m rifteye_ml.embed crops --catalog catalog.jsonl --cache ~/rifteye-data/art --out bank --seeds 1-16
     python -m rifteye_ml.embed crops --catalog ... --cache ... --out bank-eval --eval --heights 40,60,80,120,160
+    python -m rifteye_ml.embed real-bank --catalog ... --cache ... --crops la-v1/crops --labels la-v1/labels.csv --out real-la
     python -m rifteye_ml.embed train --catalog ... --cache ... --bank bank --out runs/heldout --train-sets OGN,OGS,SFD
     python -m rifteye_ml.embed pack --checkpoint runs/heldout/final.pt --out embedder-v0-heldout.pth
     python -m rifteye_ml.embed evaluate --catalog ... --cache ... --bank bank-eval --train-sets OGN,OGS,SFD \\
@@ -70,6 +71,38 @@ def _crops(a) -> int:
     print(f"{len(rows)} printings, {len(tasks)} tasks ({len(rows) * len(tasks)} crops) on {workers} processes", flush=True)
     ran = generate(rows, a.cache, tasks, a.out, workers=workers, max_side=a.max_side, log=lambda m: print(m, flush=True))
     print(f"{ran} tasks in {time.time() - t0:.0f} s -> {a.out}")
+    return 0
+
+
+def _real_bank(a) -> int:
+    """Reviewed real crops (labels.csv: file, printing_id) as a bank. A crop whose label is not a printing
+    of the catalogue is left out: a sleeve (never identified, D-005), a token, an unsure or wrong answer."""
+    import csv
+
+    from PIL import Image
+
+    from ..spike import upright
+    from .bank import write_real
+
+    rows = catalogue(a.catalog, a.cache, a.limit)
+    by_pid = {r["printing_id"]: i for i, r in enumerate(rows)}
+    crops, truth, left_out = [], [], 0
+    with open(a.labels, newline="", encoding="utf-8") as f:
+        for rec in csv.DictReader(f):
+            i = by_pid.get((rec.get("printing_id") or "").strip())
+            path = Path(a.crops) / rec["file"]
+            if i is None or not path.exists():
+                left_out += 1
+                continue
+            crops.append(Image.open(path).convert("RGB"))
+            truth.append(i)
+    if crops:  # turned upright by their label, like the synthetic crops
+        uniq = sorted(set(truth))
+        pos = {r: k for k, r in enumerate(uniq)}
+        load = _cached_loader(a.cache, 256)
+        crops = upright(crops, [pos[i] for i in truth], [load(rows[r]) for r in uniq])
+    n = write_real(crops, truth, [r["printing_id"] for r in rows], a.out, repeat=a.repeat)
+    print(f"{n} real crops of {len(set(truth))} printings ({left_out} left out), each {a.repeat}x an epoch -> {a.out}")
     return 0
 
 
@@ -153,6 +186,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--frame", help="WxH for every task (default: 1080p or 720p per task; 1080p with --eval)")
     p.add_argument("--limit", type=int, default=0, help="only this many printings, spread over the catalogue (tests)")
     p.set_defaults(fn=_crops)
+
+    p = sub.add_parser("real-bank", help="reviewed crops from real broadcasts as a bank to train on")
+    data(p)
+    p.add_argument("--crops", required=True, help="the folder the labels' file names are in")
+    p.add_argument("--labels", required=True, help="labels.csv with file and printing_id")
+    p.add_argument("--out", required=True)
+    p.add_argument("--repeat", type=int, default=1, help="times an epoch each crop is seen")
+    p.add_argument("--limit", type=int, default=0, help="as for crops: must match the synthetic bank's")
+    p.set_defaults(fn=_real_bank)
 
     p = sub.add_parser("train", help="fine-tune on a crop bank")
     data(p)

@@ -151,16 +151,42 @@ def _run(task: Task, out: str) -> tuple[str, int, float]:
     for n, (c, a) in enumerate(zip(crops, arrays)):
         index[n] = (off, a.shape[0], a.shape[1], c.card_index, task.card_h)
         off += a.size
-    folder = Path(out)
+    _write_shard(Path(out), task.name, arrays, index)
+    return task.name, len(arrays), time.time() - t0
+
+
+def _write_shard(folder: Path, name: str, arrays: Sequence[np.ndarray], index: np.ndarray) -> None:
     folder.mkdir(parents=True, exist_ok=True)
-    tmp_u8, tmp_idx = folder / f".{task.name}.u8", folder / f".{task.name}.npy"
+    tmp_u8, tmp_idx = folder / f".{name}.u8", folder / f".{name}.npy"
     with open(tmp_u8, "wb") as f:
         for a in arrays:
             f.write(a.tobytes())
     np.save(tmp_idx, index)
-    os.replace(tmp_u8, folder / f"{task.name}.u8")
-    os.replace(tmp_idx, folder / f"{task.name}.npy")  # last: its presence marks the shard complete
-    return task.name, len(arrays), time.time() - t0
+    os.replace(tmp_u8, folder / f"{name}.u8")
+    os.replace(tmp_idx, folder / f"{name}.npy")  # last: its presence marks the shard complete
+
+
+def write_real(crops: Sequence[Image.Image], rows: Sequence[int], printings: Sequence[str], out: str | Path,
+               repeat: int = 1) -> int:
+    """Reviewed crops from real broadcasts as a bank of one shard, `real`, to train on beside the synthetic
+    bank. Each crop is listed `repeat` times, so an epoch sees it that often, augmented differently each
+    time. `rows` are the crops' rows in `printings`, which must be the synthetic bank's catalogue. Returns
+    how many crops it holds."""
+    folder = Path(out)
+    folder.mkdir(parents=True, exist_ok=True)
+    manifest = folder / "printings.json"
+    if manifest.exists() and json.loads(manifest.read_text()) != list(printings):
+        raise SystemExit(f"{folder} holds crops of another catalogue; write to a new folder")
+    manifest.write_text(json.dumps(list(printings)))
+    arrays = [np.ascontiguousarray(np.asarray(c.convert("RGB"), np.uint8)) for c in crops]
+    # ponytail: listing a crop `repeat` times stands in for a sampling weight; a weighted sampler once real sets are large
+    index = np.zeros((len(arrays) * repeat, 5), np.int64)
+    off = 0
+    for n, (a, r) in enumerate(zip(arrays, rows)):
+        index[n * repeat:(n + 1) * repeat] = (off, a.shape[0], a.shape[1], r, max(a.shape[:2]))
+        off += a.size
+    _write_shard(folder, "real", arrays, index)
+    return len(arrays)
 
 
 def generate(rows: Sequence[dict], cache: str, tasks: Sequence[Task], out: str | Path, workers: int = 1,

@@ -6,6 +6,7 @@
 # from your own machine (needs gcloud and a checkout of this repository):
 #
 #   bash ml/scripts/m1-embedder-gce.sh VM PROJECT ZONE [--delete]
+#   REAL=real.tgz bash ml/scripts/m1-embedder-gce.sh ...   # v1, with reviewed real crops (m1-embedder.sh)
 #
 # A detector run that is going is left alone. This copies this checkout's code to the VM next to the
 # detector's copy, runs a short check of the embedder on the CPU while you watch, and starts the embedder as
@@ -13,7 +14,9 @@
 # copies each one's results to ~/rifteye-m1-results as it finishes, and stops the VM when neither runs any
 # more (--delete: deletes it instead, if both finished and their results are here). Safe to run again at any
 # point: it picks up where things are. Keep this machine awake (macOS: caffeinate -i bash ...). If it cannot,
-# the VM still powers itself off 30 minutes after the last run ends, with the results on its disk.
+# the VM still powers itself off 30 minutes after the last run ends, with the results on its disk. With no
+# detector run on the VM, the short check uses the GPU. REAL (a .tgz here) is copied to the VM; it and
+# REAL_TEST, REAL_REPEAT, REAL_SCALES, SEEDS, EPOCHS, CLEAN and BATCH go to the embedder when set.
 set -eu
 VM=${1:?usage: m1-embedder-gce.sh VM PROJECT ZONE [--delete]}; PROJECT=${2:?project}; ZONE=${3:?zone}
 DELETE=no
@@ -50,14 +53,21 @@ fetch() {  # job: its results and log into $OUT
   tar -xzf "$OUT/.$1.tgz" -C "$OUT" && rm -f "$OUT/.$1.tgz"
 }
 extract() { on "rm -rf ~/RiftEye-embed && mkdir -p ~/RiftEye-embed && tar -xzf rifteye-embed-code.tgz -C ~/RiftEye-embed"; }
-smoke() { on "cd ~ && RIFTEYE_DIR=~/RiftEye-embed SMOKE=1 DEVICE=cpu nice -n 10 bash ~/RiftEye-embed/ml/scripts/m1-embedder.sh"; }
+REALENV=""; RUNENV=""  # settings for the VM side: the real crops for both runs, the sizes for the real one only
+if [ -n "${REAL:-}" ]; then
+  [ -f "$REAL" ] || { echo "REAL=$REAL is not a file here"; exit 1; }
+  REALENV="REAL=\$HOME/rifteye-real.tgz"
+fi
+for v in REAL_TEST REAL_REPEAT REAL_SCALES; do eval "x=\${$v:-}"; if [ -n "$x" ]; then REALENV="$REALENV $v=$x"; fi; done
+for v in SEEDS EPOCHS CLEAN BATCH; do eval "x=\${$v:-}"; if [ -n "$x" ]; then RUNENV="$RUNENV $v=$x"; fi; done
+smoke() { on "cd ~ && $REALENV RIFTEYE_DIR=~/RiftEye-embed SMOKE=1 DEVICE=$1 nice -n 10 bash ~/RiftEye-embed/ml/scripts/m1-embedder.sh"; }
 
 if git -C "$ROOT" rev-parse --verify -q HEAD >/dev/null; then
   git -C "$ROOT" pull -q --ff-only 2>/dev/null || echo "(could not update $ROOT; using it as it is)"
   git -C "$ROOT" archive --format=tar.gz -o "$PKG" HEAD
   REV=$(git -C "$ROOT" log -1 --format='%h %s')
 else
-  tar -czf "$PKG" -C "$ROOT" --exclude .venv --exclude node_modules --exclude .git .
+  COPYFILE_DISABLE=1 tar -czf "$PKG" -C "$ROOT" --exclude .venv --exclude node_modules --exclude .git .  # no macOS ._ files
   REV="a copy of $ROOT"
 fi
 echo "$(at) code: $REV"
@@ -86,6 +96,10 @@ if running "$emb_now"; then
 else
   retry copy "$PKG" "$VM:rifteye-embed-code.tgz" >/dev/null || { echo "could not copy the code to the VM; try again"; exit 1; }
   retry extract || { echo "could not unpack the code on the VM; try again"; exit 1; }
+  if [ -n "${REAL:-}" ]; then
+    echo "$(at) copying the real crops to the VM ($(du -h "$REAL" | cut -f1))"
+    retry copy "$REAL" "$VM:rifteye-real.tgz" >/dev/null || { echo "could not copy $REAL to the VM; try again"; exit 1; }
+  fi
 fi
 rm -f "$PKG"
 s=""
@@ -107,16 +121,20 @@ if running "$emb_state"; then
 elif [ "$emb_ok" = yes ]; then
   echo "$(at) the embedder has already finished"
 else
-  echo "$(at) short check of the embedder first, on the CPU (about 10 minutes; the detector keeps the GPU)"
-  rc=0; smoke || rc=$?
-  if [ "$rc" = 255 ]; then echo "$(at) the connection dropped during the check; once more"; rc=0; smoke || rc=$?; fi
+  dev=cpu; [ -n "$det_last" ] || dev=cuda; dev=${SMOKE_DEVICE:-$dev}
+  if [ "$dev" = cpu ]; then echo "$(at) short check of the embedder first, on the CPU (about 10 minutes; the detector keeps the GPU)"
+  else echo "$(at) short check of the embedder first (a few minutes)"; fi
+  rc=0; smoke "$dev" || rc=$?
+  if [ "$rc" = 255 ]; then echo "$(at) the connection dropped during the check; once more"; rc=0; smoke "$dev" || rc=$?; fi
   if [ "$rc" = 0 ]; then
-    on "bash ~/RiftEye-embed/ml/scripts/m1-vm.sh start-embedder" || true
+    on "$REALENV $RUNENV bash ~/RiftEye-embed/ml/scripts/m1-vm.sh start-embedder" || true
     s=""
     for _ in 1 2 3 4; do s=$(query); [ -z "$s" ] || break; sleep 15; done
     read_state "$s"
   fi
-  if running "$emb_state"; then
+  if running "$emb_state" && [ -z "$det_last" ]; then
+    echo "$(at) the embedder is running on the GPU"
+  elif running "$emb_state"; then
     echo "$(at) the embedder is queued: it starts on the GPU when the detector finishes"
   elif [ "$rc" = 0 ]; then
     echo "$(at) the embedder passed its check but did not start (see above). The detector is not affected:"
@@ -167,7 +185,7 @@ while :; do
 done
 
 if [ "$(vm_state)" = RUNNING ]; then
-  if [ "$DELETE" = yes ] && [ "$det_result" = yes ] && [ "$emb_result" = yes ]; then
+  if [ "$DELETE" = yes ] && { [ -z "$det_last" ] || [ "$det_result" = yes ]; } && [ "$emb_result" = yes ]; then
     gcloud compute instances delete "$VM" --project "$PROJECT" --zone "$ZONE" --quiet
     echo "$(at) deleted $VM"
   else
