@@ -175,3 +175,15 @@ def test_a_replay_link_copied_at_the_current_time_starts_there():
     assert link_start("https://www.twitch.tv/videos/2854086989?t=01h02m03s") == 3723
     assert link_start("https://www.youtube.com/watch?v=abc&t=90s") == 90 and link_start("https://youtu.be/abc?t=95") == 95
     assert link_start("https://www.twitch.tv/videos/2854086989") == 0 and link_start("https://www.twitch.tv/tfue?tt=5") == 0
+
+
+def test_each_encoder_reads_with_its_own_temperature():
+    from rifteye_ml.live.__main__ import EMBEDDER_T, temperature_for
+
+    class Packed:
+        meta = {"temperature": 0.05}
+
+    assert temperature_for("colorgrid/trim0.03+dhash/trim0.03", object(), None) is None  # the pipeline's own
+    assert temperature_for("embedder:/x/embedder-v1.pth", object(), None) == EMBEDDER_T
+    assert temperature_for("embedder:/x/embedder-v2.pth", Packed(), None) == 0.05
+    assert temperature_for("embedder:/x/embedder-v1.pth", Packed(), 0.02) == 0.02

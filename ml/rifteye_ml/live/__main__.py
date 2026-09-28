@@ -34,6 +34,8 @@ from .layouts import LAYOUTS
 
 DATA = Path(os.environ.get("RIFTEYE_DATA", Path.home() / "rifteye-data"))
 ENCODER = "colorgrid/trim0.03+dhash/trim0.03"  # colour and structure together (D-019)
+# ponytail: the temperature belongs in the packed weights (`embed pack`); until it is there, embedder-v1's
+EMBEDDER_T = 0.0347  # embedder-v1, fitted on held-out Barcelona and Los Angeles grand final crops
 
 
 def seconds(s: str) -> float:
@@ -50,6 +52,17 @@ def link_start(link: str) -> float:
         return 0.0
     h, mnt, sec = (int(g or 0) for g in m.groups())
     return float(h * 3600 + mnt * 60 + sec)
+
+
+def temperature_for(spec: str, enc, given: float | None) -> float | None:
+    """How an encoder's scores become confidence: the one given, the one packed with the weights, embedder-v1's
+    for a fine-tuned embedder, or None for the pipeline's own (fitted for colour and structure)."""
+    if given:
+        return given
+    meta = getattr(enc, "meta", None) or {}
+    if meta.get("temperature"):
+        return float(meta["temperature"])
+    return EMBEDDER_T if spec.startswith("embedder:") else None
 
 
 def ensure_catalogue(catalog: Path | None, cache: Path) -> Path:
@@ -173,10 +186,11 @@ def main(argv: list[str] | None = None) -> int:
     if not rows:
         raise SystemExit(f"no card art cached in {a.cache} for {catalog}")
     by_pid = {r["printing_id"]: r for r in rows}
+    os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")  # a Mac GPU runs what it can, the CPU the rest
     enc = get_encoder(a.encoder)
+    temperature = temperature_for(a.encoder, enc, a.temperature)
     det = None
     if a.detector:
-        os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")  # a Mac GPU runs what it can, the CPU the rest
         from ..detect.model import Detector
 
         det = Detector(a.detector, a.device or best_device())
@@ -222,7 +236,7 @@ def main(argv: list[str] | None = None) -> int:
                     return detector_boxes(det.detect(Image.fromarray(image), layout.box(w, h), layout.card_px(h)),
                                           min_score=a.det_score)
             rec = Recognizer(layout, rows, enc, pyr, title=title, fps=a.fps, finder=finder,
-                             **({"temperature": a.temperature} if a.temperature else {}))
+                             **({"temperature": temperature} if temperature else {}))
             for fr in frames:
                 state, events = rec.step(fr.t, fr.image)
                 size = (fr.image.shape[1], fr.image.shape[0])
