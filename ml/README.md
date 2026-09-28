@@ -245,6 +245,24 @@ python -m rifteye_ml.spike real --encoder embedder:embedder-v0.pth ...   # any t
 
 The weights are trained on Riot's card art, so they stay private like the art: never commit or publish them.
 
+## Live: a recording or a stream, named as it plays
+
+`python -m rifteye_ml.live` runs the pipeline in real time and shows it on a local page at http://127.0.0.1:8765: the video with every card it finds boxed and named (point at one to see it), each player's legend and cards on the table, and the plays as they happen. Install it with `pip install -e '.[live]'` (no torch needed); on the first run it fetches the public card catalogue and art into `~/rifteye-data`.
+
+```bash
+python -m rifteye_ml.live --source match.mp4 --layout la-rq
+python -m rifteye_ml.live --source https://www.twitch.tv/videos/2885620401 --start 14:54:00 --layout la-rq
+python -m rifteye_ml.live --source twitch.tv/riftbound --layout la-rq          # live, through streamlink
+python -m rifteye_ml.live --source https://www.youtube.com/watch?v=... --layout la-rq  # through yt-dlp
+python -m rifteye_ml.live --source ... --detector detector-v0.pth              # the trained detector (needs '.[detect]')
+```
+
+- **Always real time.** The frame source keeps only the newest frame, so a slow machine drops frames instead of falling behind; a recording plays at 1x like a stream. About 5 frames a second on a laptop CPU with the bootstrap finder.
+- **Identify once, not once per frame.** Cards are tracked by position and size; a new or uncertain card gets its crop read (colour and structure against the gallery pyramid, D-019), a named one is re-checked now and then. A card found again where one was lost is the same card, not a new play. The change gate watches the whole table too, so a card put on a stack still becomes a play when its region reads confidently.
+- **Layouts** (`live/layouts.py`) say where each broadcast puts the table and how big a card is: `la-rq` (Riot's US RQ stream), `plusrb`, `shenyang`.
+- **Public information only** (D-005): only the table window is ever looked at. Broadcast panels that list a player's hand are hidden information and never read; face-down cards are shown as face-down and never identified.
+- With the bootstrap finder only cards lying on their own get a box; `--detector` swaps in the trained amodal detector for stacks and covered cards.
+
 ## Demo (no data needed)
 
 ```bash

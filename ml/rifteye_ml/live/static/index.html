@@ -1,0 +1,44 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: AGPL-3.0-only -->
+<!-- Copyright (C) 2026 Federico Vietti and RiftEye contributors -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RiftEye live</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>RiftEye <span id="title"></span></h1>
+      <div class="stats">
+        <span id="status" class="pill pill-connecting">connecting</span>
+        <span id="stats-text" class="muted small"></span>
+        <label class="toggle"><input id="show-boxes" type="checkbox" checked /> boxes</label>
+      </div>
+    </header>
+    <p id="banner" hidden></p>
+
+    <main>
+      <section id="stage">
+        <div id="player">
+          <img id="video" src="/stream.mjpg" alt="the table" />
+          <svg id="overlay" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
+        </div>
+      </section>
+
+      <aside id="side">
+        <div id="players"></div>
+        <div id="plays">
+          <h2>Plays</h2>
+          <ol id="feed"></ol>
+        </div>
+      </aside>
+    </main>
+
+    <div id="hover" class="hover" hidden></div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
