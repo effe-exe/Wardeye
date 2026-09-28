@@ -214,6 +214,27 @@ python -m rifteye_ml.reviewpack apply --pack ~/rifteye-data/packs/stacks-<vod>.j
 - **Name:** the largest band along one edge that shows (60%, 40% or a quarter of the card) against the same band of every gallery card, colour grid + dHash, both ways up. The pack is an identity pack, so apps/reviewer shows it as it is: the card with its covered part dimmed, the table around it, and the guess. Face-down cards are never named.
 - **Checked on exact synthetic detections** (`stacks synth-dets`, 40 frames of synth v0, 449 covered cards): named right from 60% of the card 96% (end) and 96% (side), from 40% 96% and 93%, from a quarter 72% and 46%. The real strips of M0 §7 showed the same order: ends carry the art, sides mostly frame and text.
 
+## Card embedder (M1)
+
+`python -m rifteye_ml.embed` fine-tunes the embedder of [ARCHITECTURE §3.4](../docs/ARCHITECTURE.md#34-embedder): DINOv2 ViT-S/14 (Apache-2.0 weights) read at its class token, a linear neck to 256 dimensions, trained with Sub-center ArcFace over gameplay cards (three centres per card, so alt arts need not share one). Install it with `pip install -e '.[torch]'`.
+
+```bash
+python -m rifteye_ml.embed crops --catalog ~/rifteye-data/catalog/catalog.jsonl --cache ~/rifteye-data/art --out bank --seeds 1-16
+python -m rifteye_ml.embed crops --catalog ... --cache ... --out bank-eval --eval
+python -m rifteye_ml.embed train --catalog ... --cache ... --bank bank --out runs/heldout --train-sets OGN,OGS,SFD --device cuda
+python -m rifteye_ml.embed pack --checkpoint runs/heldout/final.pt --out embedder-v0-heldout.pth
+python -m rifteye_ml.embed evaluate --catalog ... --cache ... --bank bank-eval --train-sets OGN,OGS,SFD \
+  --encoder timm:vit_small_patch14_dinov2.lvd142m --encoder embedder:embedder-v0-heldout.pth --out scores.csv
+python -m rifteye_ml.spike real --encoder embedder:embedder-v0.pth ...   # any tool that takes an encoder spec
+```
+
+- **Crop bank.** `crops` runs the M0 stream simulator over the whole catalogue once per seed and card height (10 heights, 36–176 px): boards at the camera level with foil sheen, H.264, cropped back out upright. Each task draws its own frame size (1080p or 720p), bitrate (2–8 Mbit/s) and strength (0.6, 1 or 1.4 times the camera level). Before degrading, a fifth of the standard Unit, Spell and Gear printings take the rules text box of another printing of the same type and set (text scrambling: the identity should come from the art, whatever the language). Every CPU core works, one shard per task, and a rerun skips the shards that are there.
+- **Training.** A batch mixes bank crops with clean art rendered the way the gallery is (`at_long_side` at a random size), so both sides of a search learn the same space. Random covering: 30% of portrait cards are cut to the band a stack leaves visible (mostly the top, 25–70% of the card), and 15% of crops get another card over one end. Nothing is flipped. Layer-wise decayed learning rates, the margin grows over the first epoch, bfloat16 on CUDA, and `last.pt` every epoch to resume from. Each card's centres start at its printings' clean art.
+- **Scores.** `evaluate` uses the M0 quick fine-tune's protocol (M0 report §8): fresh crops at the camera level, 1080p at 4 Mbit/s, seed 0, each searched against the whole catalogue at its height's gallery level, split into held-out and training sets, as the whole card and as the top 40% and top quarter (strips, M0 §7).
+- **On a GPU machine.** [`scripts/m1-embedder.sh`](scripts/m1-embedder.sh) does it all from public sources, like the detector's script: the crop bank, `heldout` (trained on Origins, Proving Grounds and Spiritforged only, scored on the other sets against the frozen backbone) and `all` (every set, the one to use). `SMOKE=1` runs a short version. On the Google Cloud VM where the detector runs, [`scripts/m1-embedder-gce.sh`](scripts/m1-embedder-gce.sh) VM PROJECT ZONE `[--delete]` queues it after the detector without touching it: a short check on the CPU while you watch, then a service that waits for the detector's run to end, cancels the power-off that run has pending and takes the GPU. It copies each run's results to `~/rifteye-m1-results` as it finishes and stops (or deletes) the VM at the end. [`scripts/m1-vm.sh`](scripts/m1-vm.sh) is its VM side.
+
+The weights are trained on Riot's card art, so they stay private like the art: never commit or publish them.
+
 ## Demo (no data needed)
 
 ```bash

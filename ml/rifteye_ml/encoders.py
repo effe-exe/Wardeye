@@ -14,6 +14,7 @@ stream crops that drops the sleeve edge and the mat around the card (M0: 93.7% â
   `/avg` pools the patch tokens instead of using the model's default head (the class token
   for DINOv2). Needs the optional `torch` extra. Cards are letterboxed to a square, so no
   centre crop cuts off the name or the cost.
+* `embedder:<file>`: the fine-tuned M1 embedder (`rifteye_ml.embed`), 256-d.
 """
 from __future__ import annotations
 
@@ -186,7 +187,8 @@ class Fused:
 
 
 def get_encoder(spec: str) -> Encoder:
-    """'colorgrid', 'colorgrid:8', 'dhash', 'dhash:8', or 'timm:<model>[@<size>][/<pool>]'.
+    """'colorgrid', 'colorgrid:8', 'dhash', 'dhash:8', 'timm:<model>[@<size>][/<pool>]', or
+    'embedder:<file>' (fine-tuned weights from `rifteye_ml.embed pack`).
     Parts joined by '+' make a `Fused` encoder, equally weighted unless a part ends in '*<weight>',
     e.g. 'colorgrid/trim0.03+dhash/trim0.03' or 'colorgrid*1+dhash*3'."""
     if "+" in spec:
@@ -205,4 +207,10 @@ def get_encoder(spec: str) -> Encoder:
     if kind == "timm":
         model, size, pool = parse_timm_spec(arg)
         return TimmEncoder(model, img_size=size, pool=pool)
+    if kind == "embedder":
+        from .embed.model import FineTuned  # needs torch and timm
+
+        if not arg:
+            raise ValueError("embedder needs a weights file: 'embedder:<file>'")
+        return FineTuned(arg)
     raise ValueError(f"unknown encoder {spec!r}")

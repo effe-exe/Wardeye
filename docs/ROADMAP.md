@@ -34,7 +34,7 @@ flowchart LR
 - [x] Synthetic stacks: fanned piles, rune rows and columns, attached gear and piles, with full-quad ground truth, visible fractions and id maps
 - [ ] Detector v0 (`card`, `card_back`), amodal (full quad plus visible fraction): synthetic data plus about 500 verified real frames. Built: RF-DETR keypoint on the four corners, with per-corner visibility (`python -m rifteye_ml.detect`, [ml/README](../ml/README.md#card-detector-m1)), and a one-command GPU job (`ml/scripts/m1-detector.sh`); the first training run needs a GPU
 - [ ] Rectifier: corner heatmap network retrained on stream crops
-- [ ] Embedder v0: DINOv2-S fine-tuned with random covering, text scrambling and foil-like colour shifts, exported to ONNX (fp16 and int8), float16 index plus manifest, with strip views and a gallery pyramid
+- [ ] Embedder v0: DINOv2-S fine-tuned with random covering, text scrambling and foil-like colour shifts, exported to ONNX (fp16 and int8), float16 index plus manifest, with strip views and a gallery pyramid. Built: Sub-center ArcFace over cards on a synthetic crop bank, one model on three sets for the held-out test and one on every set (`python -m rifteye_ml.embed`, [ml/README](../ml/README.md#card-embedder-m1)), and a GPU job that queues after the detector's (`ml/scripts/m1-embedder.sh`); the first training run needs a GPU
 - [ ] `ml/evalsuite` v0: frozen real test sets, the leaderboard, per-bucket metrics
 - [ ] Change gate evaluated against logged timelines: recall and precision of board changes ([D-016](decisions.md#d-016-a-change-gate-decides-when-and-where-the-heavy-stages-run))
 - [ ] Python VOD runner: change gate, then detection and identification on changed regions, naive timeline JSON
