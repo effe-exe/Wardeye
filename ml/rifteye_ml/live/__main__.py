@@ -243,6 +243,7 @@ def main(argv: list[str] | None = None) -> int:
                     else:
                         layout = LAYOUTS[a.layout]
                     px = layout.card_px(1080)
+                    status("starting", "getting the cards ready for this table (a minute or two the first time)")
                     pyr = gallery(enc, rows, a.cache, a.embed_cache, sorted({int(round(px * f / 10) * 10) for f in (0.8, 0.9, 1.0)}))
                 finder = None
                 if det is not None:
