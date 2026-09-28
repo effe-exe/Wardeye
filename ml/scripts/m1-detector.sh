@@ -62,17 +62,18 @@ fi
 git -C "$SRC" log -1 --format='%h %s' 2>/dev/null || echo "code from $SRC"
 
 step "python"
+if [ -x "$VENV/bin/python" ] && ! "$VENV/bin/python" -m pip --version >/dev/null 2>&1; then rm -rf "$VENV"; fi  # a half-made one
 if [ ! -x "$VENV/bin/python" ]; then
+  if ! python3 -c 'import ensurepip' 2>/dev/null; then  # Ubuntu ships venv's pip bootstrap separately
+    sudo apt-get -qq update && sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y python3-venv >/dev/null
+  fi
   BASE=${PYTHON:-}
   if [ -z "$BASE" ]; then  # prefer a Python whose torch already works with this driver
     for c in /opt/conda/bin/python python3; do
       if "$c" -c 'import torch, sys; sys.exit(0 if torch.cuda.is_available() else 1)' 2>/dev/null; then BASE=$c; break; fi
     done
   fi
-  if [ -n "$BASE" ]; then "$BASE" -m venv --system-site-packages "$VENV"
-  elif ! python3 -m venv "$VENV" 2>/dev/null; then  # Ubuntu ships venv separately
-    rm -rf "$VENV"; sudo apt-get -qq update && sudo apt-get -qq install -y python3-venv >/dev/null && python3 -m venv "$VENV"
-  fi
+  if [ -n "$BASE" ]; then "$BASE" -m venv --system-site-packages "$VENV"; else python3 -m venv "$VENV"; fi
 fi
 . "$VENV/bin/activate"
 if [ "${SKIP_INSTALL:-0}" != 1 ]; then
