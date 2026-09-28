@@ -323,9 +323,11 @@
     var unsureN = 0;
     var facedownN = 0;
     var runesN = 0;
+    var underIds = {};  // cards listed with the card they lie under
+    tracks.forEach(function (t) { (t.under || []).forEach(function (u) { underIds[u.id] = true; }); });
     for (var i = 0; i < tracks.length; i++) {
       var t = tracks[i];
-      if (t.side !== side) continue;
+      if (t.side !== side || underIds[t.id]) continue;
       if (t.kind === "rune") {
         runesN++;
         continue;
