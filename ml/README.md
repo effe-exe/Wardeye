@@ -52,6 +52,16 @@ python -m rifteye_ml.catalog download --catalog ~/rifteye-data/catalog/catalog.j
 
 Other sources can fill gaps: `--gallery` takes a mirror's flattened `cards.json` (e.g. `github.com/slimtreble/Riftbound-card-data`), `--jsonl` a TCGplayer/TCGCSV-style file (fields `name`, `number`, `image`) with promos.
 
+**Printings the gallery lacks.** Some promos, alt-art runes and tokens are in no feed (the Los Angeles grand final: [M0 §5.7](../docs/reports/m0-spike.md#57-the-grand-final-los-angeles)). `catalog supplement` adds them from a JSON list, each with a picture from elsewhere, such as its clearest reviewed crop on a broadcast. The picture goes into the art cache as `supplement://<printing_id>.png`, so every tool loads it like gallery art, and `--merged` writes the catalogue with the supplement appended. Pictures and supplement stay private like the art:
+
+```bash
+python -m rifteye_ml.catalog supplement --spec ~/rifteye-data/catalog/supplement-spec.json \
+  --catalog ~/rifteye-data/catalog/catalog.jsonl --cache ~/rifteye-data/art \
+  --out ~/rifteye-data/catalog/supplement.jsonl --merged ~/rifteye-data/catalog/catalog-plus.jsonl
+# supplement-spec.json: [{"printing_id": "VEN-R04a", "like": "VEN-R04", "variant": "alt_art",
+#                         "image": ".../crops/t15h04m20s_01.png", "rotate": 180, "source": "..."}, ...]
+```
+
 **Localised printings.** The feed also serves other locales. `zh_CN` has the Simplified Chinese printings of Origins (OGN) and the Origins starter decks (OGS), with the same art and frame and Chinese text; other sets come back in English for now. Localised rows take their `card_id` from the English catalogue:
 
 ```bash
@@ -125,7 +135,7 @@ Crops stay private. The CSV results can be shared, and are what goes into `docs/
 
 `--strips top:0.4,top:0.25,left:0.3` also scores each card from one band only, what a stack leaves visible. Each crop is first turned upright by its label (of its four turns, the one the colour grid matches best to its own card), and `full` scores the whole upright card as the baseline. `--skip-types Legend,Battlefield` keeps the cards that go in stacks; `--only-types Rune` keeps one type (types as in the catalogue).
 
-**5. More labels by review.** Naming crops one by one does not scale. `reviewpack identity` crops every overhead frame's cards ahead of time with `matcrops`, links the crops of one physical card across frames into a *track*, and writes a review pack of the model's guesses for [apps/reviewer](../apps/reviewer): one item per track, the least confident first, plus a random 10% of the confident rest as an audit. The reviewer answers correct or wrong, and `apply` gives every crop of each answered track its label:
+**5. More labels by review.** Naming crops one by one does not scale. `reviewpack identity` crops every overhead frame's cards ahead of time with `matcrops`, links the crops of one physical card across frames into a *track*, and writes a review pack of the model's guesses for [apps/reviewer](../apps/reviewer): one item per track, the least confident first, plus a random 10% of the confident rest as an audit. Tracks as plain as a sleeve back are left out: face-down cards are never named, so nobody is asked about them (`--face-down`, 0 keeps them). The reviewer answers correct or wrong, and `apply` gives every crop of each answered track its label:
 
 ```bash
 python -m rifteye_ml.matcrops --frames ~/rifteye-data/vods/<vod>/frames/seg-*/ --only overhead-frames.txt \

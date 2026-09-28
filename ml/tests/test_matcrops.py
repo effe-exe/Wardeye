@@ -51,3 +51,12 @@ def test_notmat_mask_finds_light_bordered_cards_on_any_mat():
     assert find_cards(frame, 131) == []          # the dark-border rule misses it
     boxes = find_cards(frame, 131, mask=notmat_mask(frame, mat_colour(frame)))
     assert len(boxes) == 1 and abs(boxes[0].long_px - 131) < 4
+
+
+def test_detail_tells_a_card_face_from_a_plain_sleeve():
+    from rifteye_ml.fixtures import load_fixture_image, synthetic_catalog
+    from rifteye_ml.matcrops import FACE_DOWN_DETAIL, detail
+
+    faces = [load_fixture_image(r).resize((110, 155)) for r in synthetic_catalog(4)]
+    sleeve = Image.new("RGB", (110, 155), (200, 60, 120))
+    assert detail(sleeve) < FACE_DOWN_DETAIL < min(detail(f) for f in faces)

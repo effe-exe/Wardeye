@@ -129,3 +129,34 @@ def test_event_view_stays_inside_the_frame():
     px = np.asarray(view)
     assert (px.reshape(-1, 3).min(axis=0) > 0).all()  # no black padding anywhere
     assert view.height == 400 and view.width == 480
+
+
+def test_identity_packs_leave_face_down_cards_out(tmp_path, capsys):
+    from rifteye_ml import catalog as cat
+    from rifteye_ml.fixtures import load_fixture_image, synthetic_catalog
+    from rifteye_ml.reviewpack import main
+
+    rows = synthetic_catalog(4, seed=5)
+    cat.write_catalog(rows, tmp_path / "catalog.jsonl")
+    for r in rows:
+        dest = cat.cache_path(tmp_path / "art", r["image_url"])
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        load_fixture_image(r).save(dest)
+    crops = tmp_path / "crops"
+    crops.mkdir()
+    meta = []
+    for k, t in enumerate(("t00h00m10s", "t00h00m20s")):
+        for n, (im, x) in enumerate(((load_fixture_image(rows[1]).resize((110, 155)), 300.0),
+                                     (Image.new("RGB", (110, 155), (40, 160, 90)), 700.0))):  # a face, a green sleeve
+            name = f"{t}_{n:02d}.png"
+            im.save(crops / name)
+            meta.append({"file": name, "frame": f"/frames/seg-a/{t}.jpg", "centre": [x, 400.0], "long_px": 155.0,
+                         "short_px": 110.0, "angle_deg": 90.0, "fill": 0.9})
+    (crops / "crops.json").write_text(json.dumps(meta))
+    out = tmp_path / "pack.json"
+    assert main(["identity", "--crops", str(crops), "--catalog", str(tmp_path / "catalog.jsonl"), "--cache", str(tmp_path / "art"),
+                 "--temperature", "0.02", "--audit", "1.0", "--no-context", "--id", "p", "--out", str(out)]) == 0
+    assert "1 face-down left out" in capsys.readouterr().out
+    side = json.loads((tmp_path / "pack.meta.json").read_text())
+    files = [f for it in side["items"].values() for f in it["files"]]
+    assert files and all(f.endswith("_00.png") for f in files)  # only the face was asked about

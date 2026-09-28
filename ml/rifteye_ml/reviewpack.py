@@ -277,8 +277,18 @@ def build_identity(a: argparse.Namespace) -> int:
         temperature = fit_temperature(lists, pos) if lists else 0.01
         print(f"temperature {temperature:.4f} fitted on {len(lists)} labelled crops" if lists else "no labels: temperature 0.01")
 
+    # Face-down cards (plain sleeves, card backs) are never named, so nobody should be asked about them.
+    from .matcrops import detail
+
+    face_down = set()
+    if a.face_down > 0:
+        level = [detail(c) for c in crops]
+        face_down = {t_i for t_i, members in enumerate(tracks) if np.median([level[n] for n in members]) < a.face_down}
+
     items_all = []
     for t_i, members in enumerate(tracks):
+        if t_i in face_down:
+            continue
         cards = sorted({c for n in members for c in per_crop[n]})
         mat = np.array([[per_crop[n][c][0] if c in per_crop[n] else floor[n] for c in cards] for n in members])
         prob = softmax(mat, temperature).mean(axis=0)
@@ -292,7 +302,7 @@ def build_identity(a: argparse.Namespace) -> int:
         })
     todo = [it for it in items_all if not it["labelled"]] if not a.include_labelled else items_all
     order, audit = review_order([it["confidence"] for it in todo], a.max_items, a.audit, a.seed)
-    print(f"{len(tracks)} tracks ({len(items_all) - len(todo)} already labelled); "
+    print(f"{len(tracks)} tracks ({len(face_down)} face-down left out, {len(items_all) - len(todo)} already labelled); "
           f"reviewing {len(order)} ({len(audit)} audit)")
 
     files: dict[str, str] = {}
@@ -539,6 +549,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--art-px", type=int, default=320)
     p.add_argument("--quality", type=int, default=80)
     p.add_argument("--no-context", dest="context", action="store_false")
+    p.add_argument("--face-down", type=float, default=4.0,
+                   help="leave out tracks whose crops are this plain (matcrops.detail; 0 keeps them)")
     p.add_argument("--id")
     p.add_argument("--out", required=True)
     p.set_defaults(fn=build_identity)

@@ -17,6 +17,7 @@ The question from [04 §4.8](../research/04-data-and-evaluation.md#48-the-m0-fea
 - **The codec is not the bottleneck.** With clean crops, identity survives H.264 at 2–6 Mbps down to 40 px: the colour grid and dHash name 99–100% of cards. Across 2–6 Mbps, accuracy moves by 2 points at most, with or without camera effects.
 - **What hurts is the camera and the table.** With tilt, lighting, defocus, occluders and detector error added, the best encoder drops to 51–71% (40–160 px).
 - **A real strip keeps most of a card's identity.** Cut from real crops of cards that go in stacks, the top 40% alone gives colour grid + dHash 94.5% (Shenyang), 99.5% (Los Angeles) and 95.0% (Barcelona), the top quarter 88.0%, 97.5% and 79.5%, a side strip 79%, 52% and 61% ([§7](#7-stacked-cards-identity-from-a-strip)). These are upper bounds: exact cuts of isolated cards, orientation known. Simulation had suggested far less (50% from the top 40% for the colour grid). Labelling real stacks needs a detector that sees covered cards (M1).
+- **Top-cut decks need printings the official gallery lacks.** In the Los Angeles grand final, more than half of the face-up tracks were promos, alt-art runes or tokens that the public card gallery does not list. With a private supplement cut from reviewed crops, colour and structure name 91.0% of the final's crops (98.7% of the printings the gallery has); without it, 76.8% ([§5.7](#57-the-grand-final-los-angeles)).
 - **Language matters only to structure-based encoders.** Chinese printings searched against the English gallery cost dHash and the ViTs 3–8 points and the colour grid nothing.
 - **The change gate fires on real changes 77% of the time on Swiss R11, 53% on Los Angeles.** On 57 reviewed events, 44 were real card changes and 36 had the right kind. On Los Angeles, 27 of 51, and 16 of the 20 false alarms were a hand at rest, which the skin test misses in that cooler light ([§6](#6-layer-1-the-change-gate)).
 - **Decisions:**
@@ -289,6 +290,32 @@ Card-level top-1, orientation unknown, gallery pyramid at 120, 140 and 160 px, s
 
 - **Colour and structure together hold on a broadcast nothing was tuned on:** 95.9%, against 80.5% and 93.0% for the parts. Barcelona's own best weight would be 0.6 (96.3%), within half a point of the one chosen on Shenyang.
 - **Legends under dice again.** They are 29% of the crops, the colour grid names half of them, and dHash most. As at Los Angeles, the side panels name both players' legends.
+
+### 5.7 The grand final: Los Angeles
+
+**Data.** VOD 2885620401, the official stream's second day of the Los Angeles RQ, ending with the grand final (Rengar vs Irelia) at 13:42–15:05 of the VOD. The same broadcast package and camera as §5.4, so this tests new games and decks, not a new camera. Table frames every 10 s (374, picked by the share of the table window that is the navy mat: on §5.4's frames that rule keeps all 251 table frames and drops every other shot), 794 crops in 152 tracks. The Maintainer reviewed all 152:
+
+| | Tracks |
+|---|---:|
+| Face-down (sleeve backs) | 68 (45%) |
+| Printings the gallery lacks | 47: the Vendetta alt-art Body Rune (26) and Fury Rune (9), Irelia's Lunar New Year promo of Blade Dancer (SFD-195a, 7), the Sand Soldier token (SFD-T02, 5) |
+| Printings the gallery has | 37 |
+
+- **Face-down cards no longer reach a review pack.** The identity pack builder now leaves out tracks whose crops are as plain as a sleeve (`reviewpack identity --face-down`, `matcrops.detail`: the mean grey-level step inside the card). It marks all 68 here and every card back of §5.4's labels, and no face among the 5,200 reviewed face-up crops of the three other broadcasts (faces score 4.7 and up, sleeves and backs 3.2 and down, the cut is 4). It would have saved 45% of this review and a third of Barcelona's.
+- **Top-cut decks use printings the official gallery lacks.** More than half of the finalists' face-up tracks were promos, alt arts or tokens. The public card-gallery feed lists none of the four: not in English (fetched again on 2026-09-28) nor in the eight other languages (fetched on 26–27 September). A private supplement adds them (`catalog supplement`): each gets the clearest reviewed crop of it on this broadcast as its picture, turned upright, with its source recorded.
+
+Card-level top-1 on the 478 face-up crops of 80 tracks, orientation unknown, gallery pyramid at 140 and 160 px, the four tracks the pictures came from left out:
+
+| Gallery | colour grid, 3% trimmed | colour grid + dHash |
+|---|---:|---:|
+| the official catalogue | 79.1% | 76.8% |
+| **with the supplement** | 87.2% | **91.0%** |
+| printings the official catalogue has, 315 crops | 93.7% | **98.7%** |
+| the four supplement printings, 163 crops | 50.9% → 74.8% | 34.4% → 76.1% |
+
+- **On the printings it knows, colour and structure name 98.7%** of the final's crops, dice on legends included.
+- **Without the supplement, dHash makes it worse**: a missing alt art shares colours with the standard printing, not structure. With it, colour and structure lead again.
+- **The 76% is optimistic**: the pictures come from this match, from other copies of the same rune printings and, for the legend, from the same card. It shows the supplement is wired in, not how well a picture cut from one broadcast carries to another. That needs these printings on another broadcast, or a clean scan.
 
 ## 6. Layer 1: the change gate
 

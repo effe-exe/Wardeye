@@ -302,6 +302,43 @@ def download_images(rows: list[dict], cache_dir: str | Path, workers: int = 4, d
     return {r["printing_id"]: cache_path(cache_dir, r["image_url"]) for r in rows if cache_path(cache_dir, r["image_url"]).exists()}
 
 
+SUPPLEMENT_SCHEME = "supplement://"
+
+
+def supplement(spec: list[dict], reference: list[dict], cache_dir: str | Path) -> list[dict]:
+    """Rows for printings the official gallery lacks (promos, some alt arts, tokens), each with a picture
+    from elsewhere, e.g. the clearest reviewed crop of it on a broadcast. A spec entry has `printing_id`,
+    `image` (a path), optionally `rotate` (degrees counter-clockwise that make it upright) and `like` (a
+    printing whose fields it copies), and any fields to set. The picture is stored in the art cache under
+    supplement://<printing_id>.png, so every tool loads it like gallery art. Like the art, it stays private."""
+    from PIL import Image
+
+    by_id = {r["printing_id"]: r for r in reference}
+    known = {r["printing_id"] for r in reference}
+    out = []
+    for e in spec:
+        pid = e["printing_id"]
+        if pid in known:
+            raise ValueError(f"{pid} is already in the catalogue")
+        base = dict(by_id[e["like"]]) if e.get("like") else {}
+        row = {**base, **{k: v for k, v in e.items() if k not in ("image", "rotate", "like")}}
+        row["image_url"] = f"{SUPPLEMENT_SCHEME}{pid}.png"
+        row.setdefault("variant", "standard")
+        row.setdefault("language", "en")
+        row.setdefault("orientation", "portrait")
+        missing = [k for k in ("card_id", "name", "set_code") if not row.get(k)]
+        if missing:
+            raise ValueError(f"{pid}: give {', '.join(missing)} (or `like` a printing to copy them from)")
+        im = Image.open(e["image"]).convert("RGB")
+        if e.get("rotate"):
+            im = im.rotate(int(e["rotate"]), expand=True)
+        dest = cache_path(cache_dir, row["image_url"])
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        im.save(dest)
+        out.append(row)
+    return out
+
+
 def iter_images(rows: list[dict], cache_dir: str | Path) -> Iterator[tuple[dict, Path]]:
     for r in rows:
         p = cache_path(cache_dir, r["image_url"])
@@ -326,6 +363,12 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--catalog", required=True)
     d.add_argument("--cache", required=True)
     d.add_argument("--workers", type=int, default=4)
+    s = sub.add_parser("supplement", help="printings the official gallery lacks, with pictures from elsewhere")
+    s.add_argument("--spec", required=True, help="JSON list of entries (see catalog.supplement)")
+    s.add_argument("--catalog", required=True, help="the official catalogue")
+    s.add_argument("--cache", required=True, help="the art cache the pictures go into")
+    s.add_argument("--out", required=True, help="the supplement rows (JSONL)")
+    s.add_argument("--merged", help="also write the catalogue with the supplement appended")
     a = ap.parse_args(argv)
 
     if a.cmd == "fetch-feed":
@@ -348,8 +391,15 @@ def main(argv: list[str] | None = None) -> int:
         write_catalog(rows, a.out)
         cards = len({r["card_id"] for r in rows})
         print(f"{len(rows)} printings, {cards} cards -> {a.out}")
+    elif a.cmd == "supplement":
+        official = read_catalog(a.catalog)
+        extra = supplement(json.loads(Path(a.spec).read_text(encoding="utf-8")), official, a.cache)
+        write_catalog(extra, a.out)
+        if a.merged:
+            write_catalog(merge(official, extra), a.merged)
+        print(f"{len(extra)} supplement printings -> {a.out}" + (f"; {len(official) + len(extra)} in {a.merged}" if a.merged else ""))
     else:
-        rows = read_catalog(a.catalog)
+        rows = [r for r in read_catalog(a.catalog) if not r["image_url"].startswith(SUPPLEMENT_SCHEME)]
         got = download_images(rows, a.cache, workers=a.workers)
         print(f"{len(got)}/{len(rows)} images cached in {a.cache}")
     return 0

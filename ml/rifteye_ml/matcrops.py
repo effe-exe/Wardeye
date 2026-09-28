@@ -112,6 +112,20 @@ def find_cards(rgb: np.ndarray, long_px: float, tol: float = 0.12, aspect: tuple
     return boxes
 
 
+FACE_DOWN_DETAIL = 4.0  # below this, a crop is a plain sleeve or card back
+
+
+def detail(im: Image.Image) -> float:
+    """Mean grey-level step between neighbouring pixels inside the card (its middle 76%, at 48 x 64).
+    A face has art, frame and text; a sleeve back is one colour. On the reviewed real crops, faces
+    score 4.7 and up (median about 10) and sleeves and card backs 3.2 and down (LA RQ, M0)."""
+    g = im.convert("L")
+    w, h = g.size
+    a = np.asarray(g.crop((round(w * 0.12), round(h * 0.12), round(w * 0.88), round(h * 0.88))).resize((48, 64), Image.BOX),
+                   np.float32)
+    return float((np.abs(np.diff(a, axis=0)).mean() + np.abs(np.diff(a, axis=1)).mean()) / 2)
+
+
 def upright_crop(frame: Image.Image, box: CardBox, pad: float = 0.0) -> Image.Image:
     """Rotate the frame about the card's centre so the long side is vertical, and crop it."""
     cx, cy = box.centre

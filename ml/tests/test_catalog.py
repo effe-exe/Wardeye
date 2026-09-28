@@ -167,3 +167,30 @@ def test_localised_printings_adopt_reference_card_ids():
     adopted = {r["printing_id"]: r for r in cat.adopt_card_ids(zh, en)}
     assert adopted["FAK-001"]["card_id"] == "fake-hero-brave" and adopted["FAK-002"]["card_id"] == "fake-hero-wise"
     assert adopted["FAK-001"]["name"] == "假英雄, 勇敢" and adopted["FAK-001"]["language"] == "zh-Hans"
+
+
+def test_supplement_adds_a_printing_the_gallery_lacks_with_its_picture(tmp_path):
+    import pytest
+    from PIL import Image
+
+    ref = [{"printing_id": "VEN-R04", "card_id": "body-rune", "name": "Body Rune", "type": "Rune", "set_code": "VEN",
+            "variant": "standard", "language": "en", "orientation": "portrait", "image_url": "https://cdn.example/r04.png"}]
+    crop = Image.new("RGB", (60, 84), (0, 0, 200))
+    crop.paste((200, 0, 0), (0, 0, 60, 20))  # red band at the top: the crop is upside down
+    crop.save(tmp_path / "crop.png")
+    spec = [{"printing_id": "VEN-R04a", "like": "VEN-R04", "variant": "alt_art", "image": str(tmp_path / "crop.png"),
+             "rotate": 180, "source": "a reviewed broadcast crop"}]
+    rows = cat.supplement(spec, ref, tmp_path / "art")
+    r = rows[0]
+    assert (r["card_id"], r["variant"], r["image_url"]) == ("body-rune", "alt_art", "supplement://VEN-R04a.png")
+    stored = Image.open(cat.cache_path(tmp_path / "art", r["image_url"])).convert("RGB")
+    assert stored.getpixel((30, 80)) == (200, 0, 0)  # turned upright
+    with pytest.raises(ValueError):
+        cat.supplement([{"printing_id": "VEN-R04", "image": str(tmp_path / "crop.png")}], ref, tmp_path / "art")  # already there
+    with pytest.raises(ValueError):
+        cat.supplement([{"printing_id": "SFD-T02", "image": str(tmp_path / "crop.png")}], ref, tmp_path / "art")  # no card, name, set
+    cat.write_catalog(ref, tmp_path / "catalog.jsonl")
+    (tmp_path / "spec.json").write_text(json.dumps(spec))
+    assert cat.main(["supplement", "--spec", str(tmp_path / "spec.json"), "--catalog", str(tmp_path / "catalog.jsonl"),
+                     "--cache", str(tmp_path / "art2"), "--out", str(tmp_path / "sup.jsonl"), "--merged", str(tmp_path / "plus.jsonl")]) == 0
+    assert [r["printing_id"] for r in cat.read_catalog(tmp_path / "plus.jsonl")] == ["VEN-R04", "VEN-R04a"]
