@@ -63,7 +63,7 @@ Zones (106–109):
 |---|---|---|
 | Awaken | Turn player readies everything they control | **Mass rotation back to ready on one side → `turn_start`** |
 | Beginning | Start-of-turn effects; score "Hold" on controlled battlefields | Point tracker changes |
-| Channel | Channel 2 runes from the rune deck | **Two runes appear in that player's rune row** |
+| Channel | Channel 2 runes from the rune deck; 3 on the second player's first turn [R16] | **Two runes (three) appear in that player's rune row** |
 | Draw | Draw 1 (an empty deck means "Burn Out") | Hidden |
 | Main | Play cards, move units, spells, showdowns, combat | Most events |
 | Ending | Heal, "this turn" effects end, rune pool empties | Little |
@@ -80,7 +80,7 @@ Scoring is to **8 points**. Players score by conquering and holding battlefields
 | `card_played` (Chosen Champion) | Card leaves the Champion Zone and enters play | 108.3.d |
 | `card_hidden` | A face-down card is placed at a battlefield (Hide). **Identity is secret and never inferred.** | 421, 811 |
 | `card_revealed` | That face-down card turns face up (played for 0) | 811 |
-| `runes_channeled` | Two new runes in the rune row | 315.3, 430 |
+| `runes_channeled` | Two new runes in the rune row, three on the second player's first turn | 315.3, 430 |
 | Energy paid | Runes rotate (exhaust). **The number of runes tapped is the energy cost of the card being played.** | 164.2 |
 | Power paid | A rune goes back to the bottom of the rune deck | 164.2 |
 | `card_moved` | A unit, exhausting, moves between Base and a battlefield (or battlefield to battlefield) | 144 |
@@ -157,3 +157,4 @@ The legend is the easiest card on the table to identify: it is large, static, fa
 - [R13] esportsinsider.com/2025/10/riot-games-riftbound-esports-tcg-interview
 - [R14] `github.com/sammor327/sideways-studio`
 - [R15] youtube.com/@riftbound (videos listed above)
+- [R16] The second player's first Channel: the Maintainer; runesandrift.com/riftbound-turn-order/ (2026-09-28)

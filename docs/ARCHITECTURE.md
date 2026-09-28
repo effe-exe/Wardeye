@@ -144,12 +144,20 @@ In the uncertain state the viewer can pick the right one. That tells them which 
 
 A per-match state machine over a board model. For each player, a board model holds the zones: legend, champion, base, rune row, the two battlefields (each with its facedown slot), and trash. Each zone holds tracks, and each track has an identity, a controller and a ready or exhausted state. The game facts behind these rules are in [01 §1.4–1.5](research/01-game-model.md#14-turn-structure-and-what-the-camera-sees).
 
+**Tracks first, identities later.** The goal is the state of the game, so every card on the table is a track from the moment it appears, face up or face down, named or not. Its identity is a field that fills in when a read commits (§3.5), and stays empty for face-down cards. The board state is complete while most identities are still unknown: how many cards each player has in each zone, which are ready or exhausted, and what is stacked on what.
+
+**The rules are a checksum.** Some counts follow from the rules, and the engine checks what it sees against them:
+
+- **Legend and chosen champion:** one of each per player, on the table before the first turn. The legend never leaves its zone and never changes, so it is named once for the game (committing when three reads agree covers 87% of the Los Angeles legends' time on camera, against 56% frame by frame; [M0 §5.4](reports/m0-spike.md#54-a-second-camera-los-angeles)). The champion leaves its zone only when it is played.
+- **Runes:** a player channels 2 runes a turn from a 12-rune deck, and the second player 3 on their first turn. After a player's *n*th turn their runes on the table number 2*n* (first player) or 2*n* + 1 (second player), minus the runes recycled to pay Power, and never more than 12. So the first Channel says who went first, each Channel of two marks a turn, and a count below the expected one means a rune is covered (its track is kept) or was recycled (a Power payment, and a hint at the card being played).
+- **Decks and hands:** the main deck holds 40 cards including the chosen champion, and a player draws one a turn. Hand sizes are public, their contents are not.
+
 | Event | Trigger (v1 heuristics) |
 |---|---|
 | `game_start` | Legends, chosen champions and battlefields visible; board otherwise empty |
 | `turn_start` | Mass readying on one side of the table (Awaken phase) |
-| `runes_channeled` | Two new runes in a player's rune row |
-| `card_played` | New committed face-up track in a player's base or at a battlefield. Units usually arrive exhausted. |
+| `runes_channeled` | Two new runes in a player's rune row, three on the second player's first turn |
+| `card_played` | New face-up track in a player's base or at a battlefield; its identity fills in when it commits. Units usually arrive exhausted. |
 | `spell_cast` | Face-up card seen briefly (the Chain) that then lands on the owner's trash, or a production graphic |
 | `card_moved` | Re-ID links a vanished track to a new one in another zone |
 | `card_exhausted` / `card_readied` | Track rotation flips between ready and exhausted |
