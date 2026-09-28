@@ -50,7 +50,19 @@ on "rm -rf ~/RiftEye-src && mkdir -p ~/RiftEye-src && tar -xzf rifteye-code.tgz 
   echo "  gcloud compute instances stop $VM --project $PROJECT --zone $ZONE"
   exit 1
 }
-on "RIFTEYE_DIR=~/RiftEye-src STOP_WHEN_DONE=1 STOP_DELAY=1800 nohup setsid bash ~/RiftEye-src/ml/scripts/m1-detector.sh >/dev/null 2>&1 </dev/null &"
+# The real run belongs to the VM's service manager, not to this SSH session: gcloud gives every command
+# a terminal, and a job started in the background from it dies with it when the session closes.
+on "if systemctl is-active --quiet rifteye-m1; then echo 'the real run is already going'; else
+  sudo systemctl reset-failed rifteye-m1 >/dev/null 2>&1
+  sudo systemd-run --quiet --collect --unit rifteye-m1 --uid \$(id -u) --gid \$(id -g) --property WorkingDirectory=\$HOME \
+    --setenv HOME=\$HOME --setenv PATH=\$PATH --setenv RIFTEYE_DIR=\$HOME/RiftEye-src \
+    --setenv STOP_WHEN_DONE=1 --setenv STOP_DELAY=1800 bash \$HOME/RiftEye-src/ml/scripts/m1-detector.sh; fi"
+sleep 20
+if ! on "test -f ~/rifteye-m1/logs/run.log && systemctl is-active --quiet rifteye-m1" >/dev/null 2>&1; then
+  echo "$(at) the real run did not start. What the VM says:"
+  on "sudo journalctl -u rifteye-m1 --no-pager | tail -n 30; tail -n 20 ~/rifteye-m1/logs/run.log 2>/dev/null" || true
+  exit 1
+fi
 echo "$(at) the real run is going (a few hours). This window checks it every 5 minutes, then copies the results here."
 last=""
 while :; do
@@ -59,9 +71,15 @@ while :; do
   if [ "$st" != RUNNING ]; then
     echo "$(at) the VM is $st, so the results stay on its disk (~/rifteye-m1/results) until it runs again"; exit 1
   fi
-  log=$(on "grep '^==' ~/rifteye-m1/logs/run.log | tail -n 1" 2>/dev/null || true)
-  [ -n "$log" ] && [ "$log" != "$last" ] && echo "$(at) $log" && last=$log
-  case "$log" in *"== ended"*) break ;; esac
+  log=$(on "grep '^==' ~/rifteye-m1/logs/run.log | tail -n 1; systemctl is-active rifteye-m1" 2>/dev/null | tr -d '\r' || true)
+  line=$(printf '%s\n' "$log" | head -n 1); unit=$(printf '%s\n' "$log" | tail -n 1)
+  [ -n "$line" ] && [ "$line" != "$last" ] && echo "$(at) $line" && last=$line
+  case "$line" in *"== ended"*) break ;; esac
+  case "$unit" in active|activating|reloading) ;; *)
+    echo "$(at) the run stopped without finishing ($unit). Its last lines:"
+    on "tail -n 30 ~/rifteye-m1/logs/run.log" || true
+    break ;;
+  esac
 done
 OUT="$HOME/rifteye-m1-results"; mkdir -p "$OUT"
 gcloud compute scp "$VM:~/rifteye-m1/results/*" "$VM:~/rifteye-m1/logs/run.log" "$OUT/" \
