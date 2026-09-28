@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import pytest
 from PIL import Image
@@ -270,3 +272,34 @@ def test_a_legend_read_the_same_way_four_times_is_named_with_less_certainty():
     legend = Track("a", box, 0.0, 0.0, reads=4, prob={rows[1]["card_id"]: 1.4, rows[2]["card_id"]: 1.2})  # 0.35 vs 0.30
     unit = Track("b", box, 0.0, 0.0, reads=4, prob={rows[2]["card_id"]: 1.4, rows[3]["card_id"]: 1.2})
     assert rec.label(legend)[0] == "named" and rec.label(unit)[0] == "unsure"
+
+
+def test_a_pinned_card_keeps_its_name_and_a_second_outline_on_a_legend_is_no_card():
+    rows, art, rec = _setup(gate=False, recheck_s=1.0)
+    rows[1]["type"], rows[2]["type"] = "Legend", "Battlefield"
+    rec.row_of = {r["printing_id"]: r for r in rows}
+    legend, bf, unit = CardBox((328.0, 139.0), 78.0, 56.0, 90.0, 1.0), (628.0, 139.0), (634.0, 143.0)
+
+    def boxes(k, t):
+        found = [CardBox(legend.centre, 78.0, 56.0, 90.0, 1.0), CardBox(bf, 78.0, 56.0, 90.0, 1.0)]
+        if k % 2:  # the detector's other outline of the legend's case, off-centre around a die
+            found.append(CardBox((340.0, 146.0), 66.0, 58.0, 90.0, 1.0))
+        if t >= 10:  # a unit put on the battlefield
+            found.append(CardBox(unit, 78.0, 56.0, 90.0, 1.0))
+        return found
+
+    for k in range(100):  # 20 s at 5 fps; from 4 s on, every re-read sees other pictures there (dice, a hand)
+        t = k / 5
+        faces = [(art[1] if t < 4 else art[4], 300, 100), (art[2] if t < 4 else art[5], 600, 100)]
+        rec.finder = lambda t_, im, k=k, t=t: boxes(k, t)
+        state, _ = rec.step(t, _frame(faces + ([(art[3], 606, 104)] if t >= 10 else [])))
+        on_legend = [tr for tr in state["tracks"] if math.dist(np.mean(tr["quad"], axis=0), legend.centre) < 30]
+        if t >= 1:
+            assert [(tr["kind"], tr["state"], tr["name"]) for tr in on_legend] == [("legend", "named", rows[1]["name"])]
+    by_name = {tr["name"]: tr for tr in state["tracks"] if tr["state"] == "named"}
+    assert by_name[rows[2]["name"]]["kind"] == "battlefield" and rows[3]["name"] in by_name  # the unit on it is a card
+    assert rows[4]["name"] not in by_name and rows[5]["name"] not in by_name
+    rows[0]["type"] = "Legend"  # something else on the legend's side read as another legend with less certainty
+    other = Track("x", CardBox((100.0, 400.0), 78.0, 56.0, 90.0, 1.0), 0.0, 0.0, reads=4, side="left",
+                  prob={rows[0]["card_id"]: 1.4, rows[3]["card_id"]: 1.2})
+    assert rec.legends["left"]["name"] == rows[1]["name"] and rec.label(other)[0] == "unsure"  # one player, one legend

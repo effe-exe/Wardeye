@@ -22,6 +22,7 @@ while writing to one.
 """
 from __future__ import annotations
 
+import errno
 import json
 import threading
 import time
@@ -104,10 +105,17 @@ class LiveServer:
     # -- lifecycle ------------------------------------------------------------------------------
 
     def start(self) -> str:
-        """Serves the page in a daemon thread and returns its URL. port=0 picks a free port."""
+        """Serves the page in a daemon thread and returns its URL. port=0 picks a free port; a port another
+        program holds gives way to the next free one of the nine after it."""
         if self._httpd is not None:
             raise RuntimeError("LiveServer is already started")
-        httpd = ThreadingHTTPServer((self._host, self._port), _Handler)
+        for port in [self._port] if self._port == 0 else range(self._port, self._port + 10):
+            try:
+                httpd = ThreadingHTTPServer((self._host, port), _Handler)
+                break
+            except OSError as e:
+                if e.errno != errno.EADDRINUSE or port == self._port + 9:
+                    raise
         httpd.daemon_threads = True
         httpd.live = self  # type: ignore[attr-defined]  # the handler's only way back to this object
         self._httpd = httpd

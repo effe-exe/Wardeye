@@ -248,7 +248,7 @@ The weights are trained on Riot's card art, so they stay private like the art: n
 
 ## Live: a recording or a stream, named as it plays
 
-`python -m rifteye_ml.live` runs the pipeline in real time and shows it on a local page at http://127.0.0.1:8765: the video with every card it finds boxed and named (point at one to see it), each player's legend and cards on the table, and the plays as they happen. Install it with `pip install -e '.[live]'` (no torch needed); on the first run it fetches the public card catalogue and art into `~/rifteye-data`.
+`python -m rifteye_ml.live` runs the pipeline in real time and shows it on a local page at http://127.0.0.1:8765 (or the next free port): the video with every card it finds boxed and named (point at one to see it), each player's legend and cards on the table, and the plays as they happen. Install it with `pip install -e '.[live]'` (no torch needed); on the first run it fetches the public card catalogue and art into `~/rifteye-data`.
 
 ```bash
 python -m rifteye_ml.live --source match.mp4 --layout la-rq

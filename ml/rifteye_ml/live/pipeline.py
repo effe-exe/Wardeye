@@ -337,6 +337,8 @@ class Recognizer:
         seen = []
         for i, b in enumerate(boxes):
             tr = pairs.get(i)
+            if tr is None and self.on_legend(b):
+                continue  # the detector's second outline of a legend's case, or of the die on it: not a card
             if tr is None:
                 tr = Track(f"t{self.next_id}", b, t, t, side=self.layout.side(*b.centre, w, h))
                 self.next_id += 1
@@ -348,6 +350,18 @@ class Recognizer:
                     tr.side = self.layout.side(*tr.box.centre, w, h)
             seen.append(tr)
         return seen
+
+    def on_legend(self, box: CardBox) -> bool:
+        """The box's centre lies well inside a named legend. Only dice and counters go on a legend; the champion
+        and the cards beside it lie about a card width away."""
+        return any(o.pinned and o.kind == "Legend" and math.dist(o.box.centre, box.centre) < 0.35 * o.box.long_px
+                   for o in self.tracks.values())
+
+    def other_legend(self, side: str, card: str) -> bool:
+        """The side already has its legend, and it is another card: one player, one legend (a rune column or a
+        champion read as a legend is not a second one)."""
+        lg = self.legends.get(side)
+        return lg is not None and self.row_of[lg["printing_id"]]["card_id"] != card
 
     def covered(self, t: float, tr: Track) -> bool:
         """Something newer lies on this card: a card put on it or overlapping it. A covered card keeps its
@@ -610,13 +624,16 @@ class Recognizer:
         top = tr.top()
         if not top:
             return "new", 0.0, []
+        if tr.pinned:  # a legend or battlefield keeps its name all game: re-reads move only its confidence
+            top = sorted(top, key=lambda kv: kv[0] != tr.named)
         guesses = []
         for c, p in top[:3]:
             r = self.rows[tr.best_row.get(c, (0.0, self.first_row[c]))[1]]
             guesses.append({"printing_id": r["printing_id"], "card_id": c, "name": r["name"], "p": round(p, 3)})
         p0 = top[0][1]
-        named = p0 >= self.sure_p or (p0 >= self.min_p and tr.reads >= 2)
-        if not named and tr.reads >= 4 and p0 >= 0.3 and self.rows[self.first_row[top[0][0]]].get("type") == "Legend":
+        named = tr.pinned or p0 >= self.sure_p or (p0 >= self.min_p and tr.reads >= 2)
+        if not named and tr.reads >= 4 and p0 >= 0.3 and self.rows[self.first_row[top[0][0]]].get("type") == "Legend" \
+                and not self.other_legend(tr.side, top[0][0]):
             named = True  # a legend, read the same way four times: one a player, and its frame is like no other card's
         return ("named" if named else "unsure"), p0, guesses
 
@@ -656,8 +673,10 @@ class Recognizer:
                         del self.tracks[tr.id]  # it keeps its first id
                         self.reanchor()
                         continue
-                if tr.kind in STATIC:
+                if tr.kind in STATIC and not (tr.kind == "Legend" and self.other_legend(tr.side, tr.named)):
                     tr.pinned = True  # set up before the game: nothing to announce, and it stays put
+                    for o in [o for o in self.tracks.values() if not o.pinned and self.on_legend(o.box)]:
+                        del self.tracks[o.id]  # a second outline of a legend, read as a card of its own
                 if tr.kind in QUIET + STATIC:
                     continue
                 if not changed and not after_cut and (was := self.vanished(t, tr)) is not None:

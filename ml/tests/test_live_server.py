@@ -114,6 +114,24 @@ def test_start_returns_a_working_url_and_stop_frees_the_port(server):
         srv2.stop()
 
 
+def test_a_port_another_program_holds_gives_way_to_the_next_free_one():
+    import socket
+
+    held = socket.socket()
+    held.bind(("127.0.0.1", 0))
+    held.listen()
+    port = held.getsockname()[1]
+    srv = LiveServer(host="127.0.0.1", port=port)
+    try:
+        url = srv.start()
+        assert port < _port_of(url) <= port + 9
+        with urlopen(url, timeout=5) as resp:
+            assert resp.status == 200
+    finally:
+        srv.stop()
+        held.close()
+
+
 def test_stop_is_safe_to_call_twice():
     srv = LiveServer(port=0)
     srv.start()

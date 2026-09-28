@@ -131,3 +131,13 @@ def test_real_recall_uses_the_mat_detector_boxes():
     rows = {r["group"]: r for r in score_real(dets, crops, {"a.png": "OGN-001", "b.png": "back", "c.png": "OGN-002"})}
     assert rows["all"]["n"] == 2 and rows["all"]["recall"] == 1.0 and rows["all"]["class_right"] == 0.5
     assert rows["card_back"]["n"] == 1
+
+
+def test_detector_weights_are_found_from_the_working_directory(tmp_path, monkeypatch):
+    from rifteye_ml.detect.model import weights_path
+
+    (tmp_path / "w.pth").write_bytes(b"x")
+    monkeypatch.chdir(tmp_path)
+    assert weights_path("w.pth") == (tmp_path / "w.pth").resolve()  # not RF-DETR's own model cache
+    with pytest.raises(FileNotFoundError):
+        weights_path("missing.pth")
