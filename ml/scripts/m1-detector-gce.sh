@@ -64,16 +64,23 @@ if ! on "test -f ~/rifteye-m1/logs/run.log && systemctl is-active --quiet riftey
   exit 1
 fi
 echo "$(at) the real run is going (a few hours). This window checks it every 5 minutes, then copies the results here."
-last=""
+last=""; fails=0
 while :; do
   sleep 300
   st=$(gcloud compute instances describe "$VM" --project "$PROJECT" --zone "$ZONE" --format="value(status)" 2>/dev/null || echo unknown)
   if [ "$st" != RUNNING ]; then
     echo "$(at) the VM is $st, so the results stay on its disk (~/rifteye-m1/results) until it runs again"; exit 1
   fi
-  log=$(on "grep '^==' ~/rifteye-m1/logs/run.log | tail -n 1; systemctl is-active rifteye-m1" 2>/dev/null | tr -d '\r' || true)
-  line=$(printf '%s\n' "$log" | head -n 1); unit=$(printf '%s\n' "$log" | tail -n 1)
-  [ -n "$line" ] && [ "$line" != "$last" ] && echo "$(at) $line" && last=$line
+  # SSH through IAP drops now and then: only an answer that ends in "ok" says anything about the run.
+  log=$(on "echo step:\$(grep '^==' ~/rifteye-m1/logs/run.log | tail -n 1); echo unit:\$(systemctl is-active rifteye-m1); echo ok" 2>/dev/null | tr -d '\r' || true)
+  if [ "$(printf '%s\n' "$log" | tail -n 1)" != ok ]; then
+    fails=$((fails + 1))
+    if [ $((fails % 6)) -eq 0 ]; then echo "$(at) no answer from the VM for $((fails * 5)) minutes; still trying"; fi
+    continue
+  fi
+  fails=0
+  line=$(printf '%s\n' "$log" | sed -n 's/^step://p' | head -n 1); unit=$(printf '%s\n' "$log" | sed -n 's/^unit://p' | head -n 1)
+  if [ -n "$line" ] && [ "$line" != "$last" ]; then echo "$(at) $line"; last=$line; fi
   case "$line" in *"== ended"*) break ;; esac
   case "$unit" in active|activating|reloading) ;; *)
     echo "$(at) the run stopped without finishing ($unit). Its last lines:"
@@ -82,8 +89,19 @@ while :; do
   esac
 done
 OUT="$HOME/rifteye-m1-results"; mkdir -p "$OUT"
-gcloud compute scp "$VM:~/rifteye-m1/results/*" "$VM:~/rifteye-m1/logs/run.log" "$OUT/" \
-  --project "$PROJECT" --zone "$ZONE" --tunnel-through-iap || echo "(copying failed; the files are still on the VM)"
+copied=no
+for _ in 1 2 3; do
+  if on "bash ~/RiftEye-src/ml/scripts/m1-vm.sh pack detector" >/dev/null 2>&1 &&
+     gcloud compute scp "$VM:rifteye-m1-out/detector.tgz" "$OUT/.detector.tgz" --project "$PROJECT" --zone "$ZONE" \
+       --tunnel-through-iap >/dev/null 2>&1 && tar -xzf "$OUT/.detector.tgz" -C "$OUT"; then
+    rm -f "$OUT/.detector.tgz"; copied=yes; break
+  fi
+  sleep 30
+done
 gcloud compute instances stop "$VM" --project "$PROJECT" --zone "$ZONE"
+if [ "$copied" != yes ]; then
+  echo "$(at) copying the results failed; they are still on the VM's disk (~/rifteye-m1/results). Run this again to fetch them."
+  exit 1
+fi
 echo "$(at) done. Results in $OUT (the CSVs are safe to share; detector-v0.pth is private):"
 ls -la "$OUT"
