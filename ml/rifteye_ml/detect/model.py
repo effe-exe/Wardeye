@@ -60,9 +60,12 @@ class Detector:
 
         kw = {"device": device} if device else {}
         self.rf = RFDETR.from_checkpoint(str(checkpoint), **kw)
-        self.net = self.rf.model.model.eval()
+        # from_checkpoint leaves the weights on the CPU even when asked for CUDA (rfdetr 1.11.0), so move
+        # them, and take the device from the weights so the inputs always go where the model is.
+        want = torch.device(device) if device else self.rf.model.device
+        self.net = self.rf.model.model.to(want).eval()
         self.post = self.rf.model.postprocess
-        self.device = self.rf.model.device
+        self.device = next(self.net.parameters()).device
         self.names = [str(n) for n in (self.rf.class_names or [])]
         self.torch = torch
 
