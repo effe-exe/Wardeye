@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (C) 2026 Federico Vietti and RiftEye contributors
 #
-# M1 detector v0 on any Linux machine with an NVIDIA GPU, built from public sources only: this
-# repository, the public card-gallery feed and Riot's public image CDN (docs/research/04, D-015).
+# M1 detector v0 on any Linux machine with an NVIDIA GPU, built from this repository and public card
+# data only: the public card-gallery feed and Riot's public image CDN (docs/research/04, D-015).
 #
 #   bash m1-detector.sh [WORK]        # default WORK: ~/rifteye-m1. Safe to re-run: every step resumes.
 #   SMOKE=1 bash m1-detector.sh       # a short end-to-end check first: 8 boards, 1 epoch (most of its
@@ -47,11 +47,16 @@ fi
 
 step "code"
 if [ -z "${RIFTEYE_DIR:-}" ]; then
-  [ -d "$SRC/.git" ] || git clone -q https://github.com/effe-exe/RiftEye.git "$SRC"
+  export GIT_TERMINAL_PROMPT=0  # fail fast rather than wait for a password nobody types
+  [ -d "$SRC/.git" ] || git clone -q https://github.com/effe-exe/RiftEye.git "$SRC" || {
+    echo "cannot clone RiftEye here (while the repository is private, this machine needs GitHub access)."
+    echo "Copy a checkout to this machine and set RIFTEYE_DIR to it; m1-detector-gce.sh does that for Google Cloud VMs."
+    exit 1
+  }
   git -C "$SRC" fetch -q origin
   git -C "$SRC" checkout -q --detach "origin/$REV" 2>/dev/null || git -C "$SRC" checkout -q --detach "$REV"
 fi
-git -C "$SRC" log -1 --format='%h %s'
+git -C "$SRC" log -1 --format='%h %s' 2>/dev/null || echo "code from $SRC"
 
 step "python"
 if [ ! -x "$VENV/bin/python" ]; then
