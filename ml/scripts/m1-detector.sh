@@ -65,7 +65,9 @@ step "python"
 if [ -x "$VENV/bin/python" ] && ! "$VENV/bin/python" -m pip --version >/dev/null 2>&1; then rm -rf "$VENV"; fi  # a half-made one
 if [ ! -x "$VENV/bin/python" ]; then
   if ! python3 -c 'import ensurepip' 2>/dev/null; then  # Ubuntu ships venv's pip bootstrap separately
-    sudo apt-get -qq update && sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y python3-venv >/dev/null
+    # a fresh VM may still be installing updates: wait for apt's lock rather than fail
+    sudo apt-get -qq -o DPkg::Lock::Timeout=900 update
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -qq -o DPkg::Lock::Timeout=900 install -y python3-venv >/dev/null
   fi
   BASE=${PYTHON:-}
   if [ -z "$BASE" ]; then  # prefer a Python whose torch already works with this driver
