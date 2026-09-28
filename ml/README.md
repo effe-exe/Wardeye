@@ -197,6 +197,23 @@ python -m rifteye_ml.detect run --frames ~/rifteye-data/vods/<vod>/frames/seg-00
 
 RF-DETR 1.11.0 keeps the keypoint checkpoint's class head, two logits, and counts it as one class plus a no-object slot. Its default loss trains both logits as classes, so `card` and `card_back` both learn, but its own `predict()` calls `card_back` "`__background__`". `Detector` decodes the two logits itself.
 
+## Covered cards: the stack review pack (M1)
+
+`python -m rifteye_ml.stacks pack` turns the detector's output on real frames into a review pack of covered cards, the first real stack labels ([ARCHITECTURE §3.8](../docs/ARCHITECTURE.md#38-stacks-and-covered-cards)):
+
+```bash
+python -m rifteye_ml.detect run --frames ~/rifteye-data/vods/<vod>/frames/seg-* --only frames.txt --table 0.16,0.06,0.86,0.91 \
+  --card-px 131 --checkpoint detector-v0.pth --out dets.jsonl
+python -m rifteye_ml.stacks pack --dets dets.jsonl --catalog ~/rifteye-data/catalog/catalog.jsonl --cache ~/rifteye-data/art \
+  --embed-cache ~/rifteye-data/embed-cache --crops-out ~/rifteye-data/real-crops/stacks-<vod> --out ~/rifteye-data/packs/stacks-<vod>.json
+python -m rifteye_ml.reviewpack apply --pack ~/rifteye-data/packs/stacks-<vod>.json --answers stacks-<vod>.answers.json --out labels.csv
+```
+
+- **Order:** of two overlapping cards, the one whose corners inside the other still show is on top.
+- **Visible part:** the card minus the cards on it and minus anything outside the camera window. Hands and dice are not detected, so a card under a hand looks visible; the reviewer answers "can't tell".
+- **Name:** the largest band along one edge that shows (60%, 40% or a quarter of the card) against the same band of every gallery card, colour grid + dHash, both ways up. The pack is an identity pack, so apps/reviewer shows it as it is: the card with its covered part dimmed, the table around it, and the guess. Face-down cards are never named.
+- **Checked on exact synthetic detections** (`stacks synth-dets`, 40 frames of synth v0, 449 covered cards): named right from 60% of the card 96% (end) and 96% (side), from 40% 96% and 93%, from a quarter 72% and 46%. The real strips of M0 §7 showed the same order: ends carry the art, sides mostly frame and text.
+
 ## Demo (no data needed)
 
 ```bash
