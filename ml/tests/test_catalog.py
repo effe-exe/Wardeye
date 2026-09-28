@@ -194,3 +194,12 @@ def test_supplement_adds_a_printing_the_gallery_lacks_with_its_picture(tmp_path)
     assert cat.main(["supplement", "--spec", str(tmp_path / "spec.json"), "--catalog", str(tmp_path / "catalog.jsonl"),
                      "--cache", str(tmp_path / "art2"), "--out", str(tmp_path / "sup.jsonl"), "--merged", str(tmp_path / "plus.jsonl")]) == 0
     assert [r["printing_id"] for r in cat.read_catalog(tmp_path / "plus.jsonl")] == ["VEN-R04", "VEN-R04a"]
+
+
+def test_downloads_trust_certifi_too():
+    import pytest
+
+    pytest.importorskip("certifi")
+    from rifteye_ml.catalog import _ssl_context
+
+    assert len(_ssl_context().get_ca_certs()) >= 100  # works where Python brings no certificates of its own

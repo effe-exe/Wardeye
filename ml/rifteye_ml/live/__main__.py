@@ -57,6 +57,10 @@ def ensure_catalogue(catalog: Path | None, cache: Path) -> Path:
     if missing:
         print(f"Fetching {len(missing)} card pictures from the public card gallery (once, about 1 MB each)", flush=True)
         cat.download_images(missing, cache, workers=8)
+        still = [r for r in missing if not cat.cache_path(cache, r["image_url"]).exists()]
+        if len(still) > 10:  # a broken link or two is tolerable; a gallery with holes names cards wrongly
+            raise SystemExit(f"{len(still)} card pictures could not be fetched (the errors are above). "
+                             "Run the same command again to retry: what did arrive is kept.")
     return catalog
 
 

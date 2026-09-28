@@ -31,6 +31,7 @@ import argparse
 import hashlib
 import json
 import re
+import ssl
 import sys
 import time
 import unicodedata
@@ -42,6 +43,21 @@ from typing import Iterable, Iterator
 USER_AGENT = "RiftEyeResearch/0.1 (+https://github.com/effe-exe/RiftEye)"
 FEED_URL = ("https://content.publishing.riotgames.com/publishing-content/v2.0/public/channel/"
             "riftbound_website/list/riftbound_gallery_cards")
+
+
+def _ssl_context() -> ssl.SSLContext:
+    """The system's certificates, plus certifi's when it is installed: Python from python.org on macOS
+    has none of its own until its 'Install Certificates' step is run, and then every download fails."""
+    ctx = ssl.create_default_context()
+    try:
+        import certifi
+    except ImportError:
+        return ctx
+    ctx.load_verify_locations(certifi.where())
+    return ctx
+
+
+_SSL = _ssl_context()
 _CODE = re.compile(r"^(?P<set>[A-Z]{2,4})-(?P<num>[A-Z]*\d+[a-z]?\*?)(?:/(?P<total>\d+))?$")
 
 
@@ -144,7 +160,7 @@ def _get_json(url: str, tries: int = 4) -> dict:
     for attempt in range(tries):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
-            with urllib.request.urlopen(req, timeout=45) as resp:
+            with urllib.request.urlopen(req, timeout=45, context=_SSL) as resp:
                 return json.loads(resp.read().decode("utf-8"))
         except Exception:  # noqa: BLE001 - retry any network failure, re-raise the last one
             if attempt == tries - 1:
@@ -272,7 +288,7 @@ def _fetch(url: str, dest: Path, tries: int = 4) -> bool:
     for attempt in range(tries):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-            with urllib.request.urlopen(req, timeout=45) as resp:
+            with urllib.request.urlopen(req, timeout=45, context=_SSL) as resp:
                 data = resp.read()
             dest.parent.mkdir(parents=True, exist_ok=True)
             tmp = dest.with_suffix(dest.suffix + ".part")

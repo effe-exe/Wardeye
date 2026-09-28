@@ -95,3 +95,16 @@ def test_a_legend_named_on_a_side_is_that_players_legend():
         state, _ = rec.step(k / 5, _frame([(art[2], 700, 100), (art[0], 100, 100)]))
     legends = {p["side"]: p["legend"] for p in state["players"]}
     assert legends == {"left": None, "right": {"printing_id": rows[2]["printing_id"], "name": rows[2]["name"]}}
+
+
+def test_the_run_stops_when_most_card_pictures_cannot_be_fetched(tmp_path, monkeypatch):
+    from rifteye_ml import catalog as cat
+    from rifteye_ml.live.__main__ import ensure_catalogue
+
+    monkeypatch.setattr(cat, "download_images", lambda rows, cache, workers=4: {})  # every fetch fails
+    few, many = tmp_path / "few.jsonl", tmp_path / "many.jsonl"
+    cat.write_catalog(synthetic_catalog(3, seed=1), few)
+    cat.write_catalog(synthetic_catalog(12, seed=1), many)
+    assert ensure_catalogue(few, tmp_path / "art") == few  # a few broken links: carry on
+    with pytest.raises(SystemExit, match="12 card pictures could not be fetched"):
+        ensure_catalogue(many, tmp_path / "art")
