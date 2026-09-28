@@ -357,6 +357,11 @@ class Recognizer:
         return any(o.pinned and o.kind == "Legend" and math.dist(o.box.centre, box.centre) < 0.35 * o.box.long_px
                    for o in self.tracks.values())
 
+    def side_legend(self, tr: Track) -> Track | None:
+        """The pinned legend of the track's side, when that is another track."""
+        return next((o for o in self.tracks.values()
+                     if o.pinned and o.kind == "Legend" and o.side == tr.side and o is not tr), None)
+
     def other_legend(self, side: str, card: str) -> bool:
         """The side already has its legend, and it is another card: one player, one legend (a rune column or a
         champion read as a legend is not a second one)."""
@@ -631,6 +636,8 @@ class Recognizer:
             r = self.rows[tr.best_row.get(c, (0.0, self.first_row[c]))[1]]
             guesses.append({"printing_id": r["printing_id"], "card_id": c, "name": r["name"], "p": round(p, 3)})
         p0 = top[0][1]
+        if not tr.pinned and self.rows[self.first_row[top[0][0]]].get("type") == "Legend" and self.side_legend(tr):
+            return "unsure", p0, guesses  # one player, one legend: another outline of it, or a card misread as one
         named = tr.pinned or p0 >= self.sure_p or (p0 >= self.min_p and tr.reads >= 2)
         if not named and tr.reads >= 4 and p0 >= 0.3 and self.rows[self.first_row[top[0][0]]].get("type") == "Legend" \
                 and not self.other_legend(tr.side, top[0][0]):
@@ -673,8 +680,11 @@ class Recognizer:
                         del self.tracks[tr.id]  # it keeps its first id
                         self.reanchor()
                         continue
-                if tr.kind in STATIC and not (tr.kind == "Legend" and self.other_legend(tr.side, tr.named)):
+                if tr.kind in STATIC and not (tr.kind == "Legend" and (self.other_legend(tr.side, tr.named)
+                                                                      or self.side_legend(tr) is not None)):
                     tr.pinned = True  # set up before the game: nothing to announce, and it stays put
+                    if tr.kind == "Legend":  # the side's legend, however sure its reads are under the dice
+                        self.legends.setdefault(tr.side, {"printing_id": g[0]["printing_id"], "name": g[0]["name"]})
                     for o in [o for o in self.tracks.values() if not o.pinned and self.on_legend(o.box)]:
                         del self.tracks[o.id]  # a second outline of a legend, read as a card of its own
                 if tr.kind in QUIET + STATIC:
@@ -716,6 +726,8 @@ class Recognizer:
             if hidden and not tr.named:
                 continue
             state, p, g = self.label(tr)
+            if (lg := self.side_legend(tr)) is not None and not tr.pinned and g and g[0]["card_id"] == lg.named:
+                continue  # another outline of the side's legend (its case, the die on it): not a card
             top = g[0] if g and state == "named" else None
             # hidden: out of sight (under a hand or another card) but still on the board, so listed, not drawn
             tracks.append({"id": tr.id, "quad": quad(tr.box), "side": tr.side, "state": state,

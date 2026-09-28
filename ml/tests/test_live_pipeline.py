@@ -303,3 +303,8 @@ def test_a_pinned_card_keeps_its_name_and_a_second_outline_on_a_legend_is_no_car
     other = Track("x", CardBox((100.0, 400.0), 78.0, 56.0, 90.0, 1.0), 0.0, 0.0, reads=4, side="left",
                   prob={rows[0]["card_id"]: 1.4, rows[3]["card_id"]: 1.2})
     assert rec.legends["left"]["name"] == rows[1]["name"] and rec.label(other)[0] == "unsure"  # one player, one legend
+    twin = Track("y", CardBox((330.0, 200.0), 78.0, 56.0, 90.0, 1.0), t, t, hits=5, reads=3, side="left",
+                 prob={rows[1]["card_id"]: 3.0})  # a sure read of the legend itself, somewhere else on its side
+    assert rec.label(twin)[0] == "unsure"
+    rec.tracks["y"] = twin
+    assert "y" not in [tr["id"] for tr in rec.state(t, 640, 360)["tracks"]]  # another outline of it: not drawn
