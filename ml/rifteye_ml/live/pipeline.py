@@ -42,7 +42,7 @@ class Track:
     last: float
     hits: int = 1
     reads: int = 0                                   # identifications of this card so far
-    down: int = 0                                    # readings that looked face-down
+    down: int = 0                                    # face-down looks in a row
     prob: dict[str, float] = field(default_factory=dict)       # card_id -> summed probability
     best_row: dict[str, tuple[float, int]] = field(default_factory=dict)  # card_id -> (score, gallery row)
     last_read: float = -1e9
@@ -175,9 +175,14 @@ class Recognizer:
 
     # --- naming ----------------------------------------------------------------
 
+    def face_down(self, tr: Track) -> bool:
+        """Two face-down looks in a row on a card never named. A hand resting on a named card or a
+        blurred frame does not hide it, and a card played under a hand is looked at again later."""
+        return tr.named is None and tr.down >= 2
+
     def due(self, tr: Track, t: float) -> bool:
-        if tr.down * 2 > max(1, tr.reads + tr.down) and tr.down >= 2:
-            return False  # face-down: never identified
+        if self.face_down(tr):
+            return t - tr.last_read > self.recheck_s  # looked at now and then, never identified
         top = tr.top()
         if not top or top[0][1] < self.sure_p and tr.reads < self.max_reads:
             return True
@@ -216,6 +221,7 @@ class Recognizer:
             if detail(c) < FACE_DOWN_DETAIL:
                 tr.down += 1
                 continue
+            tr.down = 0
             crops.append(c)
             owners.append(tr)
         for tr, cands in zip(owners, self.identify(crops)):
@@ -320,7 +326,7 @@ class Recognizer:
 
     def label(self, tr: Track) -> tuple[str, float, list[dict]]:
         """The track's state, confidence and up to three guesses (each card's best-matching printing)."""
-        if tr.down * 2 > max(1, tr.reads + tr.down) and tr.down >= 2:
+        if self.face_down(tr):
             return "facedown", 0.0, []
         top = tr.top()
         if not top:

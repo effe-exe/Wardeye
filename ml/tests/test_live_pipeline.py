@@ -4,7 +4,7 @@ from PIL import Image
 
 from rifteye_ml.fixtures import load_fixture_image, synthetic_catalog
 from rifteye_ml.live.layouts import LAYOUTS, Layout
-from rifteye_ml.live.pipeline import Recognizer, card_crop, quad
+from rifteye_ml.live.pipeline import Recognizer, Track, card_crop, quad
 from rifteye_ml.matcrops import CardBox
 
 MAT = (30, 40, 55)
@@ -108,3 +108,15 @@ def test_the_run_stops_when_most_card_pictures_cannot_be_fetched(tmp_path, monke
     assert ensure_catalogue(few, tmp_path / "art") == few  # a few broken links: carry on
     with pytest.raises(SystemExit, match="12 card pictures could not be fetched"):
         ensure_catalogue(many, tmp_path / "art")
+
+
+def test_face_down_takes_two_looks_in_a_row_and_never_unnames_a_card():
+    rows, art, rec = _setup()
+    box = CardBox((100.0, 100.0), 78.0, 56.0, 90.0, 1.0)
+    card = rows[0]["card_id"]
+    held = Track("a", box, 0.0, 0.0, reads=2, prob={card: 2.0}, named=card, down=5)  # a hand rests on it
+    assert rec.label(held)[0] == "named"
+    new = Track("b", box, 0.0, 0.0, down=2, last_read=1.0)  # two face-down looks, never named
+    assert rec.label(new)[0] == "facedown" and not rec.due(new, 5.0) and rec.due(new, 9.5)
+    new.down = 1
+    assert rec.label(new)[0] == "new"  # one look is not enough
