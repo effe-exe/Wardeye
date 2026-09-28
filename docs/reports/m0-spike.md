@@ -227,6 +227,19 @@ Card-level top-1, orientation unknown, gallery pyramid at 140 and 160 px ([CSV](
 - **The frozen ViTs do better here** than at Shenyang, on these larger cards, but stay far behind.
 - **For legends, context beats pixels.** A player has one legend all game, in a fixed zone, and this broadcast prints both legends' names in its side panels. One good read per game is enough ([ARCHITECTURE §3.5](../ARCHITECTURE.md#35-matcher-priors-and-fusion)).
 
+**Legends over a whole game.** The crops of one physical legend (same card, same place, no gap over 5 minutes) join into 10 timelines of 3 to 208 crops, up to 46 minutes each. With the legend-zone prior (only legends are candidates), colour + dHash names 56% of these crops frame by frame: 78% in each legend's first 2 minutes on camera, 9–16% at 6–12 minutes. The die is not always a later arrival. On 4 of the 5 legends checked by eye it is already there in the first frame sampled, and what changes is where it sits, its face and the light. Naming the legend once and keeping it, as the tracker does (ARCHITECTURE §3.6, §3.8), depends on when it commits:
+
+| Commit rule, then keep the name | Legends named right (of 10) | Their time on camera named right |
+|---|---:|---:|
+| none: every frame on its own | | 56% |
+| the first confident read | 6 (2 wrong, 2 never confident) | 31% |
+| **3 reads in a row agree** | **8** (2 wrong) | **87%** |
+| VOD mode: the most frequent name over the game | 7 (3 wrong) | 81% |
+
+- **One confident mistake at the start costs the whole game.** The 46-minute timeline was misread once, confidently, on its first frame, which is why the first-confident rule does worst. The misreads are consistent confusions (Curator of the Sands as Gloomist 52 times, Chem Baroness as Purifier 18 times), so the tracker should commit only when reads agree.
+- **The two still wrong are Chem Baroness**, with a die over the middle of its art from its first frame. The side panels name it. At Barcelona every rule names all 9 legends (99–100% of their time).
+- These timelines sample one frame every 10 s from windows of the day, so a first sighting is not the start of a game. A tracker running from the start sees each legend being set down; the Emperor of the Sands timelines show the case where the die comes later.
+
 ### 5.5 Colour and structure together
 
 The colour grid and dHash fail on different cards, so the matcher can use both. Each printing gets one vector: the two side by side, each scaled by the square root of its weight. One dot product then gives the weighted mean of the two cosines, and the pyramid and the four-turn search are unchanged ([D-019](../decisions.md#d-019-the-first-identifier-scores-colour-and-structure-together)). Card-level top-1, orientation unknown ([CSV](m0-real-v2-en.csv), [CSV](m0-real-v2-720p.csv), [CSV](m0-real-la.csv)):
