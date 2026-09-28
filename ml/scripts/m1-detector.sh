@@ -18,7 +18,7 @@
 # (main), CACHE (~/rifteye-cache: the downloaded catalogue, art and pretrained weights, shared between
 # runs), PYTHON (a Python that already has CUDA torch, e.g. /opt/conda/bin/python; found if unset),
 # ALLOW_SHARED_GPU=1 to run while another process uses the GPU, STOP_WHEN_DONE=1 to power the machine
-# off when the script ends, finished or failed. For testing the script elsewhere:
+# off when the script ends, finished or failed (after STOP_DELAY seconds, default 0). For testing the script elsewhere:
 # RIFTEYE_DIR (an existing checkout, used as is), VENV (an existing environment), SKIP_INSTALL=1, DEVICE=cpu.
 set -euo pipefail
 
@@ -33,7 +33,10 @@ exec > >(tee -a "$WORK/logs/run.log") 2>&1
 step() { echo; echo "== $(date -u +%H:%M:%S) $*"; }
 T0=$(date +%s)
 # Unattended runs power the machine off when the script ends, whether it finished or failed; the log stays.
-if [ "${STOP_WHEN_DONE:-0}" = 1 ]; then trap 'echo "== powering off"; sudo poweroff' EXIT; fi
+# STOP_DELAY (seconds) leaves time to copy the results off first.
+if [ "${STOP_WHEN_DONE:-0}" = 1 ]; then
+  trap 'echo "== ended; powering off in $(( ${STOP_DELAY:-0} / 60 )) min"; sleep "${STOP_DELAY:-0}"; sudo poweroff' EXIT
+fi
 
 if [ "$DEVICE" = cuda ]; then
   step "GPU"

@@ -9,8 +9,9 @@
 #
 # GPUs are often all taken in a zone, so this retries the start every 2 minutes until one is free.
 # Then it copies this checkout's code to the VM, runs the short check (SMOKE=1) while you watch, and
-# starts the real run in the background with STOP_WHEN_DONE=1: the VM powers itself off when the run
-# ends, finished or failed. Keep this machine awake while it waits (macOS: caffeinate -i bash ...).
+# starts the real run. It waits for the run (hours), copies the results to ~/rifteye-m1-results here
+# and stops the VM. Keep this machine awake (macOS: caffeinate -i bash ...). If it cannot, the VM
+# still powers itself off 30 minutes after the run ends (STOP_WHEN_DONE), with the results on its disk.
 set -eu
 VM=${1:?usage: m1-detector-gce.sh VM PROJECT ZONE}; PROJECT=${2:?project}; ZONE=${3:?zone}
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -49,6 +50,22 @@ on "rm -rf ~/RiftEye-src && mkdir -p ~/RiftEye-src && tar -xzf rifteye-code.tgz 
   echo "  gcloud compute instances stop $VM --project $PROJECT --zone $ZONE"
   exit 1
 }
-on "RIFTEYE_DIR=~/RiftEye-src STOP_WHEN_DONE=1 nohup setsid bash ~/RiftEye-src/ml/scripts/m1-detector.sh >/dev/null 2>&1 </dev/null &"
-echo "$(at) the real run is going on $VM, and the VM powers off when it ends. Progress:"
-echo "  gcloud compute ssh $VM --project $PROJECT --zone $ZONE --tunnel-through-iap -- \"grep '^==' ~/rifteye-m1/logs/run.log | tail -n 2\""
+on "RIFTEYE_DIR=~/RiftEye-src STOP_WHEN_DONE=1 STOP_DELAY=1800 nohup setsid bash ~/RiftEye-src/ml/scripts/m1-detector.sh >/dev/null 2>&1 </dev/null &"
+echo "$(at) the real run is going (a few hours). This window checks it every 5 minutes, then copies the results here."
+last=""
+while :; do
+  sleep 300
+  st=$(gcloud compute instances describe "$VM" --project "$PROJECT" --zone "$ZONE" --format="value(status)" 2>/dev/null || echo unknown)
+  if [ "$st" != RUNNING ]; then
+    echo "$(at) the VM is $st, so the results stay on its disk (~/rifteye-m1/results) until it runs again"; exit 1
+  fi
+  log=$(on "grep '^==' ~/rifteye-m1/logs/run.log | tail -n 1" 2>/dev/null || true)
+  [ -n "$log" ] && [ "$log" != "$last" ] && echo "$(at) $log" && last=$log
+  case "$log" in *"== ended"*) break ;; esac
+done
+OUT="$HOME/rifteye-m1-results"; mkdir -p "$OUT"
+gcloud compute scp "$VM:~/rifteye-m1/results/*" "$VM:~/rifteye-m1/logs/run.log" "$OUT/" \
+  --project "$PROJECT" --zone "$ZONE" --tunnel-through-iap || echo "(copying failed; the files are still on the VM)"
+gcloud compute instances stop "$VM" --project "$PROJECT" --zone "$ZONE"
+echo "$(at) done. Results in $OUT (the CSVs are safe to share; detector-v0.pth is private):"
+ls -la "$OUT"
