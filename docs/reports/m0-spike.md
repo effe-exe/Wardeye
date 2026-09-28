@@ -1,6 +1,6 @@
 # M0 feasibility spike
 
-**Date:** 2026-09-26, updated 2026-09-27. **Status:** complete for two broadcasts: synthetic curves, reviewed real sets from Shenyang (2,381 crops) and Los Angeles (1,383), stacked-card strips simulated and cut from real cards, the bitrate sweep, a quick fine-tune and the change gate's precision. A held-out test on a third broadcast (Barcelona), and face-down cards.
+**Date:** 2026-09-26, updated 2026-09-28. **Status:** complete for two broadcasts: synthetic curves, reviewed real sets from Shenyang (2,381 crops) and Los Angeles (1,383), stacked-card strips simulated and cut from real cards, the bitrate sweep, a quick fine-tune and the change gate's precision on two broadcasts. A held-out test on a third broadcast (Barcelona), and face-down cards.
 
 The question from [04 §4.8](../research/04-data-and-evaluation.md#48-the-m0-feasibility-spike): can RiftEye name Riftbound cards from their art at the size they appear on stream? Numbers only. No images of cards or streams are in this folder (D-006, D-015).
 
@@ -18,7 +18,7 @@ The question from [04 §4.8](../research/04-data-and-evaluation.md#48-the-m0-fea
 - **What hurts is the camera and the table.** With tilt, lighting, defocus, occluders and detector error added, the best encoder drops to 51–71% (40–160 px).
 - **A real strip keeps most of a card's identity.** Cut from real crops of cards that go in stacks, the top 40% alone gives colour grid + dHash 94.5% (Shenyang), 99.5% (Los Angeles) and 95.0% (Barcelona), the top quarter 88.0%, 97.5% and 79.5%, a side strip 79%, 52% and 61% ([§7](#7-stacked-cards-identity-from-a-strip)). These are upper bounds: exact cuts of isolated cards, orientation known. Simulation had suggested far less (50% from the top 40% for the colour grid). Labelling real stacks needs a detector that sees covered cards (M1).
 - **Language matters only to structure-based encoders.** Chinese printings searched against the English gallery cost dHash and the ViTs 3–8 points and the colour grid nothing.
-- **The change gate fires on real changes 77% of the time.** On 57 reviewed events, 44 were real card changes and 36 had the right kind ([§6](#6-layer-1-the-change-gate)).
+- **The change gate fires on real changes 77% of the time on Swiss R11, 53% on Los Angeles.** On 57 reviewed events, 44 were real card changes and 36 had the right kind. On Los Angeles, 27 of 51, and 16 of the 20 false alarms were a hand at rest, which the skin test misses in that cooler light ([§6](#6-layer-1-the-change-gate)).
 - **Decisions:**
   1. The first identifier scores the colour grid and dHash together, with a gallery pyramid, behind the change gate ([D-016](../decisions.md#d-016-a-change-gate-decides-when-and-where-the-heavy-stages-run), [D-017](../decisions.md#d-017-the-embedding-index-holds-a-gallery-pyramid), [D-019](../decisions.md#d-019-the-first-identifier-scores-colour-and-structure-together)). It needs no neural model in the browser. Legends come from context: one per player, all game, in a fixed zone.
   2. **The M1 embedder is DINOv2-S.** It wins frozen everywhere and, with a trained head, on real crops at 1080p and 720p alike (72% and 71%, against 48% and 49% for PE Core S16) and on the other two broadcasts (64% and 69%, against 54% and 52%). PE-S generalises better at 40–80 px only in simulation.
@@ -305,6 +305,19 @@ On 10 minutes of Swiss R11 game 1 (5 fps, a 320 px view), the gate reported 57 s
 - **A size threshold does not fix them.** Raising the minimum to half a card removes 4 false alarms and 6 real changes, because turned cards and counters also change small regions. That is work for a learned verifier on the before/after pair (the M2 experiment in [03 §3.9](../research/03-models-and-licensing.md#39-evaluated-typed-decision-models-laya)). These 57 events are its first labels.
 - **For a trigger, 77% is enough.** A false alarm costs one detection on a small box, and the event engine only reports a change the detector and identifier confirm. **Recall** matters more, and needs a logged timeline, which the Maintainer is recording ([ARCHITECTURE §3.1.1](../ARCHITECTURE.md#311-change-gate-layer-1)).
 
+**Los Angeles.** The same settings on 10 minutes of the Los Angeles RQ (a dark blue mat, cooler light, cards about 155 px) gave 51 events, all reviewed ([CSV](m0-gate-la-r1.csv)):
+
+| Gate said | Events | A real card change | Kind right |
+|---|---:|---:|---:|
+| a card was put here | 32 | 18 (and 4 unclear) | 8 |
+| a card was taken away | 15 | 7 | 4 |
+| the card here changed | 4 | 2 | 2 |
+| **all** | **51** | **27 (53%)** | **14 (27%)** |
+
+- **The false alarms are hands at rest.** In 16 of the 20, a hand lay still in the region for longer than the settle time (0.6 s) and was taken for the table; lifting it then "changed" the table. The skin test that screens hands was tuned on Shenyang's warm light and misses these hands. A hand that stops moving must stay a hand: the fix is to track where motion came from, not only its colour.
+- **"A card was put here" is often a card that changed** (10 of 32). The mat is dark, and so are many sleeves, so a card replaced by another reads as mat turning into card. Kind from colour alone does not carry across tables; the detector's boxes before and after should decide it.
+- **Size does not separate them here either.** Real changes have a median area of 0.76 of a card, false alarms 0.65.
+
 ## 7. Stacked cards: identity from a strip
 
 A stack leaves part of each card visible. On all three broadcasts, runes lie in overlapping stacks that show the top of each rune, and units overlap at battlefields.
@@ -403,7 +416,7 @@ The frozen scores here differ by a few points from §5.2 and §5.4 because this 
 1. **Synthetic stacks and an amodal detector (M1).** All three broadcasts show stacked runes and units overlapping at battlefields, and the cheap ways to label them failed (§7). Synthetic stacks (fanned piles, rune columns, attached gear, piles where only the top card shows) with full-quad ground truth train a detector that finds covered cards; its proposals on these frames go to review.
 2. **Tokens, printings and legends.** A supplement for what the gallery lacks (the Sand Soldier, Tentacle and Mech tokens; the Brush and the R06b Order Rune as printed; [04 §4.2](../research/04-data-and-evaluation.md#42-catalogue)), and the legend prior in the matcher.
 3. **The M1 embedder.** Fine-tune DINOv2-S with random covering, text scrambling and foil-like colour shifts on a GPU, scored first on these real sets (1080p and 720p) as the first leaderboard rows. It has to beat colour and structure together.
-4. **The timeline** of Swiss R11 game 1, for change-gate recall and the first end-to-end test. The Los Angeles gate events (51) are also waiting for review.
+4. **The timeline** of Swiss R11 game 1, for change-gate recall and the first end-to-end test. A gate that keeps a still hand a hand (§6, Los Angeles).
 5. **A gate verifier** trained on reviewed before/after pairs, once there are a few hundred.
 
 ## Reproduce
