@@ -18,7 +18,7 @@
 # (main), CACHE (~/rifteye-cache: the downloaded catalogue, art and pretrained weights, shared between
 # runs), PYTHON (a Python that already has CUDA torch, e.g. /opt/conda/bin/python; found if unset),
 # ALLOW_SHARED_GPU=1 to run while another process uses the GPU, STOP_WHEN_DONE=1 to power the machine
-# off when it has finished. For testing the script elsewhere:
+# off when the script ends, finished or failed. For testing the script elsewhere:
 # RIFTEYE_DIR (an existing checkout, used as is), VENV (an existing environment), SKIP_INSTALL=1, DEVICE=cpu.
 set -euo pipefail
 
@@ -32,6 +32,8 @@ mkdir -p "$D" "$C" "$WORK/results" "$WORK/logs"
 exec > >(tee -a "$WORK/logs/run.log") 2>&1
 step() { echo; echo "== $(date -u +%H:%M:%S) $*"; }
 T0=$(date +%s)
+# Unattended runs power the machine off when the script ends, whether it finished or failed; the log stays.
+if [ "${STOP_WHEN_DONE:-0}" = 1 ]; then trap 'echo "== powering off"; sudo poweroff' EXIT; fi
 
 if [ "$DEVICE" = cuda ]; then
   step "GPU"
@@ -123,4 +125,3 @@ python -m rifteye_ml.detect pack --checkpoint "$OUT/checkpoint_best_total.pth" -
 step "done in $(( ($(date +%s) - T0) / 60 )) min"
 echo "numbers:  $WORK/results/m1-detector-v0-synth.csv and m1-detector-v0-training.csv (safe to share)"
 echo "weights:  $WORK/results/detector-v0.pth (float16, private)"
-[ "${STOP_WHEN_DONE:-0}" = 1 ] && sudo poweroff || true
