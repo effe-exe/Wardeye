@@ -166,3 +166,12 @@ def test_a_good_run_between_outages_gets_a_fresh_budget(tmp_path, monkeypatch):
     with open_source("twitch.tv/riftbound", fps=5.0, realtime=False, height=None) as src:
         frames = [fr.index for _, fr in zip(range(30), src)]
     assert frames == list(range(30))  # six sessions, twice the budget, and it never gave up
+
+
+def test_a_replay_link_copied_at_the_current_time_starts_there():
+    from rifteye_ml.live.__main__ import link_start
+
+    assert link_start("https://www.twitch.tv/videos/2854086989?t=3h40m0s") == 3 * 3600 + 40 * 60
+    assert link_start("https://www.twitch.tv/videos/2854086989?t=01h02m03s") == 3723
+    assert link_start("https://www.youtube.com/watch?v=abc&t=90s") == 90 and link_start("https://youtu.be/abc?t=95") == 95
+    assert link_start("https://www.twitch.tv/videos/2854086989") == 0 and link_start("https://www.twitch.tv/tfue?tt=5") == 0

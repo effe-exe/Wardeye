@@ -5,6 +5,7 @@
     python -m rifteye_ml.live --source match.mp4 --layout la-rq
     python -m rifteye_ml.live --source https://www.twitch.tv/videos/2885620401 --start 14:54:00 --layout la-rq
     python -m rifteye_ml.live --source twitch.tv/riftbound --layout la-rq
+    python -m rifteye_ml.live --source 'https://www.twitch.tv/videos/2854086989?t=3h40m0s'   # any replay, from its link
 
 It opens http://127.0.0.1:8765 in the browser: the video with every card it finds boxed and named
 (point at one to see it), the cards on each player's side, and the plays as they happen. On the
@@ -18,6 +19,7 @@ import argparse
 import hashlib
 import io
 import os
+import re
 import sys
 import threading
 import time
@@ -38,6 +40,16 @@ def seconds(s: str) -> float:
     """'90', '1:30' or '14:54:00'."""
     parts = [float(p) for p in str(s).split(":")]
     return sum(v * 60 ** k for k, v in enumerate(reversed(parts)))
+
+
+def link_start(link: str) -> float:
+    """Where a Twitch or YouTube link says to start: `?t=1h2m3s`, `&t=90s` or `t=90`, as Share, "Copy link at
+    current time" gives it; 0 without one."""
+    m = re.search(r"[?&#]t=(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?(?=&|$)", link)
+    if not m or not any(m.groups()):
+        return 0.0
+    h, mnt, sec = (int(g or 0) for g in m.groups())
+    return float(h * 3600 + mnt * 60 + sec)
 
 
 def ensure_catalogue(catalog: Path | None, cache: Path) -> Path:
@@ -127,15 +139,19 @@ def find_layout(frames, det, every: float = 1.0, give_up: float = 120.0):
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m rifteye_ml.live", description=__doc__.split("\n\n")[0])
     ap.add_argument("--source", required=True, help="a video file, a Twitch channel or VOD URL, a YouTube URL, or an HLS URL")
-    ap.add_argument("--layout", default="la-rq", choices=sorted(LAYOUTS) + ["auto"],
-                    help="the broadcast's layout, or auto: found from its first table shots")
-    ap.add_argument("--start", default="0", help="where to start in a recording or VOD: seconds or HH:MM:SS")
+    ap.add_argument("--layout", default="auto", choices=sorted(LAYOUTS) + ["auto"],
+                    help="the broadcast's layout (default auto: found from its first table shots)")
+    ap.add_argument("--start", default="0", help="where to start in a recording or VOD: seconds or HH:MM:SS "
+                                                 "(default: the link's own ?t=, else the beginning)")
     ap.add_argument("--fps", type=float, default=5.0, help="frames looked at per second")
     ap.add_argument("--fast", action="store_true", help="a recording as fast as it decodes, not at 1x (tests)")
     ap.add_argument("--catalog", type=Path, help="default: ~/rifteye-data/catalog/catalog-plus.jsonl or catalog.jsonl")
     ap.add_argument("--cache", type=Path, default=DATA / "art", help="the card art cache")
     ap.add_argument("--embed-cache", type=Path, default=DATA / "embed-cache")
     ap.add_argument("--encoder", default=ENCODER)
+    ap.add_argument("--temperature", type=float,
+                    help="how the encoder's scores become confidence (default: fitted for the default encoder; "
+                         "another encoder needs its own)")
     ap.add_argument("--detector", type=Path, help="trained detector weights (detector-v0.pth); default: the bootstrap finder")
     ap.add_argument("--device", help="for the detector: cuda, mps or cpu (default: the best there is)")
     ap.add_argument("--det-score", type=float, default=0.4,
@@ -183,11 +199,12 @@ def main(argv: list[str] | None = None) -> int:
     if not a.no_browser:
         threading.Timer(0.5, webbrowser.open, args=(url,)).start()
 
+    start = seconds(a.start) or link_start(a.source)
     rate, last, end_status, message = 0.0, None, "ended", "the stream ended"
     size = (1920, 1080)
     rec = None
     try:
-        with open_source(a.source, fps=a.fps, realtime=not a.fast, start=seconds(a.start), height=1080) as src:
+        with open_source(a.source, fps=a.fps, realtime=not a.fast, start=start, height=1080) as src:
             print(f"{src.kind}: {src.width}x{src.height} at {src.fps:g} fps", flush=True)
             frames = iter(src)
             if a.layout == "auto":
@@ -204,7 +221,8 @@ def main(argv: list[str] | None = None) -> int:
                     h, w = image.shape[:2]
                     return detector_boxes(det.detect(Image.fromarray(image), layout.box(w, h), layout.card_px(h)),
                                           min_score=a.det_score)
-            rec = Recognizer(layout, rows, enc, pyr, title=title, fps=a.fps, finder=finder)
+            rec = Recognizer(layout, rows, enc, pyr, title=title, fps=a.fps, finder=finder,
+                             **({"temperature": a.temperature} if a.temperature else {}))
             for fr in frames:
                 state, events = rec.step(fr.t, fr.image)
                 size = (fr.image.shape[1], fr.image.shape[0])
@@ -219,7 +237,7 @@ def main(argv: list[str] | None = None) -> int:
                 for e in events:
                     server.publish_event(e)
                     print(f"  {time.strftime('%H:%M:%S', time.gmtime(fr.t))} {e['side']:>5}  {e['text']}", flush=True)
-                if a.max_seconds and fr.t - seconds(a.start) >= a.max_seconds:
+                if a.max_seconds and fr.t - start >= a.max_seconds:
                     message = f"stopped after {a.max_seconds:g} s"
                     break
     except KeyboardInterrupt:

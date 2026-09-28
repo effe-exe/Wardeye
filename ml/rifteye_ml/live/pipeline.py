@@ -254,8 +254,9 @@ class Recognizer:
     def __init__(self, layout: Layout, rows: Sequence[dict], encoder, gallery: Pyramid, title: str = "",
                  min_p: float = 0.5, sure_p: float = 0.85, recheck_s: float = 8.0, forget_s: float = 4.0,
                  max_reads: int = 12, settle_s: float = 3.0, gate: bool = True, fps: float = 5.0, gate_p: float = 0.7,
-                 finder=None):
+                 finder=None, temperature: float = TEMPERATURE):
         self.layout, self.rows, self.enc, self.gallery = layout, list(rows), encoder, gallery
+        self.temperature = temperature  # turns an encoder's scores into how sure a read is; fitted per encoder
         self.cards = np.array([r["card_id"] for r in self.rows])
         self.first_row: dict[str, int] = {}
         for i, r in enumerate(self.rows):
@@ -459,7 +460,7 @@ class Recognizer:
                 if card not in scores:
                     scores[card] = (float(sims[i]), int(i))
             vals = np.array([v[0] for v in scores.values()])
-            p = np.exp((vals - vals.max()) / TEMPERATURE)
+            p = np.exp((vals - vals.max()) / self.temperature)
             p /= p.sum()
             out.append([(card, float(pc), sc, i) for (card, (sc, i)), pc in zip(scores.items(), p)])
         return out
