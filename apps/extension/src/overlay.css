@@ -1,0 +1,35 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+/* Copyright (C) 2026 Federico Vietti and RiftEye contributors */
+/* The overlay on the player. Every class starts with rifteye- so the page's own styles never meet ours. */
+
+.rifteye-root { position: fixed; z-index: 2147483000; pointer-events: none; }
+.rifteye-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.rifteye-box { fill: transparent; stroke-width: 2px; vector-effect: non-scaling-stroke; pointer-events: all; cursor: help; }
+.rifteye-named { stroke: #8a7ff0; }
+.rifteye-unsure { stroke: #e0b04a; stroke-dasharray: 6 4; }
+.rifteye-facedown { stroke: #e6e8ec; stroke-dasharray: 2 4; }
+.rifteye-new { stroke: #8b93a1; stroke-dasharray: 2 6; }
+.rifteye-rune { stroke-opacity: 0.35; pointer-events: none; }
+.rifteye-label {
+  fill: #fff; font: 600 22px system-ui, -apple-system, sans-serif; text-anchor: middle;
+  paint-order: stroke; stroke: #000; stroke-width: 4px; stroke-linejoin: round; pointer-events: none;
+}
+.rifteye-badge {
+  position: absolute; left: 8px; top: 8px; padding: 4px 8px; border-radius: 6px;
+  background: rgba(18, 20, 24, 0.82); border: 1px solid #6153cc; color: #e6e8ec;
+  font: 600 12px/1.3 system-ui, -apple-system, sans-serif;
+}
+.rifteye-card {
+  position: fixed; z-index: 2147483001; max-width: 360px; padding: 10px; border-radius: 10px;
+  background: #1b1e24; border: 1px solid #6153cc; color: #e6e8ec; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+  font: 13px/1.35 system-ui, -apple-system, sans-serif; pointer-events: none;
+}
+.rifteye-card[hidden] { display: none; }
+.rifteye-art { display: block; border-radius: 8px; background: #2c313a; }
+.rifteye-name { font-weight: 600; font-size: 15px; margin-top: 6px; }
+.rifteye-sure { color: #3f9d6b; font-size: 12px; }
+.rifteye-note { color: #e0b04a; font-size: 12px; margin-bottom: 6px; }
+.rifteye-under { color: #8b93a1; font-size: 12px; margin-top: 6px; }
+.rifteye-guesses { display: flex; gap: 8px; }
+.rifteye-guesses figure { margin: 0; width: 104px; }
+.rifteye-guesses figcaption { font-size: 11px; margin-top: 4px; }

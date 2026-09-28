@@ -331,3 +331,15 @@ def test_a_card_tucked_under_another_keeps_its_name_and_shows_under_it():
     assert [u["name"] for u in by_name[rows[4]["name"]]["under"]] == [rows[3]["name"]]
     assert by_name[rows[3]["name"]]["under"] == []
     assert next(tr.reads for tr in rec.tracks.values() if tr.named == rows[3]["card_id"]) == reads  # not read again
+
+
+def test_a_card_outlined_twice_is_drawn_once():
+    rows, art, rec = _setup(gate=False, recheck_s=0.5)
+    rows[3]["type"] = "Unit"
+    rec.row_of = {r["printing_id"]: r for r in rows}
+    for k in range(30):  # the detector outlines one card twice, a few pixels apart (a toploader's edge)
+        t = k / 5
+        rec.finder = lambda t_, im: [CardBox((328.0, 139.0), 78.0, 56.0, 90.0, 1.0), CardBox((331.0, 142.0), 82.0, 60.0, 90.0, 1.0)]
+        state, _ = rec.step(t, _frame([(art[3], 300, 100)]))
+    assert sum(1 for tr in rec.tracks.values() if tr.named == rows[3]["card_id"]) == 2  # both tracks named the card
+    assert [tr["name"] for tr in state["tracks"] if tr["state"] == "named"] == [rows[3]["name"]]  # shown once

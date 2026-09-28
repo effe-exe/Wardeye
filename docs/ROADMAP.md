@@ -43,7 +43,7 @@ flowchart LR
 
 ## M2: Browser extension alpha (about 4–6 weeks)
 
-- [ ] Manifest V3 extension for Chrome and Edge: overlay hitboxes and hover card on Twitch and YouTube, in theatre mode and fullscreen
+- [ ] Manifest V3 extension for Chrome and Edge: overlay hitboxes and hover card on Twitch and YouTube, in theatre mode and fullscreen. Alpha built for Twitch in companion mode ([apps/extension](../apps/extension/README.md)): the extension draws on the player what the live runner on the same computer reads from its frames; YouTube and in-browser inference to come
 - [ ] Inference host prototype (extension iframe vs content-script worker vs `tabCapture` + offscreen document), then ONNX Runtime Web in a worker (WebGPU, WASM fallback), eco mode, pause when hidden
 - [ ] Change gate in the extension (canvas or WebGL differences on a small table view) driving detection
 - [ ] Experiment: a typed-decision verifier for gate events (Laya-style, our own checkpoint from an Apache-2.0 base), kept only if it beats gate plus detector rules. Trained on reviewed before/after pairs; the first 57 are in

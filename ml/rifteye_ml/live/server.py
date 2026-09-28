@@ -19,6 +19,10 @@ while writing to one.
     server.publish_state({...})         # schema: see live/static/app.js and the live runner's README
     server.publish_event({...})
     server.stop()
+
+With `on_frame`, it also takes frames from the browser extension (`POST /frame`, a JPEG and the video's
+time in `X-Media-Time`, its page in `X-Video`; see live/browser.py) and answers each with the newest state. Only an extension
+or this machine's own pages may post: a web page's Origin is refused, so a site cannot feed it frames.
 """
 from __future__ import annotations
 
@@ -48,6 +52,8 @@ _SSE_KEEPALIVE_S = 15.0
 _ART_LONG_PX = 360
 _MJPEG_BOUNDARY = "rifteyeframe"
 _LOOPBACK = ("127.0.0.1", "localhost", "::1")
+_FRAME_MAX_BYTES = 12 * 1024 * 1024  # a 4K JPEG at high quality is well under this
+_EXTENSION_SCHEMES = ("chrome-extension://", "moz-extension://", "safari-web-extension://")
 
 
 def _starting_state(title: str) -> dict:
@@ -78,10 +84,12 @@ class LiveServer:
     """
 
     def __init__(self, host: str = "127.0.0.1", port: int = 8765,
-                 art: Callable[[str], Path | None] | None = None, title: str = "RiftEye live") -> None:
+                 art: Callable[[str], Path | None] | None = None, title: str = "RiftEye live",
+                 on_frame: Callable[[bytes, float, str], None] | None = None) -> None:
         self._host = host
         self._port = port
         self._art = art
+        self.on_frame = on_frame
         self._title = title
         self._httpd: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
@@ -232,6 +240,15 @@ class LiveServer:
         name = host[1:host.find("]")] if host.startswith("[") else host.rsplit(":", 1)[0]
         return name in _LOOPBACK
 
+    def origin_ok(self, origin: str) -> bool:
+        """Who may post frames: the browser extension, a page served from this machine, or a client that
+        sends no Origin at all (not a browser). A web page on any other site is refused."""
+        origin = origin.strip().lower()
+        if not origin or origin.startswith(_EXTENSION_SCHEMES):
+            return True
+        host = urlsplit(origin).hostname or ""
+        return origin.startswith("http://") and host in _LOOPBACK
+
     def static_bytes(self, name: str) -> bytes:
         if name not in self._static_cache:
             self._static_cache[name] = (STATIC_DIR / name).read_bytes()
@@ -257,6 +274,8 @@ class _Handler(BaseHTTPRequestHandler):
                 self._static(live, path)
             elif path == "/state.json":
                 self._json(live.state_snapshot())
+            elif path == "/hello":
+                self._json({"rifteye": "live", "frames": live.on_frame is not None})
             elif path == "/stream.mjpg":
                 self._mjpeg(live)
             elif path == "/events":
@@ -267,6 +286,34 @@ class _Handler(BaseHTTPRequestHandler):
                 self.send_error(404)
         except (BrokenPipeError, ConnectionResetError, OSError):
             pass  # the client went away mid-response; nothing left to do
+
+    def do_POST(self) -> None:
+        live: LiveServer = self.server.live  # type: ignore[attr-defined]
+        if urlsplit(self.path).path != "/frame" or live.on_frame is None:
+            self.send_error(404)
+            return
+        if not live.host_ok(self.headers.get("Host", "")) or not live.origin_ok(self.headers.get("Origin", "")):
+            self.send_error(403)
+            return
+        try:
+            n = int(self.headers.get("Content-Length", "0"))
+            t = float(self.headers.get("X-Media-Time", "nan"))
+        except ValueError:
+            self.send_error(400)
+            return
+        if not 0 < n <= _FRAME_MAX_BYTES or not (t == t and abs(t) < 1e7) \
+                or self.headers.get("Content-Type", "").split(";")[0].strip() != "image/jpeg":
+            self.send_error(400)
+            return
+        try:
+            body = self.rfile.read(n)
+            if len(body) != n:
+                self.send_error(400)
+                return
+            live.on_frame(body, t, self.headers.get("X-Video", "")[:200])
+            self._json(live.state_snapshot())
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
 
     def _static(self, live: LiveServer, path: str) -> None:
         name, content_type = _STATIC_FILES[path]

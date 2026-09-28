@@ -6,6 +6,7 @@
     python -m rifteye_ml.live --source https://www.twitch.tv/videos/2885620401 --start 14:54:00 --layout la-rq
     python -m rifteye_ml.live --source twitch.tv/riftbound --layout la-rq
     python -m rifteye_ml.live --source 'https://www.twitch.tv/videos/2854086989?t=3h40m0s'   # any replay, from its link
+    python -m rifteye_ml.live --source browser     # on the Twitch player itself, with the extension (apps/extension)
 
 It opens http://127.0.0.1:8765 in the browser: the video with every card it finds boxed and named
 (point at one to see it), the cards on each player's side, and the plays as they happen. On the
@@ -18,6 +19,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import io
+import math
 import os
 import re
 import sys
@@ -131,7 +133,7 @@ def jpeg(image: np.ndarray, width: int = 1280, quality: int = 78) -> bytes:
 
 def find_layout(frames, det, every: float = 1.0, give_up: float = 120.0):
     """`--layout auto`: a layout from the first table shots (`autolayout.py`), one look a second over the
-    last five; SystemExit when none shows a table in the first two minutes."""
+    last five; SystemExit when none shows a table in the first `give_up` s of media."""
     from .autolayout import auto_layout
 
     detect = (lambda f, box, px: det.detect(Image.fromarray(f), box, px)) if det is not None else None
@@ -146,12 +148,13 @@ def find_layout(frames, det, every: float = 1.0, give_up: float = 120.0):
             return layout
         if fr.t - t0 > give_up:
             break
-    raise SystemExit("no table found in the first two minutes: name the broadcast's layout with --layout")
+    raise SystemExit(f"no table found in the first {give_up / 60:g} minutes: name the broadcast's layout with --layout")
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m rifteye_ml.live", description=__doc__.split("\n\n")[0])
-    ap.add_argument("--source", required=True, help="a video file, a Twitch channel or VOD URL, a YouTube URL, or an HLS URL")
+    ap.add_argument("--source", required=True, help="a video file, a Twitch channel or VOD URL, a YouTube URL, an HLS "
+                                                    "URL, or browser: the frames the RiftEye extension sends")
     ap.add_argument("--layout", default="auto", choices=sorted(LAYOUTS) + ["auto"],
                     help="the broadcast's layout (default auto: found from its first table shots)")
     ap.add_argument("--start", default="0", help="where to start in a recording or VOD: seconds or HH:MM:SS "
@@ -177,6 +180,7 @@ def main(argv: list[str] | None = None) -> int:
     a = ap.parse_args(argv)
 
     from ..encoders import get_encoder
+    from .browser import BrowserSource
     from .pipeline import Recognizer, detector_boxes
     from .server import LiveServer
     from .source import open_source
@@ -200,7 +204,8 @@ def main(argv: list[str] | None = None) -> int:
         return cat.cache_path(a.cache, r["image_url"]) if r else None
 
     title = a.title or (LAYOUTS[a.layout].title if a.layout in LAYOUTS else "RiftEye live")
-    server = LiveServer(a.host, a.port, art=art, title=title)
+    browser = BrowserSource(fps=a.fps) if a.source == "browser" else None
+    server = LiveServer(a.host, a.port, art=art, title=title, on_frame=browser.post if browser else None)
     url = server.start()
     print(f"RiftEye live: {url}  ({len(rows)} printings, {a.encoder}, layout {a.layout})", flush=True)
 
@@ -209,8 +214,12 @@ def main(argv: list[str] | None = None) -> int:
                               "frame": {"width": size[0], "height": size[1]}, "fps": {"source": a.fps, "processed": 0},
                               "latency_s": 0, "players": [], "tracks": []})
 
-    status("starting", f"opening {a.source}")
-    if not a.no_browser:
+    if browser is not None:
+        status("starting", "waiting for the RiftEye extension: play a Riftbound video on Twitch")
+        print("waiting for the RiftEye extension: play a Riftbound video on Twitch in Chrome", flush=True)
+    else:
+        status("starting", f"opening {a.source}")
+    if not a.no_browser and browser is None:
         threading.Timer(0.5, webbrowser.open, args=(url,)).start()
 
     start = seconds(a.start) or link_start(a.source)
@@ -218,41 +227,60 @@ def main(argv: list[str] | None = None) -> int:
     size = (1920, 1080)
     rec = None
     try:
-        with open_source(a.source, fps=a.fps, realtime=not a.fast, start=start, height=1080) as src:
-            print(f"{src.kind}: {src.width}x{src.height} at {src.fps:g} fps", flush=True)
+        src_ctx = browser if browser is not None else open_source(a.source, fps=a.fps, realtime=not a.fast,
+                                                                    start=start, height=1080)
+        with src_ctx as src:
+            if browser is None:
+                print(f"{src.kind}: {src.width}x{src.height} at {src.fps:g} fps", flush=True)
             frames = iter(src)
-            if a.layout == "auto":
-                status("starting", "finding the table and the size of a card")
-                layout = find_layout(frames, det)
-                print(f"layout found: table {layout.table}, cards {layout.card_long_1080:g} px long at 1080p", flush=True)
-            else:
-                layout = LAYOUTS[a.layout]
-            px = layout.card_px(1080)
-            pyr = gallery(enc, rows, a.cache, a.embed_cache, sorted({int(round(px * f / 10) * 10) for f in (0.8, 0.9, 1.0)}))
-            finder = None
-            if det is not None:
-                def finder(t: float, image: np.ndarray) -> list:
-                    h, w = image.shape[:2]
-                    return detector_boxes(det.detect(Image.fromarray(image), layout.box(w, h), layout.card_px(h)),
-                                          min_score=a.det_score)
-            rec = Recognizer(layout, rows, enc, pyr, title=title, fps=a.fps, finder=finder,
-                             **({"temperature": temperature} if temperature else {}))
-            for fr in frames:
-                state, events = rec.step(fr.t, fr.image)
-                size = (fr.image.shape[1], fr.image.shape[0])
-                now = time.monotonic()
-                if last is not None:
-                    rate = 0.8 * rate + 0.2 / max(1e-3, now - last) if rate else 1 / max(1e-3, now - last)
-                last = now
-                state["fps"] = {"source": src.fps, "processed": round(rate, 1)}
-                state["latency_s"] = round(now - fr.wall, 2)
-                server.publish_frame(jpeg(fr.image), fr.t, fr.image.shape[1], fr.image.shape[0])
-                server.publish_state(state)
-                for e in events:
-                    server.publish_event(e)
-                    print(f"  {time.strftime('%H:%M:%S', time.gmtime(fr.t))} {e['side']:>5}  {e['text']}", flush=True)
-                if a.max_seconds and fr.t - start >= a.max_seconds:
-                    message = f"stopped after {a.max_seconds:g} s"
+            layout, video, t_first, last_t = None, None, None, None
+            while True:  # once per broadcast: the extension's viewer can open another video
+                if layout is None or a.layout == "auto" and video is not None:
+                    if a.layout == "auto":
+                        status("starting", "finding the table and the size of a card")
+                        layout = find_layout(frames, det, give_up=math.inf if browser is not None else 120.0)
+                        print(f"layout found: table {layout.table}, cards {layout.card_long_1080:g} px long at 1080p", flush=True)
+                    else:
+                        layout = LAYOUTS[a.layout]
+                    px = layout.card_px(1080)
+                    pyr = gallery(enc, rows, a.cache, a.embed_cache, sorted({int(round(px * f / 10) * 10) for f in (0.8, 0.9, 1.0)}))
+                finder = None
+                if det is not None:
+                    def finder(t: float, image: np.ndarray, layout=layout) -> list:
+                        h, w = image.shape[:2]
+                        return detector_boxes(det.detect(Image.fromarray(image), layout.box(w, h), layout.card_px(h)),
+                                              min_score=a.det_score)
+                rec = Recognizer(layout, rows, enc, pyr, title=title, fps=a.fps, finder=finder,
+                                 **({"temperature": temperature} if temperature else {}))
+                switched = False
+                for fr in frames:
+                    key = getattr(fr, "video", None)
+                    if browser is not None and video is not None and key != video:
+                        video, switched = key, True  # another video: its own table, its own board
+                        break
+                    video = key
+                    if last_t is not None and not -1.0 <= fr.t - last_t <= 15.0:
+                        rec = Recognizer(layout, rows, enc, pyr, title=title, fps=a.fps, finder=finder,
+                                         **({"temperature": temperature} if temperature else {}))  # a jump: a new board
+                    last_t = fr.t
+                    t_first = fr.t if t_first is None else t_first
+                    state, events = rec.step(fr.t, fr.image)
+                    size = (fr.image.shape[1], fr.image.shape[0])
+                    now = time.monotonic()
+                    if last is not None:
+                        rate = 0.8 * rate + 0.2 / max(1e-3, now - last) if rate else 1 / max(1e-3, now - last)
+                    last = now
+                    state["fps"] = {"source": src.fps, "processed": round(rate, 1)}
+                    state["latency_s"] = round(now - fr.wall, 2)
+                    server.publish_frame(jpeg(fr.image), fr.t, fr.image.shape[1], fr.image.shape[0])
+                    server.publish_state(state)
+                    for e in events:
+                        server.publish_event(e)
+                        print(f"  {time.strftime('%H:%M:%S', time.gmtime(fr.t))} {e['side']:>5}  {e['text']}", flush=True)
+                    if a.max_seconds and fr.t - t_first >= a.max_seconds:
+                        message = f"stopped after {a.max_seconds:g} s"
+                        break
+                if not switched:
                     break
     except KeyboardInterrupt:
         message = "stopped"

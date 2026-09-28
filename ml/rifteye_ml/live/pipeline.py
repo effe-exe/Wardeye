@@ -79,6 +79,11 @@ def aabb(box: CardBox) -> tuple[float, float, float, float]:
     return float(q[:, 0].min()), float(q[:, 1].min()), float(q[:, 0].max()), float(q[:, 1].max())
 
 
+def hidden_now(t: float, tr: "Track") -> bool:
+    """Out of sight: not seen for more than a second."""
+    return t - tr.last > 1.0
+
+
 def smooth(old: CardBox, new: CardBox, k: float = 0.35) -> CardBox:
     """The new box eased from the old one while the card barely moves: the detector's boxes jitter by a
     few pixels from frame to frame. A card that moves or turns (exhausted) is followed at once."""
@@ -400,6 +405,12 @@ class Recognizer:
             if (sh := self.share(tr, o)) >= best:
                 best, top = sh, o
         return top
+
+    def twin(self, t: float, tr: Track) -> bool:
+        """An older track in view with the same name that covers half of this one: the same card outlined twice."""
+        return bool(tr.named) and not tr.pinned and not hidden_now(t, tr) and any(
+            o is not tr and o.named == tr.named and (o.first, int(o.id[1:])) < (tr.first, int(tr.id[1:]))
+            and not hidden_now(t, o) and self.share(tr, o) >= 0.5 for o in self.tracks.values())
 
     def stacks(self, t: float) -> dict[str, list[Track]]:
         """The named cards under each card: a gear that overlaps a unit goes with the unit, and a card out of
@@ -767,6 +778,8 @@ class Recognizer:
             state, p, g = self.label(tr)
             if (lg := self.side_legend(tr)) is not None and not tr.pinned and g and g[0]["card_id"] == lg.named:
                 continue  # another outline of the side's legend (its case, the die on it): not a card
+            if self.twin(t, tr):
+                continue  # the same card outlined again (a sleeve's or a toploader's edge): drawn once
             top = g[0] if g and state == "named" else None
             # hidden: out of sight (under a hand or another card) but still on the board, so listed, not drawn
             tracks.append({"id": tr.id, "quad": quad(tr.box), "side": tr.side, "state": state,

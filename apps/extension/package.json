@@ -1,0 +1,11 @@
+{
+  "name": "@rifteye/extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RiftEye on the Twitch player: the table's cards boxed and named on the video as it plays, read by the live runner on this machine",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  }
+}

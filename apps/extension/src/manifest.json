@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "RiftEye",
+  "version": "0.1.0",
+  "description": "Names the Riftbound cards on the table as you watch, read by RiftEye running on this computer. Nothing leaves it.",
+  "background": { "service_worker": "worker.js", "type": "module" },
+  "content_scripts": [
+    { "matches": ["https://www.twitch.tv/*"], "js": ["content.js"], "css": ["overlay.css"], "run_at": "document_idle" }
+  ],
+  "host_permissions": ["http://127.0.0.1/*"]
+}

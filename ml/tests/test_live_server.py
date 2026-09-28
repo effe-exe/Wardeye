@@ -346,3 +346,74 @@ def test_only_this_machine_s_names_are_served_on_loopback(server):
     assert status(f"127.0.0.1:{port}") == b"200" and status(f"localhost:{port}") == b"200"
     assert status(f"evil.example:{port}") == b"403"  # a rebound domain reaching this port
     assert LiveServer(host="0.0.0.0").host_ok("192.168.1.20:8765")  # on the LAN any name will do
+
+
+# --------------------------------------------------------------------------------------------
+# frames from the browser extension
+# --------------------------------------------------------------------------------------------
+
+def _post_frame(url, body, headers):
+    from urllib.request import Request
+    req = Request(url + "frame", data=body, method="POST", headers={"Content-Type": "image/jpeg", **headers})
+    try:
+        with urlopen(req, timeout=5) as resp:
+            return resp.status, json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        return e.code, None
+
+
+def test_the_extension_posts_frames_and_gets_the_newest_state_back():
+    got = []
+    srv = LiveServer(host="127.0.0.1", port=0, on_frame=lambda b, t, v: got.append((b, t, v)))
+    url = srv.start()
+    try:
+        srv.publish_state(SAMPLE_STATE)
+        body = _jpeg()
+        status, state = _post_frame(url, body, {"X-Media-Time": "13262.4", "X-Video": "/videos/2854086989",
+                                                "Origin": "chrome-extension://abcdefghijklmnop"})
+        assert status == 200 and state["title"] == "test match"
+        assert got == [(body, 13262.4, "/videos/2854086989")]
+        with urlopen(url + "hello", timeout=5) as resp:
+            assert json.loads(resp.read()) == {"rifteye": "live", "frames": True}
+    finally:
+        srv.stop()
+
+
+def test_a_web_page_cannot_post_frames_and_bad_uploads_are_refused():
+    got = []
+    srv = LiveServer(host="127.0.0.1", port=0, on_frame=lambda b, t, v: got.append(t))
+    url = srv.start()
+    try:
+        assert _post_frame(url, _jpeg(), {"X-Media-Time": "1", "Origin": "https://evil.example"})[0] == 403
+        assert _post_frame(url, _jpeg(), {"X-Media-Time": "1", "Origin": "https://www.twitch.tv"})[0] == 403
+        assert _post_frame(url, _jpeg(), {"X-Media-Time": "nan"})[0] == 400
+        assert _post_frame(url, _jpeg(), {})[0] == 400
+        assert _post_frame(url, b"", {"X-Media-Time": "1"})[0] == 400
+        assert _post_frame(url, _jpeg(), {"X-Media-Time": "1", "Origin": "http://127.0.0.1:8765"})[0] == 200
+        assert got == [1.0]
+    finally:
+        srv.stop()
+
+
+def test_without_the_browser_source_there_is_no_frame_endpoint(server):
+    _srv, url = server
+    assert _post_frame(url, _jpeg(), {"X-Media-Time": "1"})[0] == 404
+    with urlopen(url + "hello", timeout=5) as resp:
+        assert json.loads(resp.read())["frames"] is False
+
+
+def test_the_browser_source_hands_on_only_the_newest_frame_with_its_video():
+    import threading
+
+    from rifteye_ml.live.browser import BrowserSource
+
+    src = BrowserSource()
+    src.post(_jpeg(color=(255, 0, 0)), 5.0, "/videos/1")
+    src.post(_jpeg(color=(0, 0, 255)), 5.2, "/videos/1")  # the one not yet read is replaced
+    frames = iter(src)
+    fr = next(frames)
+    assert fr.t == 5.2 and fr.video == "/videos/1" and fr.image[0, 0, 2] > 200 and (src.width, src.height) == (64, 48)
+    threading.Timer(0.2, src.post, args=(_jpeg(), 9.0, "/videos/2")).start()
+    assert next(frames).video == "/videos/2"
+    src.close()
+    assert list(frames) == []

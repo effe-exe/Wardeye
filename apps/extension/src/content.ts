@@ -1,0 +1,265 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+//
+// RiftEye on the player itself. While the video plays, this grabs its current frame a few times a
+// second and hands it to the extension's worker, which asks the live runner on this machine; the
+// board it answers with is drawn over the picture: each card's box, its name once RiftEye is sure,
+// and a hover card when you point at it. Paused, nothing is sent and the board stays. Alt+R hides it.
+
+import { badge, boxClass, captureSize, contentRect, drawn, hoverCard, label, labelAnchor, type State, type Track } from './geometry';
+
+const SVG = 'http://www.w3.org/2000/svg';
+const EVERY_MS = 250; // at most four frames a second; a laptop reads about two
+
+let port: chrome.runtime.Port | null = null;
+let inFlight = false;
+let lastSent = 0;
+let online = true;
+let shown = true;
+let state: State | null = null;
+let video: HTMLVideoElement | null = null;
+const grab = document.createElement('canvas');
+const art = new Map<string, Promise<ImageBitmap | null>>();
+const waiting = new Map<string, (jpeg: string | null) => void>();
+// Keyed by track id, so a card that stays on the table keeps its box, and the hover under the pointer, across updates.
+const drawnBoxes = new Map<string, { poly: SVGPolygonElement; text: SVGTextElement; track: Track }>();
+let hovered: string | null = null;
+let hoverAt: PointerEvent | null = null;
+
+function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = ''): HTMLElementTagNameMap[K] {
+  const e = document.createElement(tag);
+  e.className = cls;
+  if (text) e.textContent = text;
+  return e;
+}
+
+const root = el('div', 'rifteye-root');
+const svg = document.createElementNS(SVG, 'svg');
+svg.setAttribute('class', 'rifteye-svg');
+svg.setAttribute('preserveAspectRatio', 'none');
+const badgeEl = el('div', 'rifteye-badge', 'RiftEye');
+const card = el('div', 'rifteye-card');
+card.hidden = true;
+root.append(svg, badgeEl, card);
+
+function b64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+function connect(): void {
+  const p = chrome.runtime.connect({ name: 'rifteye' });
+  p.onMessage.addListener((msg: { kind: string; online?: boolean; state?: State | null; printing_id?: string; jpeg?: string | null }) => {
+    if (msg.kind === 'state') {
+      inFlight = false;
+      online = Boolean(msg.online);
+      state = online ? (msg.state ?? state) : null;
+      draw();
+    } else if (msg.kind === 'art' && msg.printing_id) {
+      waiting.get(msg.printing_id)?.(msg.jpeg ?? null);
+      waiting.delete(msg.printing_id);
+    }
+  });
+  p.onDisconnect.addListener(() => {
+    port = null;
+    inFlight = false;
+    setTimeout(connect, 1000); // the worker was put to sleep: wake it again
+  });
+  port = p;
+}
+
+/** The main player: the largest video on the page that has a picture. */
+function findVideo(): HTMLVideoElement | null {
+  let best: HTMLVideoElement | null = null;
+  let area = 0;
+  for (const v of Array.from(document.querySelectorAll('video'))) {
+    const r = v.getBoundingClientRect();
+    if (v.readyState >= 2 && r.width >= 320 && r.width * r.height > area) {
+      best = v;
+      area = r.width * r.height;
+    }
+  }
+  return best;
+}
+
+async function capture(v: HTMLVideoElement): Promise<string | null> {
+  const [w, h] = captureSize(v.videoWidth, v.videoHeight);
+  grab.width = w;
+  grab.height = h;
+  grab.getContext('2d')?.drawImage(v, 0, 0, w, h);
+  const blob = await new Promise<Blob | null>((resolve) => grab.toBlob(resolve, 'image/jpeg', 0.85));
+  return blob ? b64(await blob.arrayBuffer()) : null;
+}
+
+function tick(): void {
+  video = findVideo();
+  place();
+  if (!video || video.paused || video.ended || inFlight || !port) return;
+  const now = performance.now();
+  if (now - lastSent < EVERY_MS) return;
+  inFlight = true;
+  lastSent = now;
+  const t = video.currentTime;
+  capture(video)
+    .then((jpeg) => {
+      if (!jpeg || !port) inFlight = false;
+      else port.postMessage({ kind: 'frame', t, video: location.pathname, jpeg });
+    })
+    .catch(() => {
+      inFlight = false; // a player whose picture cannot be read (a protected stream): nothing to send
+      badgeEl.textContent = 'RiftEye: this player cannot be read';
+    });
+}
+
+/** Keeps the overlay on the picture: theatre mode, resizing, scrolling, fullscreen. */
+function place(): void {
+  const host = document.fullscreenElement ?? document.body;
+  if (root.parentElement !== host) host.append(root);
+  if (!video || !shown) {
+    root.style.display = 'none';
+    return;
+  }
+  const r = video.getBoundingClientRect();
+  const c = contentRect({ left: r.left, top: r.top, width: r.width, height: r.height }, video.videoWidth, video.videoHeight);
+  root.style.display = '';
+  root.style.left = `${c.left}px`;
+  root.style.top = `${c.top}px`;
+  root.style.width = `${c.width}px`;
+  root.style.height = `${c.height}px`;
+}
+
+function draw(): void {
+  badgeEl.textContent = badge(online, state);
+  const live = new Set<string>();
+  if (state?.frame.width && state.frame.height) {
+    svg.setAttribute('viewBox', `0 0 ${state.frame.width} ${state.frame.height}`);
+    for (const tr of state.tracks) {
+      if (!drawn(tr)) continue;
+      live.add(tr.id);
+      let d = drawnBoxes.get(tr.id);
+      if (!d) {
+        const poly = document.createElementNS(SVG, 'polygon');
+        const text = document.createElementNS(SVG, 'text');
+        text.setAttribute('class', 'rifteye-label');
+        const id = tr.id;
+        poly.addEventListener('pointerenter', (e) => {
+          hovered = id;
+          hoverAt = e;
+          const cur = drawnBoxes.get(id);
+          if (cur) showCard(cur.track, e);
+        });
+        poly.addEventListener('pointermove', (e) => {
+          hoverAt = e;
+          moveCard(e);
+        });
+        poly.addEventListener('pointerleave', () => {
+          if (hovered === id) hovered = null;
+          card.hidden = true;
+        });
+        svg.append(poly, text);
+        d = { poly, text, track: tr };
+        drawnBoxes.set(tr.id, d);
+      }
+      const changed = d.track.state !== tr.state || d.track.name !== tr.name || d.track.under?.length !== tr.under?.length;
+      d.track = tr;
+      d.poly.setAttribute('points', tr.quad.map((p) => `${p[0]},${p[1]}`).join(' '));
+      d.poly.setAttribute('class', boxClass(tr));
+      const [x, y] = labelAnchor(tr.quad);
+      d.text.setAttribute('x', String(x));
+      d.text.setAttribute('y', String(y - 8));
+      d.text.textContent = label(tr);
+      if (changed && hovered === tr.id && hoverAt) showCard(tr, hoverAt); // what it says under the pointer changed
+    }
+  }
+  for (const [id, d] of drawnBoxes) {
+    if (live.has(id)) continue;
+    d.poly.remove();
+    d.text.remove();
+    drawnBoxes.delete(id);
+    if (hovered === id) {
+      hovered = null;
+      card.hidden = true;
+    }
+  }
+}
+
+function picture(printingId: string | null): Promise<ImageBitmap | null> {
+  if (!printingId || !port) return Promise.resolve(null);
+  let p = art.get(printingId);
+  if (!p) {
+    p = new Promise<string | null>((resolve) => {
+      waiting.set(printingId, resolve);
+      port?.postMessage({ kind: 'art', printing_id: printingId });
+    }).then(async (jpeg) => {
+      if (!jpeg) {
+        art.delete(printingId); // not there this time: the next hover asks again
+        return null;
+      }
+      const bytes = Uint8Array.from(atob(jpeg), (ch) => ch.charCodeAt(0));
+      return createImageBitmap(new Blob([bytes], { type: 'image/jpeg' }));
+    });
+    art.set(printingId, p);
+  }
+  return p;
+}
+
+/** A card's picture on a canvas: pages may forbid outside images, never drawing on a canvas. */
+function artCanvas(printingId: string | null, width: number): HTMLCanvasElement {
+  const c = el('canvas', 'rifteye-art');
+  c.width = width;
+  c.height = Math.round(width * 1.4);
+  void picture(printingId).then((bm) => {
+    if (!bm) return;
+    c.height = Math.round((width * bm.height) / bm.width);
+    c.getContext('2d')?.drawImage(bm, 0, 0, c.width, c.height);
+  });
+  return c;
+}
+
+function showCard(tr: Track, e: PointerEvent): void {
+  const hc = hoverCard(tr);
+  if (!hc) return;
+  card.replaceChildren();
+  if (hc.kind === 'named') {
+    card.append(artCanvas(hc.printing_id, 200), el('div', 'rifteye-name', hc.name), el('div', 'rifteye-sure', hc.sure));
+  } else if (hc.kind === 'unsure') {
+    const row = el('div', 'rifteye-guesses');
+    for (const g of hc.guesses) {
+      const fig = el('figure', '');
+      fig.append(artCanvas(g.printing_id, 104), el('figcaption', '', `${g.name} · ${Math.round(g.p * 100)}%`));
+      row.append(fig);
+    }
+    card.append(el('div', 'rifteye-note', 'Not sure yet. Best guesses:'), row);
+  } else {
+    card.append(el('div', 'rifteye-note', hc.text));
+  }
+  if (hc.kind !== 'text' && hc.under) card.append(el('div', 'rifteye-under', hc.under));
+  card.hidden = false;
+  moveCard(e);
+}
+
+function moveCard(e: PointerEvent): void {
+  const w = card.offsetWidth || 240;
+  const h = card.offsetHeight || 340;
+  const x = e.clientX + 18 + w > window.innerWidth ? e.clientX - 18 - w : e.clientX + 18;
+  const y = Math.min(Math.max(8, e.clientY - h / 2), window.innerHeight - h - 8);
+  card.style.left = `${Math.max(8, x)}px`;
+  card.style.top = `${y}px`;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.altKey && (e.key === 'r' || e.key === 'R' || e.code === 'KeyR')) {
+    shown = !shown;
+    place();
+  }
+});
+
+connect();
+setInterval(tick, 100);
+const follow = (): void => {
+  place();
+  requestAnimationFrame(follow);
+};
+requestAnimationFrame(follow);
