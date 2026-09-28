@@ -1,0 +1,10 @@
+broadcast,group,n,recall,class_right
+Los Angeles RQ,all,1729,0.9809,0.9811
+Los Angeles RQ,card,1667,0.9802,
+Los Angeles RQ,card_back,62,1.0,
+Barcelona (PlusRB),all,1299,0.9946,0.9807
+Barcelona (PlusRB),card,1062,0.9944,
+Barcelona (PlusRB),card_back,237,0.9958,
+Shenyang,all,2437,0.9622,0.9829
+Shenyang,card,2394,0.962,
+Shenyang,card_back,43,0.9767,
