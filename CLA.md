@@ -4,7 +4,7 @@
 
 > **Plain-language summary (not part of the agreement).**
 > - You keep the copyright to what you contribute. This is a licence, not a transfer.
-> - You let the Maintainer use, modify and distribute your contribution under the project's licence (AGPL-3.0) and under **other licences, including commercial ones**. That is what lets RiftEye offer commercial licences next to the AGPL.
+> - You let the Maintainer use, modify and distribute your contribution under the project's licence (AGPL-3.0) and under **other licences too, including proprietary ones**. That keeps the project's licensing in one hand.
 > - In return, the Maintainer promises to **also** keep your contribution available under the licence the project used when you contributed it.
 > - You confirm the contribution is yours to give.
 >

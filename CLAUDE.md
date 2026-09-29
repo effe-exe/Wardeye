@@ -6,7 +6,7 @@ Checks: `npm run check` (typecheck + vitest + guards), `npm run test:e2e` (Playw
 
 ## Non-negotiable rules
 
-- **Licence hygiene.** RiftEye is AGPL-3.0 with a CLA, so the maintainer can also offer commercial licences. Every dependency that ships (npm, pip, model weights) must be MIT, BSD, Apache-2.0, ISC, zlib, or another permissive licence. No AGPL/GPL/LGPL code, no Ultralytics, no weights licensed "research only" or "non-commercial". Check the licence of the *weights*, not just the code. Record new dependencies in `docs/research/03-models-and-licensing.md`.
+- **Licence hygiene.** RiftEye is AGPL-3.0 with a CLA. It is free for everyone, and its trained weights are not published (D-022). Every dependency that ships (npm, pip, model weights) must be MIT, BSD, Apache-2.0, ISC, zlib, or another permissive licence. No AGPL/GPL/LGPL code, no Ultralytics, no weights licensed "research only" or "non-commercial". Check the licence of the *weights*, not just the code. Record new dependencies in `docs/research/03-models-and-licensing.md`.
 - **No third-party media in git.** Never commit stream frames, crops, VODs, audio, card images, playmat art or datasets. Reference datasets by manifest (sha256) only. `.gitignore` already blocks the common extensions. Do not force-add them.
 - **Public information only.** Never process hand cams, face-down cards or any hidden information, even if a broadcast shows it.
 - **No secrets in the client.** The extension is public code. Anything that needs an API key goes behind a server.

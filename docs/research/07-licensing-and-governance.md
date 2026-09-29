@@ -1,5 +1,7 @@
 # 07: Licensing and governance
 
+> **Superseded in part on 2026-09-29 by [D-022](../decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon):** the project is free for everyone. No commercial licences, paid tiers or paid services are planned, and the trained weights are not published. The CLA stays. The analysis below is kept as it was written.
+
 **The goal:** RiftEye should be genuinely open source and easy to contribute to. The Maintainer should keep the ability to offer commercial terms, run paid services, or sell the project later. And nobody should be able to take the code closed and sell it as their own.
 
 This chapter explains the setup that achieves that and the alternatives that were rejected. It also covers the one constraint that sits above any software licence: Riot Games' policies ([08](08-legal-and-policy.md)).

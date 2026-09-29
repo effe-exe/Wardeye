@@ -8,8 +8,8 @@ RiftEye is a maintainer-led project.
 
 ## Licensing, stated plainly
 
-- The code is AGPL-3.0-only, and the Maintainer may also offer it under commercial terms ([LICENSING.md](LICENSING.md)).
-- Paid services or tools may exist next to the free project, subject to the policies of Riot Games for anything Riftbound-specific ([docs/research/07](docs/research/07-licensing-and-governance.md)).
+- The code is AGPL-3.0-only ([LICENSING.md](LICENSING.md)). The project is free for everyone, with no commercial licences, paid tiers or paid services ([D-022](docs/decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)).
+- The trained model weights are not published.
 - Under the CLA, every contribution remains available under the AGPL-3.0, whatever else happens.
 
 ## Integrity commitments

@@ -75,7 +75,7 @@ flowchart LR
 
 - Production-PC sidecar (obs-websocket, not a native plugin) that reads the clean overhead camera and drives OBS overlays: card pop-ups on play, board graphics
 - Twitch video-overlay extension fed by the kit, so viewers get hover with nothing to install
-- Tools for tournament organisers: match timelines exported to their sites. Commercial terms only under a written licence from Riot ([08](research/08-legal-and-policy.md))
+- Tools for tournament organisers: match timelines exported to their sites, free like the rest ([D-022](decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon))
 
 ## Always open for contributors
 

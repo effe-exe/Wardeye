@@ -6,7 +6,7 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 
 ### D-001: AGPL-3.0-only plus a CLA
 
-- **Date:** 2026-09-26. **Status:** accepted.
+- **Date:** 2026-09-26. **Status:** accepted. Its commercial part (the dual-licence option) is superseded by [D-022](#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon).
 - **Decision:** All code is licensed under the GNU AGPL-3.0-only. Contributors sign a CLA that grants the Maintainer the right to relicense, including commercially. The name and logo are covered by a separate [trademark policy](../TRADEMARKS.md).
 - **Why:** the project should be genuinely open source and welcoming to contributors, while nobody can take it closed and sell it as a service, and the Maintainer keeps the option of a commercial dual-licence. See [07](research/07-licensing-and-governance.md).
 
@@ -122,3 +122,34 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 - **Date:** 2026-09-27. **Status:** accepted for the first extension build. Revisit when the fine-tuned embedder beats it on the real sets.
 - **Decision:** The matcher scores each printing by the mean of two cosines: the 16×16 colour grid and the 16×16 difference hash (dHash), both with 3% trimmed off every edge. That is one vector per printing, the two side by side and each scaled by √½ (`colorgrid/trim0.03+dhash/trim0.03`), so the index, the gallery pyramid and the four-turn search stay as they are ([D-017](#d-017-the-embedding-index-holds-a-gallery-pyramid)).
 - **Why:** The two fail on different cards. On the M0 reference VOD (Shenyang) the colour grid names 94.7% of the reviewed crops and dHash 91.3%; together they name 96.6%, and 96.3% at 720p. On a second broadcast (the Los Angeles RQ), where players keep a die on their legend over its art, the colour grid names 69.5%, dHash 84.1% and the pair 81.0% ([M0 §5.4–5.5](reports/m0-spike.md#54-a-second-camera-los-angeles)). Both are a few kilobytes of arithmetic per crop, with no model to download. The equal weight was chosen on Shenyang only. On the Barcelona Regional, which nothing was tuned on, the pair names 95.9% against 80.5% and 93.0% for its parts, and Barcelona's own best weight (0.6) is within half a point. Los Angeles, with the most dice, would prefer more structure (0.75); a fourth broadcast can settle 0.5 against 0.6.
+
+### D-020: The product is called Wardeye
+
+- **Date:** 2026-09-29. **Status:** accepted; the Maintainer chose it. A trademark search must clear it before the public launch. Supersedes the working name of [D-010](#d-010-rifteye-is-a-working-name).
+- **Decision:** "Wardeye" replaces "RiftEye" in everything a user sees: the extension, the README and the store listing.
+  - The code's internal names (`rifteye_ml`, `@rifteye/*`, `RIFTEYE_*`) change in one mechanical pass before the repository goes public.
+  - The extension takes Gradeon's look: the near-black palette, the brand purple `#6153CC` and Space Mono (SIL Open Font License).
+  - The README credits the Maintainer, who also makes Gradeon.
+- **Why:**
+  - In MOBAs a ward is what gives you vision, so players get the nod. Yet "ward" is a plain English word (to watch over, to guard), not a Riot term. The name uses no Riot mark, as D-010 asked and as Riot's policy forbids ([08 §8.2](research/08-legal-and-policy.md#82-riot-games-policies)).
+  - A web search on 2026-09-29 found nothing called Wardeye; the nearest are browser security extensions called Ward and Warden. That is not a trademark search.
+  - Also considered: TableLoupe (a card grader's magnifier), and names from League such as "Summoner Eye", which Riot's policy rules out.
+
+### D-021: Apply to Riot for a Riftbound app key
+
+- **Date:** 2026-09-29. **Status:** proposed. The application is drafted in [riot-application.md](riot-application.md).
+- **Decision:** Apply as a free spectator companion. Once a key is approved:
+  - it supersedes [D-015](#d-015-no-riot-api-no-riot-assets-distributed): card data and art come from the Riot API, through a small server that holds the key (as [D-011](#d-011-card-data-and-art-come-only-from-the-riot-api) had it);
+  - the extension may be presented as Gradeon's.
+  Until then the project stays a free, non-commercial community project, and the README only credits the Maintainer.
+- **Why:** Riot's policy counts "any Project that involves a business or legal entity" as commercial, even a free one. Its route for a commercial project without a written licence is an approved API key (LJJ §2; [08 §8.2](research/08-legal-and-policy.md#82-riot-games-policies)).
+
+### D-022: Free for everyone, closed weights, a showcase for Gradeon
+
+- **Date:** 2026-09-29. **Status:** accepted. Supersedes the commercial part of [D-001](#d-001-agpl-30-only-plus-a-cla) and the sustainability model in [07 §7.7](research/07-licensing-and-governance.md#77-sustainability-model).
+- **Decision:**
+  - The project is free for everyone. It offers no commercial licences, no paid tiers and no paid services.
+  - The code stays AGPL-3.0-only, and contributors still sign the CLA, which keeps the licensing in one hand. [D-002](#d-002-permissive-dependencies-only)'s permissive-only rule stays for the same reason.
+  - The trained weights, and the data made from card art and broadcasts, are not published and are not open source. They ship only inside the extension.
+  - Beyond its users, the project shows Gradeon's work on card recognition. The README credits the Maintainer and Gradeon; presenting the tool as Gradeon's waits for [D-021](#d-021-apply-to-riot-for-a-riftbound-app-key).
+- **Why:** the Maintainer's decision. Free and non-commercial also fits Riot's rules: the Legal Jibber Jabber's non-commercial licence, and the developer policies' "Charge money for your app or provide exclusive access" on the list of things not to do.

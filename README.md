@@ -72,11 +72,12 @@ services/          VOD pipeline                                  (later)
 
 ## Contributing
 
-Contributions are welcome: design critique, broadcast layout presets, prior art, labeling. See [CONTRIBUTING.md](CONTRIBUTING.md). Contributors sign a [CLA](CLA.md) on their first pull request. You keep your copyright, and the CLA lets the Maintainer also offer RiftEye under commercial terms ([why](docs/research/07-licensing-and-governance.md)).
+Contributions are welcome: design critique, broadcast layout presets, prior art, labeling. See [CONTRIBUTING.md](CONTRIBUTING.md). Contributors sign a [CLA](CLA.md) on their first pull request and keep the copyright to what they contribute. The project is free for everyone ([D-022](docs/decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)).
 
 ## Licence
 
-- **Code:** [GNU AGPL-3.0-only](LICENSE). Commercial licences are available from the Maintainer ([LICENSING.md](LICENSING.md)).
+- **Code:** [GNU AGPL-3.0-only](LICENSE). Free for everyone ([LICENSING.md](LICENSING.md)).
+- **Trained models:** not published and not open source. They ship only inside the extension ([D-022](docs/decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)).
 - **Name and logo:** not covered by the AGPL. See [TRADEMARKS.md](TRADEMARKS.md).
 - **Governance:** see [GOVERNANCE.md](GOVERNANCE.md). Security reports: see [SECURITY.md](SECURITY.md).
 

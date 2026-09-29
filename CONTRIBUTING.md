@@ -14,7 +14,7 @@ Before your first pull request can be merged, you sign the [RiftEye CLA](CLA.md)
 **What it means, in plain words** (the [CLA](CLA.md) itself is what counts):
 
 - **You keep the copyright** to your contribution.
-- You give the Maintainer a broad, permanent licence to use it. That includes distributing it under licences other than the AGPL-3.0, **including commercial licences**. RiftEye's plan is AGPL for everyone, plus paid licences for organisations that cannot accept AGPL terms. That only works if the Maintainer can license every line of the project ([why](docs/research/07-licensing-and-governance.md)).
+- You give the Maintainer a broad, permanent licence to use it, including under licences other than the AGPL-3.0. That keeps the project's licensing in one hand, so it can adapt without asking every contributor, for example to a platform's rules. The project itself is free for everyone ([D-022](docs/decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)).
 - Whatever other licences the Maintainer offers, **the version you contributed to stays available under the AGPL-3.0**. That cannot be revoked.
 - You confirm the contribution is yours to give, for example that your employer does not own it.
 
