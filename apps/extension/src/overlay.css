@@ -54,6 +54,17 @@
   margin-top: 4px; color: var(--wd-dim); font: var(--wd-type-micro); font-family: var(--wd-font-mono); overflow-wrap: anywhere;
 }
 .rifteye-badge-detail[hidden] { display: none; }
+/* The off switch at the badge's end: a small round button in the muted colour, the primary when pointed at (at once: nothing on the
+   overlay fades but the hover card). Alt+R and the toolbar button do the same. */
+.rifteye-off {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+  width: 22px; height: 22px; margin-left: 4px; padding: 0;
+  border: var(--wd-hairline) solid var(--wd-border); border-radius: 50%; background: transparent; color: var(--wd-muted);
+  cursor: pointer; pointer-events: all;
+}
+.rifteye-off:hover { color: var(--wd-primary-light); border-color: var(--wd-primary); }
+.rifteye-off:focus-visible { outline: 2px solid var(--wd-primary); outline-offset: 1px; }
+.rifteye-off svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 
 /* The hover card, as the brand book's card preview: a surface panel, a 1.5 px primary border, 8 px corners, the card's picture
    on top, then its name, a muted meta line (its type, when the state has it), and the confidence in the primary, small. */

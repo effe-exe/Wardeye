@@ -26,7 +26,13 @@ It is made by Federico Vietti, who also makes [Gradeon](https://gradeon.ai), the
 2. The Wardeye badge on the player says what it is doing: finding the table, then how many cards it has named.
 3. Point at a card on the table. The hover card shows its name, its official image, how sure Wardeye is, and what lies under it, such as gear on a unit.
 
-It works in theatre mode and fullscreen. **Alt+R** (Option+R on a Mac) turns Wardeye off and on: off, the overlay is hidden and it reads nothing.
+It works in theatre mode and fullscreen. To turn Wardeye off in a tab, use any of these:
+
+- the power button on its badge;
+- the Wardeye button in Chrome's toolbar (pin it from the puzzle-piece menu);
+- **Alt+R** (Option+R on a Mac).
+
+Off, the overlay is hidden and it reads nothing, and the toolbar button says OFF. The toolbar button or Alt+R turns it back on.
 
 ## Status: alpha
 

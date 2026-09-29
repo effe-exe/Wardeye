@@ -16,7 +16,7 @@ Twitch player ──frame──▶ content script ──port──▶ worker ─
 
 - **Nothing leaves the computer.** The engine reads the frames in the browser, the runner on 127.0.0.1, and only the table window is looked at: hand cams, player cams and the broadcast's hand lists are hidden information and never read ([D-005](../../docs/decisions.md)). Face-down cards are shown as face-down and never identified.
 - **It follows the video.** Paused, nothing is sent and the board stays. A jump in the video starts a new board; another video (another page) finds its own table. The engine reads up to five frames a second (the runner about two), so boxes trail the picture by a fraction of a second.
-- **Keys.** Alt+R (Option+R on a Mac) turns Wardeye off and on: off, the overlay is hidden and no frame is read or sent.
+- **Off and on.** Three ways turn Wardeye off in a tab: the power button on the badge, the toolbar button (`chrome.action`; it says OFF while it is off), and Alt+R (Option+R on a Mac). Off, the overlay is hidden and no frame is read or sent. The toolbar button or Alt+R turns it on again.
 
 ## Use it
 

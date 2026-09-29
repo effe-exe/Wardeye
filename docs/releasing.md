@@ -41,7 +41,7 @@ Now, while Riot reviews the application ([D-025](decisions.md#d-025-release-on-t
   >
   > - Names the cards face up on the table as they are played.
   > - Shows the card when you point at it, and what lies under it, such as gear on a unit.
-  > - Works in theatre mode and fullscreen. Alt+R (Option+R on a Mac) turns it off and on.
+  > - Works in theatre mode and fullscreen. Turn it off and on with the power button on its badge, its toolbar button, or Alt+R (Option+R on a Mac).
   >
   > Private by design. The recognition runs on your computer, in your browser. No video leaves it, and Wardeye keeps no history. Card names and images load from Riot's public card gallery. It reads only the table camera, never hand cams, face-down cards or the broadcast's hand lists. It is for watching, not playing: no player stats, no win rates.
   >

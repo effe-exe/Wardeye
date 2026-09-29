@@ -48,6 +48,22 @@ const env: Env = {
 };
 
 const standalone = new Standalone(env, RETRY_AFTER_MS, __STORE__);
+
+// The toolbar button: a click turns Wardeye off or on in that tab (content.ts does it), and while it is off there the button says
+// OFF. Alt+R and the badge's own button do the same, and tell the worker, so the toolbar button always says how the tab is.
+const ON_TITLE = 'Wardeye is on. Click to turn it off (Alt+R)';
+const OFF_TITLE = 'Wardeye is off. Click to turn it on (Alt+R)';
+void chrome.action.setBadgeBackgroundColor({ color: '#71717A' }).catch(() => {});
+chrome.action.onClicked.addListener((tab) => {
+  if (tab.id === undefined) return;
+  chrome.tabs.sendMessage(tab.id, { kind: 'toggle' }).catch(() => {}); // not a twitch.tv page: there is nothing to turn off
+});
+chrome.runtime.onMessage.addListener((msg: { kind?: unknown; on?: unknown }, sender) => {
+  const tabId = sender.tab?.id;
+  if (msg?.kind !== 'switched' || typeof msg.on !== 'boolean' || tabId === undefined) return;
+  void chrome.action.setBadgeText({ tabId, text: msg.on ? '' : 'OFF' }).catch(() => {});
+  void chrome.action.setTitle({ tabId, title: msg.on ? ON_TITLE : OFF_TITLE }).catch(() => {});
+});
 let anonymous = 0; // a port that names no tab still gets a board of its own
 
 chrome.runtime.onConnect.addListener((port) => {

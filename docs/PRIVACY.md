@@ -9,7 +9,7 @@ Wardeye collects nothing. It has no account, no server, no analytics, no ads and
 ## What it reads
 
 - **Only on twitch.tv.** The extension runs on `https://www.twitch.tv/*` pages and nowhere else.
-- **The frames of the video you are watching**, while it plays, to find and name the cards on the table. Only the table camera's area is analysed: hand cams, face-down cards and the broadcast's side graphics are never processed. When the video is paused, or you turn Wardeye off with Alt+R (Option+R on a Mac), nothing is read.
+- **The frames of the video you are watching**, while it plays, to find and name the cards on the table. Only the table camera's area is analysed: hand cams, face-down cards and the broadcast's side graphics are never processed. When the video is paused, or you turn Wardeye off (its power button, its toolbar button, or Alt+R, Option+R on a Mac), nothing is read.
 - **The video's address on twitch.tv** (for example `/videos/12345`), so that each video gets its own board. It stays in the extension.
 
 ## Where it is processed

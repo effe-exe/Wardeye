@@ -10,7 +10,8 @@ declare namespace chrome.runtime {
 }
 
 declare namespace chrome.action {
-  const onClicked: { addListener(cb: () => void): void };
+  // shared with the extension, whose toolbar button reads the tab it was clicked in (one declaration for both: they merge)
+  const onClicked: { addListener(cb: (tab: { id?: number }) => void): void };
 }
 
 declare namespace chrome.tabs {

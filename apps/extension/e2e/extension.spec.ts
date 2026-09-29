@@ -271,6 +271,31 @@ test('frames from the Twitch player reach the runner and its board is drawn on t
     await expect(page.locator('.rifteye-root')).toBeVisible();
     await expect.poll(() => posted.length, { timeout: 10_000 }).toBeGreaterThan(off);
     await expect(boxes).toHaveCount(2);
+
+    // the badge's off button does the same, and the toolbar button says OFF while it is off; a click on the toolbar button (the
+    // worker's 'toggle', sent here as the click's handler sends it) turns it on again, and the toolbar button says nothing
+    const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+    const toolbar = () =>
+      worker.evaluate(async () => {
+        const [tab] = await chrome.tabs.query({ active: true });
+        return { text: await chrome.action.getBadgeText({ tabId: tab!.id! }), title: await chrome.action.getTitle({ tabId: tab!.id! }) };
+      });
+    const offButton = page.locator('button.rifteye-off');
+    await expect(offButton).toHaveAttribute('aria-label', 'Turn Wardeye off (Alt+R)');
+    await offButton.click();
+    await expect(page.locator('.rifteye-root')).toBeHidden();
+    await expect.poll(toolbar).toEqual({ text: 'OFF', title: 'Wardeye is off. Click to turn it on (Alt+R)' });
+    await page.waitForTimeout(600);
+    const offAgain = posted.length;
+    await page.waitForTimeout(1500);
+    expect(posted.length).toBe(offAgain); // off: nothing is read or sent
+    await worker.evaluate(async () => {
+      const [tab] = await chrome.tabs.query({ active: true });
+      await chrome.tabs.sendMessage(tab!.id!, { kind: 'toggle' });
+    });
+    await expect(page.locator('.rifteye-root')).toBeVisible();
+    await expect.poll(toolbar).toEqual({ text: '', title: 'Wardeye is on. Click to turn it off (Alt+R)' });
+    await expect.poll(() => posted.length, { timeout: 10_000 }).toBeGreaterThan(offAgain);
   } finally {
     await context?.close();
     runner.close();

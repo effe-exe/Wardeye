@@ -59,7 +59,7 @@ Use the copy as written, or shorten it. Don't add claims beyond it (see the rule
 - Names the cards face up on the table as they are played.
 - Shows the official card image and name when you point at a card.
 - Remembers what lies under a card, such as gear on a unit.
-- Works in theatre mode and fullscreen. Option+R (Alt+R on Windows) turns it off and on.
+- Works in theatre mode and fullscreen. Its power button, its toolbar button or Option+R (Alt+R on Windows) turns it off and on.
 
 **5. Measured, not claimed** (numbers in JetBrains Mono)
 - `97.6%` of the cards found, on 5,465 reviewed cards from three broadcasts.

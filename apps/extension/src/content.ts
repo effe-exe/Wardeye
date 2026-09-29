@@ -50,6 +50,19 @@ function markSvg(): SVGSVGElement {
   return mark;
 }
 
+/** The off switch's icon: a ring open at the top and a stroke through the gap, drawn with the brand's 1.5 px line. */
+function powerSvg(): SVGSVGElement {
+  const icon = document.createElementNS(SVG, 'svg');
+  icon.setAttribute('viewBox', '0 0 24 24');
+  icon.setAttribute('aria-hidden', 'true');
+  for (const d of ['M12 3.5v8', 'M7 6.5a7.5 7.5 0 1 0 10 0']) {
+    const path = document.createElementNS(SVG, 'path');
+    path.setAttribute('d', d);
+    icon.append(path);
+  }
+  return icon;
+}
+
 const root = el('div', 'rifteye-root');
 const svg = document.createElementNS(SVG, 'svg');
 svg.setAttribute('class', 'rifteye-svg');
@@ -60,7 +73,12 @@ const badgeText = el('span', 'rifteye-badge-text');
 const badgeName = el('span', 'rifteye-badge-name', NAME);
 const badgeStatus = el('span', 'rifteye-badge-status');
 badgeText.append(badgeName, badgeStatus);
-badgeMain.append(markSvg(), badgeText);
+const offButton = el('button', 'rifteye-off'); // turns Wardeye off in this tab, as Alt+R and the toolbar button do
+offButton.type = 'button';
+offButton.title = 'Turn Wardeye off (Alt+R)';
+offButton.setAttribute('aria-label', 'Turn Wardeye off (Alt+R)');
+offButton.append(powerSvg());
+badgeMain.append(markSvg(), badgeText, offButton);
 const badgeDetailEl = el('div', 'rifteye-badge-detail'); // the engine's timings, when the engine in the extension reads
 badgeDetailEl.hidden = true;
 badgeEl.append(badgeMain, badgeDetailEl);
@@ -299,13 +317,29 @@ function moveCard(e: PointerEvent): void {
   card.style.top = `${y}px`;
 }
 
-// Alt+R (Option+R on a Mac) turns Wardeye off and on: off, the overlay is hidden and no frame is read or sent; the board stays
+/** Wardeye on or off in this tab: off, the overlay is hidden and no frame is read or sent; the board stays. Three ways lead here: Alt+R
+ * (Option+R on a Mac), the badge's off button, and the toolbar button (the worker's 'toggle'). The worker is told, so the toolbar
+ * button says OFF while it is off. */
+function setOn(on: boolean): void {
+  shown = on;
+  place();
+  chrome.runtime.sendMessage({ kind: 'switched', on }).catch(() => {}); // the worker may be asleep: it is told again next time
+}
+
 document.addEventListener('keydown', (e) => {
-  if (e.altKey && (e.key === 'r' || e.key === 'R' || e.code === 'KeyR')) {
-    shown = !shown;
-    place();
-  }
+  if (e.altKey && (e.key === 'r' || e.key === 'R' || e.code === 'KeyR')) setOn(!shown);
 });
+offButton.addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation(); // the player underneath must not take it as a click on the video
+  setOn(false);
+});
+chrome.runtime.onMessage.addListener((msg: { kind?: unknown }, _sender, sendResponse) => {
+  if (msg?.kind !== 'toggle') return;
+  setOn(!shown);
+  sendResponse({ on: shown });
+});
+setOn(true); // a page that loads again starts on, and the toolbar button says so
 
 connect();
 setInterval(tick, 100);
