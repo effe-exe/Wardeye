@@ -35,13 +35,14 @@ The mark is a ward: a stake topped with a vision orb. You place it (turn the ext
 | File | Use |
 |---|---|
 | [`logo/lockup.svg`](logo/lockup.svg) | Primary lockup, mark and wordmark, on dark backgrounds |
-| [`logo/lockup-light.svg`](logo/lockup-light.svg) | The lockup on light backgrounds (the dark mark) |
+| [`logo/lockup-light.svg`](logo/lockup-light.svg) | The lockup on light backgrounds: the full-colour mark with the dark wordmark |
 | [`logo/mark.svg`](logo/mark.svg) | The mark alone, full colour |
 | [`logo/mark-white.svg`](logo/mark-white.svg), [`mark-muted.svg`](logo/mark-muted.svg) | On dark backgrounds, where colour would compete |
-| [`logo/mark-black.svg`](logo/mark-black.svg) | On light backgrounds |
+| [`logo/mark-black.svg`](logo/mark-black.svg) | One colour on light backgrounds (print, stamps): the ring, the pupil and the highlight are cut out |
 | [`logo/wordmark.svg`](logo/wordmark.svg), [`wordmark-dark.svg`](logo/wordmark-dark.svg) | The wordmark alone, for dark and light backgrounds |
 
 - **Clear space:** around the lockup, the height of the mark.
+- **Colour:** the full-colour mark on dark and on light backgrounds alike. The white, muted and black marks are for one-colour uses.
 - **Minimum size:** the mark 24 px tall; the full lockup 120 px wide. The browser's 16 px toolbar icon is the one exception.
 - **Never** stretch, recolour or add effects to the mark.
 
