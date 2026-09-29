@@ -5,7 +5,8 @@
 A layout (`layouts.py`) is where the table camera's picture sits in the frame and how long a card is
 there. `table_window` finds the picture's borders first: a broadcast that puts panels beside the table
 draws them as long straight edges in the same place in every frame (18.1% and 81.5% of the width at Los
-Angeles and Barcelona), and the panels, player cams and hand lists outside them are never looked at.
+Angeles and Barcelona, 16.7% and 82.9% at Stockholm, inside bars above and below), and the panels, player
+cams and hand lists outside them are never looked at.
 Inside the borders the mat decides: the colour that fills the middle, grown over the cards lying on
 it, and its bounding box (Shenyang's red mat, full screen, has no side borders). `card_size` runs the
 detector over that window at a few candidate card sizes and keeps the one its confident boxes agree on.
@@ -25,18 +26,58 @@ W, H = 480, 270                                  # the thumbnail the borders are
 SIZES = (80, 100, 125, 155, 190, 235)            # candidate card long sides at 1080p
 
 
-def borders(frames: Sequence[np.ndarray], edge: int = 18, keep: float = 0.9) -> tuple[float, float, float, float]:
+RUN = 0.09  # the shortest stretch of an edge that counts, as a share of the thumbnail's side
+
+
+def _in_runs(m: np.ndarray, r: int, axis: int) -> np.ndarray:
+    """Where `m` is True within at least `r` Trues in a row along `axis`. A border is a line, and a busy
+    panel's texture, however dense, breaks up into short stretches."""
+    m = np.moveaxis(m, axis, -1)
+    n = m.shape[-1]
+    zero = np.zeros(m.shape[:-1] + (1,), np.int32)
+    cs = np.concatenate([zero, np.cumsum(m, axis=-1, dtype=np.int32)], axis=-1)
+    whole = (cs[..., r:] - cs[..., :-r]) == r  # the r pixels from i on are all edge, for i in 0..n - r
+    cw = np.concatenate([zero, np.cumsum(whole, axis=-1, dtype=np.int32)], axis=-1)
+    j = np.arange(n)
+    lo, hi = np.clip(j - r + 1, 0, n - r + 1), np.clip(j + 1, 0, n - r + 1)
+    return np.moveaxis(cw[..., hi] - cw[..., lo] > 0, -1, axis)  # pixel j lies in a stretch starting in lo..hi-1
+
+
+def _edges(share: np.ndarray, n: int, keep: float, mirror: float, near: float = 0.015) -> tuple[int, int]:
+    """The first pixel inside and the first outside of a picture along one axis: the steps nearest the middle
+    on each side that run along `keep` of it (`share`, per step between pixels i and i + 1), or the frame's
+    own edges. A broadcast draws its panels symmetric, so a side found lowers the bar to `mirror` for the
+    other side's step at its mirror image: a co-streamer's webcam laid over one border breaks it."""
+    lo = [i for i in range(len(share)) if share[i] >= keep and i < 0.45 * n]
+    hi = [i for i in range(len(share)) if share[i] >= keep and i > 0.55 * n]
+    a = max(lo) + 1 if lo else None
+    b = min(hi) if hi else None
+    if a is not None and b is None:
+        m = [i for i in range(len(share)) if share[i] >= mirror and abs(i - (n - a)) <= near * n]
+        b = min(m) if m else None
+    elif b is not None and a is None:
+        m = [i for i in range(len(share)) if share[i] >= mirror and abs(i + 1 - (n - b)) <= near * n]
+        a = max(m) + 1 if m else None
+    return (0 if a is None else a), (n if b is None else b)
+
+
+def borders(frames: Sequence[np.ndarray], edge: int = 18, keep: float = 0.7, mirror: float = 0.4,
+            rounds: int = 2) -> tuple[float, float, float, float]:
     """The camera picture's edges as fractions (x0, y0, x1, y1): the long straight edges nearest the middle
-    that every frame shares, or the frame's own edges where there are none."""
+    that every frame shares, or the frame's own edges where there are none.
+
+    An edge must run along `keep` of the picture found so far, in the frame where it is weakest, in
+    stretches of at least `RUN` of the side: the sides over the rows between the top and the bottom, those
+    over the columns between the sides, twice over. So bars above and below the picture (Stockholm's) do
+    not hide its sides, and a webcam or a logo over a border (a co-stream's) breaks it only where it lies."""
     g = np.stack([np.asarray(Image.fromarray(f).convert("L").resize((W, H), Image.BOX), np.float32) for f in frames])
-    cols = (np.abs(np.diff(g, axis=2)) > edge).mean(axis=1).min(axis=0)  # per column, in the frame where it is weakest
-    rows = (np.abs(np.diff(g, axis=1)) > edge).mean(axis=2).min(axis=0)
-    left = [x for x in range(len(cols)) if cols[x] >= keep and x < 0.45 * W]
-    right = [x for x in range(len(cols)) if cols[x] >= keep and x > 0.55 * W]
-    top = [y for y in range(len(rows)) if rows[y] >= keep and y < 0.45 * H]
-    bottom = [y for y in range(len(rows)) if rows[y] >= keep and y > 0.55 * H]
-    return ((max(left) + 1) / W if left else 0.0, (max(top) + 1) / H if top else 0.0,
-            min(right) / W if right else 1.0, min(bottom) / H if bottom else 1.0)
+    dx = _in_runs(np.abs(np.diff(g, axis=2)) > edge, round(RUN * H), axis=1)  # a step between columns x and x + 1, per frame and row
+    dy = _in_runs(np.abs(np.diff(g, axis=1)) > edge, round(RUN * W), axis=2)
+    x0, y0, x1, y1 = 0, 0, W, H
+    for _ in range(rounds):
+        x0, x1 = _edges(dx[:, y0:y1, :].mean(axis=1).min(axis=0), W, keep, mirror)
+        y0, y1 = _edges(dy[:, :, x0:x1].mean(axis=2).min(axis=0), H, keep, mirror)
+    return x0 / W, y0 / H, x1 / W, y1 / H
 
 
 def table_window(frames: Sequence[np.ndarray], tol: int = 45) -> tuple[tuple[float, float, float, float], tuple[int, int, int], float] | None:

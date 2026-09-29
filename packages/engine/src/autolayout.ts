@@ -4,8 +4,8 @@
 // A layout found from the footage itself, ported from ml/rifteye_ml/live/autolayout.py, for a broadcast no preset
 // describes. A layout is where the table camera's picture sits in the frame and how long a card is there.
 // `tableWindow` finds the picture's borders first: a broadcast that puts panels beside the table draws them as long
-// straight edges in the same place in every frame, and the panels, player cams and hand lists outside them are never
-// looked at. Inside the borders the mat decides: the colour that fills the middle, grown over the cards lying on it,
+// straight edges in the same place in every frame (inside bars above and below it, at Stockholm), and the panels,
+// player cams and hand lists outside them are never looked at. Inside the borders the mat decides: the colour that fills the middle, grown over the cards lying on it,
 // and its bounding box. `cardSize` runs the detector over that window at a few candidate card sizes and keeps the
 // one its confident boxes agree on. Frames are the full picture (RgbImage), a handful from the first seconds.
 
@@ -29,44 +29,95 @@ export type Window = [number, number, number, number];
  * It may be asynchronous. */
 export type Detect = (frame: RgbImage, box: Window, cardPx: number) => Promise<readonly Detection[]> | readonly Detection[];
 
+/** The shortest stretch of an edge that counts, as a share of the thumbnail's side. */
+export const RUN = 0.09;
+
+/** Where a frame's yes/no map is yes within at least `r` yeses in a row, down each column (`along` 'rows': the map is
+ * h rows of w) or along each row ('cols'). A border is a line, and a busy panel's texture, however dense, breaks up into
+ * short stretches. */
+function inRuns(m: Uint8Array, w: number, h: number, r: number, along: 'rows' | 'cols'): Uint8Array {
+  const out = new Uint8Array(w * h);
+  const [lines, len] = along === 'rows' ? [w, h] : [h, w];
+  const at = along === 'rows' ? (line: number, i: number) => i * w + line : (line: number, i: number) => line * w + i;
+  for (let line = 0; line < lines; line++) {
+    let start = 0;
+    for (let i = 0; i <= len; i++) {
+      if (i < len && m[at(line, i)]) continue;
+      if (i - start >= r) for (let k = start; k < i; k++) out[at(line, k)] = 1; // the stretch [start, i) is long enough
+      start = i + 1;
+    }
+  }
+  return out;
+}
+
+/** The first pixel inside and the first outside of a picture along one axis: the steps nearest the middle on each side
+ * that run along `keep` of it (`share`, per step between pixels i and i + 1), or the frame's own edges. A broadcast
+ * draws its panels symmetric, so a side found lowers the bar to `mirror` for the other side's step at its mirror image:
+ * a co-streamer's webcam laid over one border breaks it. */
+function edges(share: Float64Array, n: number, keep: number, mirror: number, near = 0.015): [number, number] {
+  const lo: number[] = [];
+  const hi: number[] = [];
+  for (let i = 0; i < share.length; i++) {
+    if (share[i]! >= keep && i < 0.45 * n) lo.push(i);
+    if (share[i]! >= keep && i > 0.55 * n) hi.push(i);
+  }
+  let a: number | null = lo.length ? Math.max(...lo) + 1 : null;
+  let b: number | null = hi.length ? Math.min(...hi) : null;
+  if (a !== null && b === null) {
+    const m: number[] = [];
+    for (let i = 0; i < share.length; i++) if (share[i]! >= mirror && Math.abs(i - (n - a)) <= near * n) m.push(i);
+    b = m.length ? Math.min(...m) : null;
+  } else if (b !== null && a === null) {
+    const m: number[] = [];
+    for (let i = 0; i < share.length; i++) if (share[i]! >= mirror && Math.abs(i + 1 - (n - b)) <= near * n) m.push(i);
+    a = m.length ? Math.max(...m) + 1 : null;
+  }
+  return [a ?? 0, b ?? n];
+}
+
 /** The camera picture's edges as fractions (x0, y0, x1, y1): the long straight edges nearest the middle that every
- * frame shares, or the frame's own edges where there are none. */
-export function borders(frames: readonly RgbImage[], edge = 18, keep = 0.9): Window {
+ * frame shares, or the frame's own edges where there are none.
+ *
+ * An edge must run along `keep` of the picture found so far, in the frame where it is weakest, in stretches of at least
+ * `RUN` of the side: the sides over the rows between the top and the bottom, those over the columns between the sides,
+ * twice over. So bars above and below the picture (Stockholm's) do not hide its sides, and a webcam or a logo over a
+ * border (a co-stream's) breaks it only where it lies. */
+export function borders(frames: readonly RgbImage[], edge = 18, keep = 0.7, mirror = 0.4, rounds = 2): Window {
   const grey = frames.map((f) => image.resizeGray(image.toGray(f), [W, H], 'box').data);
-  // per column (the step from x to x + 1), the fewest rows in any frame where the step is over `edge`; per row likewise
-  const colRows = new Int32Array(W - 1).fill(H);
-  const rowCols = new Int32Array(H - 1).fill(W);
-  for (const g of grey) {
-    const cols = new Int32Array(W - 1);
-    const rows = new Int32Array(H - 1);
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W - 1; x++) if (Math.abs(g[y * W + x + 1]! - g[y * W + x]!) > edge) cols[x] = cols[x]! + 1;
+  // per frame: a step between columns x and x + 1 (W - 1 of them, per row) and between rows y and y + 1, in long stretches
+  const dx = grey.map((g) => {
+    const m = new Uint8Array((W - 1) * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W - 1; x++) m[y * (W - 1) + x] = Math.abs(g[y * W + x + 1]! - g[y * W + x]!) > edge ? 1 : 0;
+    return inRuns(m, W - 1, H, pyRound(RUN * H), 'rows');
+  });
+  const dy = grey.map((g) => {
+    const m = new Uint8Array(W * (H - 1));
+    for (let y = 0; y < H - 1; y++) for (let x = 0; x < W; x++) m[y * W + x] = Math.abs(g[(y + 1) * W + x]! - g[y * W + x]!) > edge ? 1 : 0;
+    return inRuns(m, W, H - 1, pyRound(RUN * W), 'cols');
+  });
+  let [x0, y0, x1, y1] = [0, 0, W, H];
+  for (let k = 0; k < rounds; k++) {
+    // per column, the fewest rows of the picture's span in any frame where its step is in a stretch; per row likewise
+    const cols = new Float64Array(W - 1).fill(Infinity);
+    for (const m of dx) {
+      for (let x = 0; x < W - 1; x++) {
+        let n = 0;
+        for (let y = y0; y < y1; y++) n += m[y * (W - 1) + x]!;
+        cols[x] = Math.min(cols[x]!, n / (y1 - y0));
+      }
     }
-    for (let y = 0; y < H - 1; y++) {
-      for (let x = 0; x < W; x++) if (Math.abs(g[(y + 1) * W + x]! - g[y * W + x]!) > edge) rows[y] = rows[y]! + 1;
+    [x0, x1] = edges(cols, W, keep, mirror);
+    const rows = new Float64Array(H - 1).fill(Infinity);
+    for (const m of dy) {
+      for (let y = 0; y < H - 1; y++) {
+        let n = 0;
+        for (let x = x0; x < x1; x++) n += m[y * W + x]!;
+        rows[y] = Math.min(rows[y]!, n / (x1 - x0));
+      }
     }
-    for (let x = 0; x < W - 1; x++) colRows[x] = Math.min(colRows[x]!, cols[x]!);
-    for (let y = 0; y < H - 1; y++) rowCols[y] = Math.min(rowCols[y]!, rows[y]!);
+    [y0, y1] = edges(rows, H, keep, mirror);
   }
-  const share = (n: number, of: number): number => n / of; // the mean of a column's or a row's yes/no
-  const left: number[] = [];
-  const right: number[] = [];
-  const top: number[] = [];
-  const bottom: number[] = [];
-  for (let x = 0; x < W - 1; x++) {
-    if (share(colRows[x]!, H) >= keep && x < 0.45 * W) left.push(x);
-    if (share(colRows[x]!, H) >= keep && x > 0.55 * W) right.push(x);
-  }
-  for (let y = 0; y < H - 1; y++) {
-    if (share(rowCols[y]!, W) >= keep && y < 0.45 * H) top.push(y);
-    if (share(rowCols[y]!, W) >= keep && y > 0.55 * H) bottom.push(y);
-  }
-  return [
-    left.length ? (Math.max(...left) + 1) / W : 0.0,
-    top.length ? (Math.max(...top) + 1) / H : 0.0,
-    right.length ? Math.min(...right) / W : 1.0,
-    bottom.length ? Math.min(...bottom) / H : 1.0,
-  ];
+  return [x0 / W, y0 / H, x1 / W, y1 / H];
 }
 
 /** np.pad(m, pad, mode="edge"). */

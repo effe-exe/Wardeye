@@ -669,6 +669,19 @@ def sec_autolayout() -> dict:
     cases.append(autolayout_case("player cams: noise", [{"w": 640, "h": 360, "seed": 300 + k, "layers": [{"rect": [0, 0, 640, 360], "cell": 4}]} for k in range(5)], 52.0))
     # two frames (an even count: the median takes the mean of two values), the mat a little different in each
     cases.append(autolayout_case("two frames, two mats", [broadcast_spec(90 + k, [(200, 70, 37, 52)], mat=(30, 40, 56 + 5 * k)) for k in range(2)], None))
+    # a co-stream: a webcam, flat and moving, over the right border for the bottom 36% (the left border vouches for it)
+    cards = [(x, y, 37, 52) for x, y in spots]
+    cases.append(autolayout_case("a webcam over the right border", [
+        {**sp, "layers": sp["layers"] + [flat((90 + 10 * k, 60, 50), (440, 230, 120, 130))]}
+        for k, sp in enumerate(broadcast_spec(60 + k, cards) for k in range(5))], 52.0))
+    # Stockholm: bars above and below, a frame line around the picture between them, a dark card back in each panel
+    def framed(seed: int) -> dict:
+        blue, bar = (30, 80, 250), (20, 28, 60)
+        layers = [{"rect": [0, 0, 640, 360], "cell": 4}, flat(bar, (0, 0, 640, 22)), flat(bar, (0, 338, 640, 22)), flat((200, 120, 40), (0, 0, 70, 22)),
+                  flat((26, 36, 58), (0, 200, 104, 138)), flat((26, 36, 58), (537, 200, 103, 138)), flat((30, 40, 55), (106, 22, 428, 316), 3),
+                  flat(blue, (104, 22, 3, 316)), flat(blue, (534, 22, 3, 316)), flat(blue, (104, 20, 433, 3)), flat(blue, (104, 337, 433, 3))]
+        return {"w": 640, "h": 360, "seed": seed, "layers": layers + [{"rect": [cx, cy, cw, ch], "cell": 5} for cx, cy, cw, ch in cards]}
+    cases.append(autolayout_case("a framed picture between bars", [framed(70 + k) for k in range(5)], 52.0))
     return {"cases": cases}
 
 
