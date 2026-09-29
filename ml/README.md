@@ -276,6 +276,26 @@ python -m rifteye_ml.spike real --encoder onnx:~/rifteye-data/models/onnx/embedd
   - The older JSEP runtime fails to compile GridSample in float16, so use the native one.
 - The ONNX files are trained on Riot's card art like the weights, so they stay private too. [apps/bench](../apps/bench/README.md) times them in Chrome.
 
+## Decklists and legends as priors (M2)
+
+`python -m rifteye_ml.decklist` reads a decklist and measures what it, or the legends alone, add to card identification ([report](../docs/reports/m2-decklist-prior.md)):
+
+```bash
+python -m rifteye_ml.decklist show --catalog ~/rifteye-data/catalog/catalog.jsonl deck.txt      # the list as the catalogue reads it
+python -m rifteye_ml.decklist check --catalog ... deck.json deck.txt deck-tourney.txt deck-code.txt   # one list, four formats
+python -m rifteye_ml.decklist evaluate --match final=12:18:30-12:44:00 --deck final=a.json --deck final=b.json \
+    --match other=03:29:00-03:57:30 --out ~/rifteye-data/decklist/result.json
+```
+
+- **Four formats:** the deck code, text with collector codes, the tourney sheet and deckbuilder JSON.
+  - The deck code is decoded exactly; an unknown set or variant is refused, never guessed.
+  - The tourney sheet gives names only, which are mapped through the catalogue.
+  - Nothing is fetched: a list is a file you give it.
+- **A listed card is every printing of it:** alternate arts, overnumbered and signature prints, reprints in later sets and other languages. Tokens are always allowed. Both lists' battlefields are allowed on either half, because battlefields lie on the midline.
+- **The legend rule needs no list:** each half is held to its own legend's domains, runes included, while battlefields and tokens are always allowed. On the Barcelona Swiss round it names 97.8% of the crops, against 91.8% with the whole gallery.
+- **A list is used only on the half whose legend it names.** Another match's list then falls back to the legend rule, instead of wrecking the reads as a hard filter does (8.4%).
+- The lists, crops and results stay private (D-006); `evaluate` refuses to write inside the repository.
+
 ## Live: a recording or a stream, named as it plays
 
 `python -m rifteye_ml.live` runs the pipeline in real time and shows it on a local page at http://127.0.0.1:8765 (or the next free port): the video with every card it finds boxed and named (point at one to see it), each player's legend and cards on the table, and the plays as they happen. Install it with `pip install -e '.[live]'` (no torch needed); on the first run it fetches the public card catalogue and art into `~/rifteye-data`.

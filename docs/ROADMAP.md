@@ -56,7 +56,7 @@ flowchart LR
 ## M3: Timeline v1 and public beta (about 6–8 weeks)
 
 - [ ] Tracker with re-ID and cut handling, and covered cards that keep their identity while stacked; event engine v1 over piles (played, cast, moved, exhausted/readied, turn start)
-- [ ] Priors: zone and type, legend domains, decklist import, seen-before
+- [ ] Priors: zone and type, legend domains, decklist import, seen-before. Legend domains and decklists are measured ([report](reports/m2-decklist-prior.md), [D-026](decisions.md#d-026-legends-and-published-decklists-narrow-the-search-and-never-reveal-anything)) and next for the extension
 - [ ] Layout presets for the main broadcasters (`layouts/*.json`); auto-discovery fallback
 - [ ] Opt-in "Wrong card?" corrections into the active-learning queue
 - [ ] Data engine running: about 2,000 verified frames and 5,000 identity crops

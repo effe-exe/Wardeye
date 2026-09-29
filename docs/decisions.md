@@ -179,3 +179,13 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
   - keeps everything that makes it a fan project under the Legal Jibber Jabber: free for everyone, a community project by a person, no Riot logos, the notice, public information only.
   The application tells Riot the extension is live, and why.
 - **Why:** a working release shows what Wardeye is better than a mock-up, and it can be withdrawn or changed if Riot asks. The risk, taken knowingly: Riot's Riftbound policy asks products that serve players to register, so launching first may bring a takedown request or a harder review ([08 §8.2](research/08-legal-and-policy.md#82-riot-games-policies)).
+
+### D-026: Legends and published decklists narrow the search, and never reveal anything
+
+- **Date:** 2026-09-29. **Status:** accepted; the Maintainer asked for the feature. Measured in the [decklist report](reports/m2-decklist-prior.md); not in the extension yet. Clarifies [D-005](#d-005-public-information-only).
+- **Decision:**
+  - **The legend rule, on by default.** Once a player's legend is pinned, the cards on that player's half compete only with the printings that fit the legend's domains, runes included. Battlefields and tokens are always allowed.
+  - **Decklists, opt-in.** The viewer may paste a player's published list: a deck code, or a deckbuilder's text, tourney or JSON export. Wardeye fetches no list from any site.
+  - **How a list is used.** A list is used only on the half whose pinned legend it names. Each listed card stands for all its printings, tokens are always allowed, and both lists' battlefields are allowed on both halves.
+  - **What a list is for.** It only helps name cards already face up on the table. It is never shown, it is kept only for the match being watched, and it is never used to guess or reveal a hand, a face-down card or the rest of the list.
+- **Why:** on Barcelona's hardest match, the legend rule names 97.8% of the cards on the table, against 91.8%. Players often play a printing other than the one listed (35% of the crops in the final). A wrong list used as a hard filter names 8.4%, and the legend guard removes that failure. A published list is public information. [D-005](#d-005-public-information-only) forbids hidden information: hands, face-down cards and what lies in a player's deck. The "deck contents" of the principles are those hidden cards, not a published list.

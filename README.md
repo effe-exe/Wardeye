@@ -32,7 +32,7 @@ It works in theatre mode and fullscreen. **Alt+R** (Option+R on a Mac) hides or 
 
 What works today, on Twitch: the face-up cards on the table are outlined and named as they are played, with a hover card for each; cards stacked under others are remembered. The recognition runs in the browser, on WebGPU or, more slowly, on the processor.
 
-Not yet: the match timeline, YouTube, the game's own clues (the legend's domains, decklists) to narrow the candidates, and the side panel ([roadmap](docs/ROADMAP.md)).
+Not yet: the legends and decklists that narrow the search (next, [below](#next-legends-and-decklists)), the match timeline, YouTube and the side panel ([roadmap](docs/ROADMAP.md)).
 
 ## Measured, not claimed
 
@@ -41,6 +41,21 @@ Not yet: the match timeline, YouTube, the game's own clues (the legend's domains
 | Card detector v0 | finds 97.6% of the cards | 5,465 reviewed cards from three broadcasts: Los Angeles 98.1%, Barcelona 99.5%, Shenyang 96.2%. Trained on synthetic boards only ([report](docs/reports/m1-detector-v0.md)) |
 | Card identifier v1 | names 96.0% and 99.4% of the cards | two broadcasts held out of training: Barcelona and the Los Angeles grand final ([ml/README](ml/README.md#for-the-browser-m2-the-models-as-onnx)) |
 | In the browser | reads like the Python pipeline on 240 of 240 frames | the Los Angeles grand final, through the extension's own engine: the same cards, names and events |
+
+## Next: legends and decklists
+
+Measured first, in the research pipeline, and coming to the extension next ([report](docs/reports/m2-decklist-prior.md)).
+
+- **The legends narrow the search, with nothing to set up.**
+  - Every card in a Riftbound deck must fit its legend's two domains, runes included.
+  - Once Wardeye has read a player's legend, it compares a card on that player's half only with the cards the legend allows, about a third of the gallery.
+  - On the hardest match measured, a Swiss round at Barcelona, the share of cards named right rises from **91.8% to 97.8%**, and every confident read is right.
+- **Paste the decklists, when they are published.**
+  - Paste each player's deck code, or a deckbuilder's export (text, tourney sheet or JSON), and Wardeye looks only among the cards on the list.
+  - A listed card counts in every printing, because players often use an alternate art or a reprint instead of the printing on the list. In the Barcelona final, 35% of the card sightings on the table were one of those.
+  - Wardeye fetches no list from anywhere; it uses only what you paste.
+- **A wrong list can't wreck it.** A list is used only for the player whose legend it names; the other player stays on the legend rule. Applied blindly, another match's lists would name only 8.4% of the cards right.
+- **Only for what is face up.** A list only helps name the cards already on the table. Wardeye never shows it, and never uses it to guess a hand or a face-down card ([D-026](docs/decisions.md#d-026-legends-and-published-decklists-narrow-the-search-and-never-reveal-anything)).
 
 ## Private by design
 
@@ -68,7 +83,7 @@ Cards are small on stream (roughly 70–140 px tall at 1080p) and their text is 
 
 ## Principles
 
-1. **Public information only.** Hand cams, face-down cards and deck contents are never processed. Wardeye sees only what the broadcast already shows.
+1. **Public information only.** Hand cams, face-down cards and hidden deck contents are never processed. Wardeye sees only what the broadcast already shows, and a published decklist only helps name what is face up.
 2. **Local first.** Inference runs in the viewer's browser, on WebGPU with a WASM fallback. No video leaves the machine.
 3. **Measured, not claimed.** Every model comes with results on real broadcasts it was not trained on.
 4. **Open and clean.** AGPL code, permissively licensed dependencies and base models, no hidden telemetry. The trained weights ship inside the extension but are not published ([D-022](docs/decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)).

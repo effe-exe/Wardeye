@@ -22,7 +22,7 @@ In MOBAs, a ward is what you place to gain vision. Wardeye brings that idea to R
 
 ## 2. The five non-negotiables
 
-1. **Public information only.** Hand cams, face-down cards and deck contents are never processed. Wardeye sees only what the broadcast already shows.
+1. **Public information only.** Hand cams, face-down cards and hidden deck contents are never processed. Wardeye sees only what the broadcast already shows; a published decklist only helps name what is face up ([D-026](../../docs/decisions.md#d-026-legends-and-published-decklists-narrow-the-search-and-never-reveal-anything)).
 2. **Local first.** Inference runs in the viewer's browser, with WebGPU and a WASM fallback. No video leaves the machine.
 3. **Measured, not claimed.** Every model ships with results on real broadcasts it was not trained on. Accuracy is reported, not marketed.
 4. **Open and clean.** AGPL code. Permissively licensed dependencies and base models only. No hidden telemetry. The trained weights ship inside the extension but are not published ([D-022](../../docs/decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)).
