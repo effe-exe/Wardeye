@@ -6,7 +6,9 @@ live/pipeline.py's Recognizer is run over the 240 shared JPEG frames of the LA f
 built as live/__main__.py builds it: layout la-rq (fixed, not auto) at 2 fps; the finder is detector_boxes over
 Detector.detect with detector-v0.onnx in the Detector (ONNX Runtime CPU, float32) and __main__'s --det-score;
 the encoder is onnx:embedder-v1.onnx (float32); the gallery is __main__.gallery() at the layout's levels, with its
-embedding cache inside the fixtures folder; the temperature is embedder-v1's (EMBEDDER_T).
+embedding cache inside the fixtures folder; the temperature is embedder-v1's (EMBEDDER_T); the legend rule is on, as
+in __main__ (--no-legend-rule turns it off; meta.json says which). rows.json keeps each row's domains, variant and
+tags, which the legend rule reads.
 
 Everything the Recognizer is fed and gives back is written down: per frame the finder's boxes, every embed() call
 (each picture's size and the SHA-256 of its RGB bytes, and the rows it gave), per step the state and the events,
@@ -161,6 +163,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--frames", type=int, default=0, help="only the first N frames (a quick look)")
     ap.add_argument("--reuse", action="store_true", help="the models' outputs from the last run's recording")
     ap.add_argument("--scenario", choices=["la-final", "cut"], default="la-final")
+    ap.add_argument("--no-legend-rule", action="store_true", help="the whole gallery on both sides all along")
     a = ap.parse_args(argv)
 
     import onnxruntime
@@ -239,8 +242,12 @@ def main(argv: list[str] | None = None) -> int:
     (out / "levels").mkdir(exist_ok=True)
     for s, level in pyr.levels.items():
         np.ascontiguousarray(level, "<f4").tofile(out / "levels" / f"{s}.bin")
+    # what the Recognizer reads of a row: the legend rule reads domains (a row without them fits any legend), variant
+    # and the name (the tokens); tags name a legend's champion, for decklists
     (out / "rows.json").write_text(json.dumps([{"printing_id": r["printing_id"], "card_id": r["card_id"], "name": r["name"],
-                                                 "type": r.get("type")} for r in rows], ensure_ascii=False),
+                                                 "type": r.get("type"),
+                                                 **{k: r[k] for k in ("domains", "variant", "tags") if k in r}}
+                                                for r in rows], ensure_ascii=False),
                                    encoding="utf-8")
 
     det = None
@@ -263,7 +270,8 @@ def main(argv: list[str] | None = None) -> int:
 
     recording = Recording(enc, out / "embeds.bin", old_rows)
     title = layout.title  # __main__: a.title or LAYOUTS[a.layout].title
-    rec = Recognizer(layout, rows, recording, pyr, title=title, fps=FPS, finder=finder, temperature=EMBEDDER_T)
+    rec = Recognizer(layout, rows, recording, pyr, title=title, fps=FPS, finder=finder, temperature=EMBEDDER_T,
+                     legend_rule=not a.no_legend_rule)
     recording.rec = rec
 
     # Which track each crop is, for the recording only: the crops are cut as the pipeline cuts them.
@@ -323,7 +331,7 @@ def main(argv: list[str] | None = None) -> int:
     (out / "embeds.json").write_text(json.dumps({"dim": 256, "calls": recording.calls}), encoding="utf-8")
     meta = {
         "scenario": a.scenario, "frames": "frames/la-final", "steps": len(frames), "layout": asdict(layout), "fps": FPS, "det_score": DET_SCORE,
-        "temperature": EMBEDDER_T, "title": title, "levels": scales, "rows": len(rows), "dim": 256,
+        "temperature": EMBEDDER_T, "title": title, "legend_rule": rec.legend_rule, "levels": scales, "rows": len(rows), "dim": 256,
         "encoder": enc.name, "embedder": "models/onnx/embedder-v1.onnx", "detector": "models/onnx/detector-v0.onnx",
         "detector_checkpoint": "models/detector-v0.pth", "embed_calls": len(recording.calls), "embed_rows": recording.n_rows,
         "threads": {k: os.environ.get(k) for k in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS")} | {

@@ -343,3 +343,65 @@ def test_a_card_outlined_twice_is_drawn_once():
         state, _ = rec.step(t, _frame([(art[3], 300, 100)]))
     assert sum(1 for tr in rec.tracks.values() if tr.named == rows[3]["card_id"]) == 2  # both tracks named the card
     assert [tr["name"] for tr in state["tracks"] if tr["state"] == "named"] == [rows[3]["name"]]  # shown once
+
+
+# ---- the legend rule (D-026) --------------------------------------------------------------------------------
+# test_decklist.py's rows; gallery row i is the unit vector i, and the stub encoder gives every crop the same scores,
+# so a read's candidates are these scores less the rows the side's legend rules out. The engine's recognizer.test.ts
+# replays the same reads.
+
+RULE_SCORES = {"OGN-914": 0.9, "OGN-920": 0.85, "OGN-918": 0.8, "SFD-902a": 0.75, "VEN-906": 0.7}  # the rest 0.1
+
+
+def _rule_setup(**kw):
+    from rifteye_ml.retrieval import Pyramid
+    from test_decklist import ROWS
+
+    rows = [dict(r) for r in ROWS]
+    scores = np.full(len(rows), 0.1, np.float32)
+    for i, r in enumerate(rows):
+        scores[i] = RULE_SCORES.get(r["printing_id"], 0.1) if r["language"] == "en" else 0.1
+
+    class Stub:
+        name, dim = "stub", len(rows)
+
+        def embed(self, images):
+            return np.tile(scores, (len(images), 1))
+
+    return rows, Recognizer(LAYOUT, rows, Stub(), Pyramid({80: np.eye(len(rows), dtype=np.float32)}), fps=5.0, gate=False, **kw)
+
+
+def test_the_legend_rule_holds_a_side_to_its_legend():
+    from rifteye_ml import priors
+
+    rows, rec = _rule_setup()
+    crop = Image.new("RGB", (56, 78), (200, 100, 50))
+    before = rec.identify([crop], ["left"])[0]
+    assert [c for c, *_ in before[:3]] == ["blaze-fist", "ember-rune", "hush-rune"] and rec.masks == {}
+    rec.legends["left"] = {"printing_id": "SFD-901", "name": "Gleaming Anvil"}   # Calm and Mind, pinned on the left
+    left, right, nowhere = rec.identify([crop] * 3, ["left", "right", ""])
+    assert [c for c, *_ in left[:2]] == ["hush-rune", "fakesmith-hammerer"]    # Fury and Order+Chaos ruled out
+    assert left[1][3] == 5                                                      # SFD-902a, its best printing
+    allowed = priors.legend_mask(rows, ["gleaming-anvil"])[0]
+    assert {c for c, *_ in left} == {r["card_id"] for r, ok in zip(rows, allowed) if ok}
+    assert [c for c, *_ in right] == [c for c, *_ in before] == [c for c, *_ in nowhere]
+    # the softmax runs over the cards left: hush-rune against the other allowed cards only
+    vals = np.array([sc for _, _, sc, _ in left])
+    p = np.exp((vals - vals.max()) / rec.temperature)
+    assert np.allclose([pc for _, pc, _, _ in left], p / p.sum()) and left[0][1] > before[2][1]
+    assert set(rec.masks) == {"gleaming-anvil"} and rec.allowed("left") is rec.masks["gleaming-anvil"]
+    assert rec.allowed("right") is None and rec.allowed("") is None and rec.allowed("top") is None
+    assert rec.identify([crop])[0] == before                                     # no sides: the whole gallery
+
+
+def test_a_tracks_crops_follow_its_side_and_the_rule_can_be_turned_off():
+    noise = Image.fromarray(np.random.default_rng(0).integers(0, 256, (540, 960, 3), dtype=np.uint8))
+    for rule in (True, False):
+        rows, rec = _rule_setup(legend_rule=rule)
+        rec.legends["left"] = {"printing_id": "SFD-901", "name": "Gleaming Anvil"}
+        a = Track("a", CardBox((200.0, 200.0), 78.0, 56.0, 90.0, 1.0), 0.0, 0.0, hits=2, side="left")
+        b = Track("b", CardBox((700.0, 200.0), 78.0, 56.0, 90.0, 1.0), 0.0, 0.0, hits=2, side="right")
+        rec.read(0.0, noise, [a, b])
+        assert a.reads == b.reads == 1
+        assert ("blaze-fist" not in a.prob) is rule and "blaze-fist" in b.prob
+        assert max(a.prob, key=a.prob.get) == ("hush-rune" if rule else "blaze-fist")
