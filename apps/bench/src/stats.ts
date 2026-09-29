@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // Timing for the bench: median and p90 of a batch's timed runs, and how many warm-up and timed runs a
 // batch gets (fewer when a run is slow, so the whole bench stays within a few minutes on a laptop).

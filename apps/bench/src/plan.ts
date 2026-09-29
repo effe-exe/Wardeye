@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // What the bench will do: one row per model x variant x runtime, and for each row whether it runs or why it is
 // skipped (the variant is not in the folder, no WebGPU, no fp16 on this GPU). Pure: the page finds out what is

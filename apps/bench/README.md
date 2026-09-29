@@ -1,6 +1,6 @@
-# RiftEye bench (M2 feasibility)
+# Wardeye bench (M2 feasibility)
 
-Can RiftEye's two models run inside Chrome, fast enough and with the same answers? This extension page runs the card detector and the card embedder with ONNX Runtime Web: the native WebGPU runtime, the older WebGPU runtime (JSEP), and WASM with threads. For each model, precision and runtime it reports:
+Can Wardeye's two models run inside Chrome, fast enough and with the same answers? This extension page runs the card detector and the card embedder with ONNX Runtime Web: the native WebGPU runtime, the older WebGPU runtime (JSEP), and WASM with threads. For each model, precision and runtime it reports:
 
 - how long the runtime and the model take to load;
 - the first run (which includes shader compilation);
@@ -37,6 +37,7 @@ Options in the page's address:
 - `src/decoded.ts`: the decoded detector check: the check tile's cards, matched to Python's.
 - `src/bench-webgpu.ts`, `src/bench-jsep.ts`, `src/bench-wasm.ts`: one worker per ONNX Runtime Web build. The builds are bundled in `dist/ort/`, never fetched: an extension may not load remote code.
 - The pure parts are unit-tested: `stats.ts`, `compare.ts`, `model-manifest.ts`, `plan.ts`, `estimate.ts`, `summary.ts`, `env.ts`, `decoded.ts`, and `tiny-onnx.ts` (the stand-in models).
+- `src/bench.css`, `icons/`: the page wears Wardeye's brand ([assets/brand](../../assets/brand/README.md)). `build.mjs` writes `bench.css` through `withBrand` (the tokens and the three fonts, inlined), and copies the mark and the icons the manifest names (`icons/`, made by `scripts/brand-icons.mjs`) into `dist/`.
 - `pack.mjs`: the zip for someone who runs the bench. The models go in through symlinks, never copied.
 
 ## Tests

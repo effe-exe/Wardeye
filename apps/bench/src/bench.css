@@ -1,56 +1,72 @@
-/* The bench page: plain, dark, system fonts only (nothing is loaded from outside the package). */
+/* The bench page. Colours, type, shape and motion come from Wardeye's brand tokens (assets/brand/tokens.css); build.mjs
+   puts them in front of this file together with the three fonts, inlined, so nothing is loaded from outside the package. */
 :root {
   color-scheme: dark;
-  --bg: #14171c;
-  --panel: #1c2027;
-  --line: #2d333d;
-  --text: #e4e7ec;
-  --dim: #9aa3b2;
-  --accent: #8a7cf5;
-  --pass: #52c483;
-  --fail: #f0616d;
-  --warn: #e3b341;
+  accent-color: var(--wd-primary);
+  scrollbar-color: var(--wd-dim) transparent;
 }
 * { box-sizing: border-box; }
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
-}
-main { max-width: 1320px; margin: 0 auto; padding: 24px 16px 48px; }
-h1 { margin: 0 0 4px; font-size: 26px; }
-h2 { margin: 28px 0 8px; font-size: 16px; color: var(--dim); font-weight: 600; letter-spacing: .02em; }
-.lede { margin: 0 0 16px; color: var(--dim); max-width: 70ch; }
+::selection { background: color-mix(in srgb, var(--wd-primary) 45%, transparent); color: var(--wd-text); }
+:focus-visible { outline: 2px solid var(--wd-primary); outline-offset: 2px; }
+body { margin: 0; background: var(--wd-bg); color: var(--wd-text); font: var(--wd-type-body); }
+
+/* header: the mark, the name, the tool's name (muted); its edges line up with the page's column */
+header { padding: 12px max(20px, calc((100% - 1320px) / 2 + 20px)); background: var(--wd-surface); border-bottom: var(--wd-hairline) solid var(--wd-border); }
+h1 { display: flex; align-items: center; gap: 8px; margin: 0; font: 700 18px/1.2 var(--wd-font-display); letter-spacing: -0.01em; }
+h1 img { display: block; flex: none; margin-right: 2px; }
+h1 span { color: var(--wd-muted); font-weight: 500; }
+main { max-width: 1320px; margin: 0 auto; padding: 24px 20px 56px; }
+h2 { margin: 32px 0 10px; font: var(--wd-type-h2); }
+.lede { max-width: 72ch; margin: 0 0 16px; color: var(--wd-muted); }
+
+/* controls: raised, hairline, soft corners; Run is the one primary action */
 .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0; }
 button {
-  font: inherit; font-weight: 600; color: #fff; background: var(--accent);
-  border: 0; border-radius: 6px; padding: 8px 20px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 36px; padding: 0 18px;
+  font: 600 13px/1 var(--wd-font-ui); color: var(--wd-text);
+  background: var(--wd-surface-2); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius-sm);
+  cursor: pointer; user-select: none;
+  transition: border-color var(--wd-fast) var(--wd-ease), background-color var(--wd-fast) var(--wd-ease), color var(--wd-fast) var(--wd-ease);
 }
-button:hover:not(:disabled) { filter: brightness(1.1); }
-button:disabled { opacity: .4; cursor: default; }
-#stop { background: transparent; border: 1px solid var(--line); color: var(--text); }
-#status, #copied { color: var(--dim); }
-pre, textarea, table { font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+button:hover:not(:disabled) { border-color: var(--wd-primary-light); }
+button:active:not(:disabled) { border-color: var(--wd-primary-dark); background: color-mix(in srgb, var(--wd-primary-dark) 25%, var(--wd-surface-2)); }
+button:disabled { opacity: 0.4; cursor: default; }
+#run { color: var(--wd-bg); background: var(--wd-primary); border-color: var(--wd-primary); }
+#run:hover:not(:disabled) { background: var(--wd-primary-light); border-color: var(--wd-primary-light); }
+#run:active:not(:disabled) { color: var(--wd-text); background: var(--wd-primary-dark); border-color: var(--wd-primary-dark); }
+#status, #copied { color: var(--wd-muted); }
+
+/* what the page shows as data is in JetBrains Mono, with its ligatures off so that "<=", ">=" and "->" read as typed */
+pre, textarea, table { font: 400 12px/1.55 var(--wd-font-mono); font-variant-numeric: tabular-nums; font-variant-ligatures: none; }
 pre, textarea {
-  background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
-  padding: 10px 12px; margin: 0; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere;
+  margin: 0; padding: 12px 14px;
+  color: var(--wd-text); background: var(--wd-surface); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius);
+  white-space: pre-wrap; overflow-wrap: anywhere;
 }
 #frame:empty { display: none; }
 #frame { margin-top: 12px; }
-textarea { display: block; width: 100%; resize: vertical; white-space: pre; overflow: auto; }
-.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+textarea { display: block; width: 100%; resize: vertical; white-space: pre; overflow: auto; transition: border-color var(--wd-fast) var(--wd-ease); }
+textarea:hover { border-color: var(--wd-dim); }
+textarea:focus-visible { border-color: var(--wd-primary); outline-offset: -1px; }
+
+.scroll { overflow-x: auto; background: var(--wd-surface); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius-lg); }
 table { width: 100%; border-collapse: collapse; }
-th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-th { color: var(--dim); font-weight: 600; }
+th, td { padding: 7px 12px; text-align: left; vertical-align: top; white-space: nowrap; border-bottom: var(--wd-hairline) solid var(--wd-border); }
+th { color: var(--wd-muted); font: 600 11px/1.4 var(--wd-font-ui); letter-spacing: 0.05em; text-transform: uppercase; background: var(--wd-surface-2); }
+th[title] { text-decoration: underline dotted var(--wd-dim); text-underline-offset: 3px; cursor: help; }
 tbody tr:last-child td { border-bottom: 0; }
 td.num { text-align: right; }
-td.check { white-space: normal; min-width: 26ch; overflow-wrap: anywhere; }
-td.pass { color: var(--pass); }
-td.fail { color: var(--fail); }
-td.note { color: var(--dim); white-space: normal; }
-tr.detail td { white-space: pre-wrap; overflow-wrap: anywhere; padding-top: 0; }
-tr.detail .err { color: var(--fail); }
-tr.detail .warn { color: var(--warn); }
-tr.error td:first-child { box-shadow: inset 3px 0 var(--fail); }
-tr.skipped td { color: var(--dim); }
+td.check { min-width: 26ch; white-space: normal; overflow-wrap: anywhere; }
+td.pass { color: var(--wd-success); }
+td.fail { color: var(--wd-error); }
+td.note { color: var(--wd-muted); white-space: normal; }
+tr.detail td { padding-top: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+tr.detail .err { color: var(--wd-error); }
+tr.detail .warn { color: var(--wd-warning); }
+tr.error td:first-child { box-shadow: inset 3px 0 var(--wd-error); }
+tr.skipped td { color: var(--wd-muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0s !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
+}

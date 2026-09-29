@@ -2,7 +2,7 @@
   "name": "@rifteye/bench",
   "version": "0.1.1",
   "private": true,
-  "description": "RiftEye bench: runs the detector and the embedder inside Chrome (ONNX Runtime Web, WebGPU and WASM) and reports how fast they are and whether their outputs match PyTorch",
+  "description": "Wardeye bench: runs the detector and the embedder inside Chrome (ONNX Runtime Web, WebGPU and WASM) and reports how fast they are and whether their outputs match PyTorch",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {

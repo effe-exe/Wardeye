@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // Stand-in models for the bench's browser test, made at test time (no ONNX or .bin file is committed): tiny
 // graphs written with src/tiny-onnx.ts, their check files, and the manifests that describe them in the bench

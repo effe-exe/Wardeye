@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // A minimal ONNX writer: a ModelProto with one dynamic input, some nodes, constants and outputs, encoded by hand
 // (protobuf wire format, no dependency). The bench starts each runtime with a one-node model so that loading the

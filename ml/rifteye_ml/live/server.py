@@ -45,6 +45,9 @@ _STATIC_FILES = {
     "/": ("index.html", "text/html; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/style.css": ("style.css", "text/css; charset=utf-8"),
+    # Wardeye's brand: copies of assets/brand/tokens.css and assets/brand/logo/mark.svg (a test fails if they drift)
+    "/tokens.css": ("tokens.css", "text/css; charset=utf-8"),
+    "/mark.svg": ("mark.svg", "image/svg+xml"),
 }
 _EVENTS_KEPT = 200      # publish_event: how much feed history a newly connecting client is sent
 _SSE_POLL_S = 0.2       # also the state throttle: at most 5 state events per client per second

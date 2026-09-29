@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // One row of the bench: one model, one precision, one runtime. Starts the runtime on a one-node model (so that
 // loading wasm and the GPU is not counted as loading the model), loads the real model, times it at every batch

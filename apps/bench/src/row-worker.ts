@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The worker loop: the page sends one row to run, the worker runs it in the given onnxruntime-web build and
 // sends progress lines and then the finished row back. A worker runs one row and is then thrown away, so every

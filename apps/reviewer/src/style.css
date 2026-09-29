@@ -1,78 +1,131 @@
+/* The reviewer. Colours, type, shape and motion come from Wardeye's brand tokens (assets/brand/tokens.css),
+   which build.mjs puts in front of this file together with the fonts. */
 :root {
   color-scheme: dark;
-  accent-color: #6153cc;
-  /* Gradeon's look (D-020): see assets/brand/README.md */
-  --bg: #0a0a0a;
-  --panel: #111111;
-  --raised: #1a1a1a;
-  --rule: #1a1a1a;
-  --line: #333333;
-  --text: #ffffff;
-  --muted: #999999;
-  --faint: #666666;
-  --accent: #6153cc;
-  --accent-2: #7b6fd4;
-  --good: #00ff88;
-  --warn: #ff6600;
-  --bad: #ff0044;
-  --mono: 'Space Mono', ui-monospace, Menlo, Consolas, monospace;
+  accent-color: var(--wd-primary);
+  scrollbar-color: var(--wd-dim) transparent;
   --tile: 300px;
-  font: 14px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 * { box-sizing: border-box; }
 /* `display` rules below would otherwise override the hidden attribute. */
 [hidden] { display: none !important; }
-body { margin: 0; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
-h1 { font: 700 15px/1.2 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; margin: 0; }
-h1 span { color: var(--muted); font-weight: 400; }
-.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-button, .button { background: var(--raised); color: var(--text); border: 1px solid var(--line); border-radius: 2px; padding: 6px 12px; cursor: pointer; font: 12px/1.45 var(--mono); letter-spacing: 0.02em; }
-button:hover, .button:hover { border-color: var(--accent-2); }
-button:disabled { opacity: 0.5; cursor: default; }
-input { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 2px; padding: 6px 8px; font: inherit; }
-input:focus { outline: 2px solid var(--accent-2); outline-offset: -1px; }
-main { flex: 1; padding: 16px; max-width: 1100px; width: 100%; margin: 0 auto; }
-.empty { border: 1px dashed var(--line); border-radius: 4px; padding: 48px 24px; text-align: center; }
-.muted { color: var(--muted); }
-#review { display: flex; flex-direction: column; gap: 10px; }
-#topline { display: flex; justify-content: space-between; gap: 12px; font-size: 16px; }
-#position { font-family: var(--mono); font-variant-numeric: tabular-nums; }
-#bar { height: 4px; background: var(--panel); border-radius: 2px; overflow: hidden; }
-#bar-fill { display: block; height: 100%; width: 0; background: var(--accent); }
-#item { display: flex; gap: 24px; align-items: flex-end; flex-wrap: wrap; }
-figure { margin: 0; display: flex; flex-direction: column; gap: 6px; }
-#evidence { flex-direction: row; gap: 12px; align-items: flex-end; }
-#evidence img { height: var(--tile); max-width: 100%; object-fit: contain; border-radius: 2px; background: #000; }
+::selection { background: color-mix(in srgb, var(--wd-primary) 45%, transparent); color: var(--wd-text); }
+:focus-visible { outline: 2px solid var(--wd-primary); outline-offset: 2px; }
+body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: var(--wd-bg); color: var(--wd-text); font: var(--wd-type-body); }
+
+/* header: the mark, the name, the tool's name (muted), and the actions */
+header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 16px; padding: 12px 20px; background: var(--wd-surface); border-bottom: var(--wd-hairline) solid var(--wd-border); }
+h1 { display: flex; align-items: center; gap: 8px; margin: 0; font: 700 18px/1.2 var(--wd-font-display); letter-spacing: -0.01em; }
+h1 img { display: block; flex: none; margin-right: 2px; }
+h1 span { color: var(--wd-muted); font-weight: 500; }
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+
+/* controls: raised, hairline, soft corners; primary for the action, the focus and the selection */
+button, .button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 32px; padding: 0 12px;
+  font: 500 13px/1 var(--wd-font-ui); color: var(--wd-text);
+  background: var(--wd-surface-2); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius-sm);
+  cursor: pointer; user-select: none;
+  transition: border-color var(--wd-fast) var(--wd-ease), background-color var(--wd-fast) var(--wd-ease), color var(--wd-fast) var(--wd-ease);
+}
+button:hover:not(:disabled), .button:hover { border-color: var(--wd-primary-light); }
+button:active:not(:disabled), .button:active { border-color: var(--wd-primary-dark); background: color-mix(in srgb, var(--wd-primary-dark) 25%, var(--wd-surface-2)); }
+button:disabled { opacity: 0.4; cursor: default; }
+#show-help { min-width: 32px; padding: 0; font-weight: 600; }
+
+input {
+  min-width: 0; padding: 7px 10px;
+  font: 400 13px/1.4 var(--wd-font-ui); color: var(--wd-text);
+  background: var(--wd-surface-2); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius-sm);
+  transition: border-color var(--wd-fast) var(--wd-ease);
+}
+input:hover { border-color: var(--wd-dim); }
+input:focus-visible { border-color: var(--wd-primary); outline-offset: -1px; }
+input::placeholder { color: var(--wd-dim); }
+
+kbd { display: inline-block; padding: 1px 5px; font: 500 11px/1.4 var(--wd-font-mono); color: var(--wd-text); background: var(--wd-bg); border: var(--wd-hairline) solid var(--wd-border); border-bottom-width: 2px; border-radius: var(--wd-radius-sm); }
+.muted { color: var(--wd-muted); }
+
+main { flex: 1; width: 100%; max-width: 1100px; margin: 0 auto; padding: 24px 20px 32px; }
+.empty { padding: 56px 24px; text-align: center; background: var(--wd-surface); border: var(--wd-hairline) dashed var(--wd-border); border-radius: var(--wd-radius-lg); }
+.empty p { max-width: 54ch; margin: 0 auto; }
+.empty p:first-child { margin-bottom: 8px; font: var(--wd-type-h2); }
+.empty .muted { font-size: 13px; }
+
+/* one item: the question, how far along, the evidence and the model's guess, then the alternatives and the keys */
+#review { display: flex; flex-direction: column; gap: 12px; }
+#topline { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+#question { font: var(--wd-type-h1); }
+#position { font: 500 13px/1.4 var(--wd-font-mono); font-variant-numeric: tabular-nums; }
+#bar { height: 4px; overflow: hidden; background: var(--wd-surface-2); border-radius: var(--wd-radius-sm); }
+#bar-fill { display: block; height: 100%; width: 0; background: var(--wd-primary); transition: width var(--wd-slow) var(--wd-ease); }
+#counts { font: var(--wd-type-caption); font-variant-numeric: tabular-nums; }
+#item { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 24px; margin-top: 8px; }
+figure { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+#evidence { flex-direction: row; align-items: flex-end; gap: 12px; }
+#evidence img { height: var(--tile); max-width: 100%; object-fit: contain; background: var(--wd-surface); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius); }
 #evidence img.context { height: calc(var(--tile) * 0.8); }
-.option img { height: var(--tile); max-width: 100%; object-fit: contain; border-radius: 2px; }
+.option img { height: var(--tile); max-width: 100%; object-fit: contain; border-radius: var(--wd-radius-sm); }
 .option img[src=''], .option img:not([src]) { display: none; }
-figcaption { display: flex; flex-direction: column; }
-.label { font-size: 16px; font-weight: 600; }
-#proposal { border: 2px solid var(--accent); border-radius: 4px; padding: 8px; }
-#item.correct #proposal { border-color: var(--good); }
-#item.wrong #proposal { border-color: var(--bad); opacity: 0.6; }
-#alternatives { display: flex; gap: 12px; flex-wrap: wrap; }
-#alternatives .option { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 6px; cursor: pointer; width: 150px; }
-#alternatives .option:hover { border-color: var(--accent-2); }
-#alternatives .option.picked { border-color: var(--good); }
+figcaption { display: flex; flex-direction: column; gap: 2px; }
+.label { font: 600 16px/1.3 var(--wd-font-ui); }
+/* the model's guess is a card preview: a surface panel with a 1.5px primary border; its confidence is small and primary */
+#proposal { padding: 10px; background: var(--wd-surface); border: 1.5px solid var(--wd-primary); border-radius: var(--wd-radius); transition: border-color var(--wd-fast) var(--wd-ease), opacity var(--wd-fast) var(--wd-ease); }
+#proposal .confidence { color: var(--wd-primary); font: 500 11px/1.4 var(--wd-font-ui); font-variant-numeric: tabular-nums; }
+#item.correct #proposal { border-color: var(--wd-success); }
+#item.correct #proposal .confidence { color: var(--wd-success); }
+#item.wrong #proposal { border-color: var(--wd-error); opacity: 0.6; }
+#item.wrong #proposal .confidence { color: var(--wd-error); }
+#alternatives { display: flex; flex-wrap: wrap; gap: 12px; }
+#alternatives .option { width: 150px; padding: 8px; background: var(--wd-surface); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius); cursor: pointer; transition: border-color var(--wd-fast) var(--wd-ease), background-color var(--wd-fast) var(--wd-ease); }
+#alternatives .option:hover { border-color: var(--wd-primary-light); background: var(--wd-surface-2); }
+#alternatives .option.picked { border-color: var(--wd-success); background: color-mix(in srgb, var(--wd-success) 8%, var(--wd-surface)); }
 #alternatives .option img { height: 190px; }
-#alternatives .option .label { font-size: 13px; }
-#keys { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
-#keys .yes { border-color: var(--good); }
-#keys .no { border-color: var(--bad); }
-#answered.correct { color: var(--good); }
-#answered.wrong { color: var(--bad); }
-#ask { position: relative; max-width: 420px; }
-#ask label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }
-.suggestions { list-style: none; margin: 4px 0 0; padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 2px; max-height: 260px; overflow: auto; }
+#alternatives .option .label { font-size: 13px; font-weight: 500; }
+#keys { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+#keys button { min-height: 36px; }
+#keys .yes { border-color: color-mix(in srgb, var(--wd-success) 55%, var(--wd-border)); }
+#keys .yes:hover:not(:disabled) { border-color: var(--wd-success); background: color-mix(in srgb, var(--wd-success) 12%, var(--wd-surface-2)); }
+#keys .no { border-color: color-mix(in srgb, var(--wd-error) 55%, var(--wd-border)); }
+#keys .no:hover:not(:disabled) { border-color: var(--wd-error); background: color-mix(in srgb, var(--wd-error) 12%, var(--wd-surface-2)); }
+#keys [data-key='s'] { border-color: color-mix(in srgb, var(--wd-warning) 55%, var(--wd-border)); }
+#keys [data-key='s']:hover:not(:disabled) { border-color: var(--wd-warning); background: color-mix(in srgb, var(--wd-warning) 12%, var(--wd-surface-2)); }
+#answered.correct { color: var(--wd-success); }
+#answered.unsure { color: var(--wd-warning); }
+#answered.wrong { color: var(--wd-error); }
+
+/* asking what a wrong guess really is: a panel that opens once, with the catalogue's names under the field */
+#ask { position: relative; max-width: 440px; padding: 14px; background: var(--wd-surface); border: var(--wd-hairline) solid var(--wd-primary); border-radius: var(--wd-radius); animation: wd-fade var(--wd-fast) var(--wd-ease); }
+#ask label { display: flex; flex-direction: column; gap: 6px; color: var(--wd-muted); font: var(--wd-type-caption); }
+#ask small { display: block; margin-top: 8px; font: var(--wd-type-caption); }
+.suggestions { max-height: 260px; margin: 10px 0 0; padding: 4px; list-style: none; overflow: auto; background: var(--wd-surface-2); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius); }
 .suggestions:empty { display: none; }
-.suggestions li { padding: 6px 8px; border-radius: 2px; cursor: pointer; display: flex; justify-content: space-between; gap: 12px; }
-.suggestions li.active, .suggestions li:hover { background: var(--accent); }
-.suggestions li small { color: var(--muted); }
-kbd { font-family: var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 2px; padding: 0 4px; font-size: 11px; }
-#done { text-align: center; padding: 48px 0; }
-dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; }
-dialog td { padding: 3px 12px 3px 0; }
-footer { color: var(--muted); font-size: 11px; padding: 8px 16px; border-top: 1px solid var(--rule); }
+.suggestions li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 10px; border-radius: var(--wd-radius-sm); cursor: pointer; }
+.suggestions li.active, .suggestions li:hover { background: color-mix(in srgb, var(--wd-primary) 22%, transparent); box-shadow: inset 2px 0 var(--wd-primary); }
+.suggestions li small { align-self: center; color: var(--wd-muted); font: var(--wd-type-caption); }
+
+#done { padding: 56px 0; text-align: center; }
+#done h2 { margin: 0 0 12px; font: var(--wd-type-display); font-size: 28px; }
+#done p { margin: 0 0 8px; }
+#done strong { font-weight: 600; }
+
+dialog { max-width: min(560px, calc(100vw - 32px)); padding: 20px 24px; color: var(--wd-text); background: var(--wd-surface); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius-lg); box-shadow: 0 24px 64px color-mix(in srgb, var(--wd-bg) 85%, transparent); }
+dialog[open] { animation: wd-open var(--wd-slow) var(--wd-ease); }
+dialog::backdrop { background: color-mix(in srgb, var(--wd-bg) 72%, transparent); }
+dialog h2 { margin: 0 0 12px; font: var(--wd-type-h1); }
+dialog table { border-collapse: collapse; }
+dialog td { padding: 5px 18px 5px 0; vertical-align: baseline; }
+dialog td:first-child { white-space: nowrap; }
+dialog p { margin: 12px 0 0; }
+dialog form { margin-top: 16px; }
+
+footer { padding: 12px 20px; color: var(--wd-muted); font: var(--wd-type-caption); border-top: var(--wd-hairline) solid var(--wd-border); }
+
 @media (max-width: 700px) { :root { --tile: 200px; } }
+/* a panel opens once, in a moment; nothing here moves on its own. The dialog also rises a few pixels. */
+@keyframes wd-fade { from { opacity: 0; } }
+@keyframes wd-open { from { opacity: 0; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0s !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
+}

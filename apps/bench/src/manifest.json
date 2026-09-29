@@ -1,14 +1,20 @@
 {
   "manifest_version": 3,
-  "name": "RiftEye bench",
+  "name": "Wardeye bench",
   "version": "0.1.1",
-  "description": "Times RiftEye's card models in this browser (WebGPU and WASM) and checks them against PyTorch. Nothing leaves this computer.",
+  "description": "Times Wardeye's card models in this browser (WebGPU and WASM) and checks them against PyTorch. Nothing leaves this computer.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
   "background": {
     "service_worker": "worker.js",
     "type": "module"
   },
   "action": {
-    "default_title": "Open the RiftEye bench"
+    "default_title": "Open the Wardeye bench"
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"

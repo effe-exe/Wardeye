@@ -50,6 +50,9 @@ async function makeVideo(page: Page): Promise<Buffer> {
 
 test('log a match from the keyboard, export a valid timeline, and restore it', async ({ page }) => {
   await page.goto(APP);
+  // the page wears Wardeye's brand: the build ships the mark next to it and puts the tokens in front of its stylesheet
+  expect(await page.locator('h1 img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--wd-primary').trim())).not.toBe('');
   const video = await makeVideo(page);
   page.on('dialog', (d) => void d.accept());
 

@@ -3,13 +3,35 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 // The extension's own manifest.json (not a model manifest): what makes it load, run WASM threads and stay local.
-const manifest = JSON.parse(readFileSync(fileURLToPath(new URL('../src/manifest.json', import.meta.url)), 'utf8'));
+const BENCH = fileURLToPath(new URL('../', import.meta.url));
+const manifest = JSON.parse(readFileSync(`${BENCH}src/manifest.json`, 'utf8'));
 
 describe('the extension manifest', () => {
-  it('is a Manifest V3 extension named RiftEye bench, version 0.1.1', () => {
+  it('is a Manifest V3 extension named Wardeye bench, with a version Chrome takes', () => {
     expect(manifest.manifest_version).toBe(3);
-    expect(manifest.name).toBe('RiftEye bench');
-    expect(manifest.version).toBe('0.1.1');
+    expect(manifest.name).toBe('Wardeye bench');
+    // one to four dot-separated integers, each up to 65535: which version it is changes with every release, so it is not written out here
+    expect(manifest.version).toMatch(/^\d+(\.\d+){0,3}$/);
+    expect((manifest.version as string).split('.').every((n) => Number(n) <= 65535)).toBe(true);
+  });
+
+  it('says Wardeye wherever a person reads it', () => {
+    expect([manifest.name, manifest.description, manifest.action.default_title].join('\n')).not.toMatch(/rifteye/i);
+    expect(manifest.description.length).toBeLessThanOrEqual(132); // what Chrome takes of a description
+  });
+
+  it("declares the brand's icons at Chrome's four sizes, and each file it names is a PNG of that size", () => {
+    expect(manifest.icons).toEqual({
+      '16': 'icons/icon-16.png',
+      '32': 'icons/icon-32.png',
+      '48': 'icons/icon-48.png',
+      '128': 'icons/icon-128.png',
+    });
+    for (const [size, file] of Object.entries(manifest.icons as Record<string, string>)) {
+      const png = readFileSync(`${BENCH}${file}`); // build.mjs copies each of them into dist/ at this same path
+      expect([...png.subarray(0, 8)], file).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]); // the PNG signature
+      expect([png.readUInt32BE(16), png.readUInt32BE(20)], file).toEqual([Number(size), Number(size)]); // the width and height in the IHDR chunk
+    }
   });
 
   it('allows wasm (and nothing remote) in its pages', () => {

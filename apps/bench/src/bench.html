@@ -3,14 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>RiftEye bench</title>
+  <title>Wardeye bench</title>
+  <link rel="icon" href="mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="bench.css">
 </head>
 <body>
+  <header>
+    <h1><img src="mark.svg" alt="" height="22"> Wardeye <span>bench</span></h1>
+  </header>
   <main>
-    <h1>RiftEye bench</h1>
     <p class="lede">
-      Runs RiftEye's card detector and card embedder in this browser (onnxruntime-web, on WebGPU and on WASM), times
+      Runs Wardeye's card detector and card embedder in this browser (onnxruntime-web, on WebGPU and on WASM), times
       them, and checks their outputs against PyTorch's. It takes a few minutes: keep this tab in front until it is
       done, and for fair numbers plug the laptop in and close other heavy tabs and apps. Nothing leaves this computer.
     </p>

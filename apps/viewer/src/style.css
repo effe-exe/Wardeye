@@ -1,63 +1,78 @@
+/* The viewer preview. Colours, type, shape and motion come from Wardeye's brand tokens (assets/brand/tokens.css),
+   which build.mjs puts in front of this file together with the fonts. */
 :root {
   color-scheme: dark;
-  accent-color: #6153cc;
-  /* Gradeon's look (D-020): see assets/brand/README.md */
-  --bg: #0a0a0a;
-  --panel: #111111;
-  --raised: #1a1a1a;
-  --rule: #1a1a1a;
-  --line: #333333;
-  --text: #ffffff;
-  --muted: #999999;
-  --faint: #666666;
-  --accent: #6153cc;
-  --accent-2: #7b6fd4;
-  --good: #00ff88;
-  --warn: #ff6600;
-  --bad: #ff0044;
-  --mono: 'Space Mono', ui-monospace, Menlo, Consolas, monospace;
-  font: 14px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  accent-color: var(--wd-primary);
+  scrollbar-color: var(--wd-dim) transparent;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body { margin: 0; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
-h1 { font: 700 15px/1.2 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; margin: 0; }
-h1 span { color: var(--muted); font-weight: 400; }
-h2 { font: 700 12px/1.3 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 8px; }
-.intro { margin: 10px 16px 0; color: var(--muted); }
-.toggle { color: var(--muted); display: flex; gap: 6px; align-items: center; cursor: pointer; }
-.muted { color: var(--muted); }
-.small { font-size: 12px; }
-main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; padding: 12px 16px; min-height: 0; }
+::selection { background: color-mix(in srgb, var(--wd-primary) 45%, transparent); color: var(--wd-text); }
+:focus-visible { outline: 2px solid var(--wd-primary); outline-offset: 2px; }
+body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: var(--wd-bg); color: var(--wd-text); font: var(--wd-type-body); }
+
+/* header: the mark, the name, the title of the match (muted), and the boxes toggle */
+header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 16px; padding: 12px 20px; background: var(--wd-surface); border-bottom: var(--wd-hairline) solid var(--wd-border); }
+h1 { display: flex; align-items: center; gap: 8px; margin: 0; font: 700 18px/1.2 var(--wd-font-display); letter-spacing: -0.01em; }
+h1 img { display: block; flex: none; margin-right: 2px; }
+h1 span { color: var(--wd-muted); font-weight: 500; }
+h2 { margin: 0 0 12px; font: var(--wd-type-h2); }
+.intro { margin: 16px 20px 0; color: var(--wd-muted); }
+.toggle { display: flex; align-items: center; gap: 8px; color: var(--wd-muted); cursor: pointer; transition: color var(--wd-fast) var(--wd-ease); }
+.toggle:hover { color: var(--wd-text); }
+.muted { color: var(--wd-muted); }
+.small { font: var(--wd-type-caption); }
+
+main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; min-height: 0; padding: 16px 20px 20px; }
 @media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
-#player { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 4px; overflow: hidden; }
+
+/* the player: the recording with a box on every card, drawn over it */
+#player { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: var(--wd-bg); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius); }
 video { position: absolute; inset: 0; width: 100%; height: 100%; }
 /* The overlay lets clicks through to the video (and its controls) except on the card boxes. */
 #overlay { position: absolute; inset: 0; width: 100%; height: calc(100% - 44px); pointer-events: none; }
-#overlay polygon { fill: rgba(123, 111, 212, 0.001); stroke: var(--accent-2); stroke-width: 3; pointer-events: all; cursor: pointer; vector-effect: non-scaling-stroke; }
-#overlay polygon.unsure { stroke: var(--warn); stroke-dasharray: 6 4; }
-#overlay polygon.facedown { stroke: var(--faint); stroke-dasharray: 2 4; }
-#overlay polygon.hot { stroke: #fff; stroke-width: 4; fill: rgba(255, 255, 255, 0.08); }
+#overlay polygon { fill: transparent; stroke: var(--wd-primary); stroke-width: 2; stroke-linejoin: round; pointer-events: all; cursor: pointer; vector-effect: non-scaling-stroke; transition: stroke var(--wd-fast) var(--wd-ease), fill var(--wd-fast) var(--wd-ease); }
+#overlay polygon.unsure { stroke: var(--wd-warning); stroke-dasharray: 6 4; }
+#overlay polygon.facedown { stroke: var(--wd-dim); stroke-dasharray: 2 4; }
+#overlay polygon.hot { stroke: var(--wd-primary-light); stroke-width: 3; fill: color-mix(in srgb, var(--wd-primary-light) 14%, transparent); }
 #overlay.hidden-boxes polygon:not(.hot) { stroke: transparent; }
-#now { margin-top: 8px; }
-.problem { background: rgba(255, 0, 68, 0.1); border: 1px solid var(--bad); padding: 10px; border-radius: 2px; }
-#side { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 12px; overflow: auto; max-height: calc(100vh - 150px); }
-#events { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
-#events li { display: grid; grid-template-columns: 44px 42px 1fr; gap: 8px; align-items: center; padding: 6px; border-radius: 2px; cursor: pointer; border: 1px solid transparent; }
-#events li:hover { border-color: var(--accent-2); }
-#events li.current { background: rgba(97, 83, 204, 0.25); border-color: var(--accent); }
-#events li.future { opacity: 0.55; }
-#events .time { font-family: var(--mono); color: var(--accent-2); font-variant-numeric: tabular-nums; }
-#events img { width: 42px; height: 58px; object-fit: cover; border-radius: 2px; background: #000; }
-#events .what small { display: block; color: var(--muted); }
-.hover { position: fixed; z-index: 10; background: var(--panel); border: 1px solid var(--accent); border-radius: 4px; padding: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); pointer-events: none; max-width: 560px; }
-.hover .one img { height: 300px; border-radius: 4px; display: block; }
-.hover .name { font-size: 16px; font-weight: 600; margin-top: 6px; }
-.hover .sure { color: var(--good); font: 12px/1.45 var(--mono); }
-.hover .three { display: flex; gap: 8px; margin-top: 6px; }
-.hover .three figure { margin: 0; width: 160px; }
-.hover .three img { height: 210px; border-radius: 2px; display: block; }
-.hover .three figcaption { font-size: 12px; margin-top: 4px; }
-.hover .note { color: var(--warn); }
-footer { color: var(--muted); font-size: 11px; padding: 8px 16px; border-top: 1px solid var(--rule); }
+#now { margin-top: 12px; }
+#now strong { margin-right: 8px; font: 600 11px/1.4 var(--wd-font-ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--wd-primary); }
+.problem { padding: 10px 14px; background: color-mix(in srgb, var(--wd-error) 10%, transparent); border: var(--wd-hairline) solid var(--wd-error); border-radius: var(--wd-radius); }
+
+/* the timeline: primary dots on a hairline; the moment the video is at is lit */
+#side { max-height: calc(100vh - 150px); padding: 16px; overflow: auto; background: var(--wd-surface); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius-lg); }
+#events { position: relative; display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0 0 0 20px; list-style: none; }
+#events::before { content: ''; position: absolute; left: 4px; top: 16px; bottom: 16px; width: var(--wd-hairline); background: var(--wd-border); }
+#events li { position: relative; display: grid; grid-template-columns: 40px 42px 1fr; gap: 10px; align-items: center; padding: 6px 8px; border: var(--wd-hairline) solid transparent; border-radius: var(--wd-radius-sm); cursor: pointer; transition: background-color var(--wd-fast) var(--wd-ease), border-color var(--wd-fast) var(--wd-ease), opacity var(--wd-fast) var(--wd-ease); }
+#events li::before { content: ''; position: absolute; left: -20px; top: 50%; width: 7px; height: 7px; margin-top: -3px; border-radius: 50%; background: var(--wd-primary); box-shadow: 0 0 0 3px var(--wd-surface); }
+#events li:hover { background: var(--wd-surface-2); border-color: var(--wd-border); }
+#events li.current { background: color-mix(in srgb, var(--wd-primary) 14%, transparent); border-color: var(--wd-primary); }
+#events li.future { opacity: 0.6; }
+#events .time { font: 500 12px/1.4 var(--wd-font-mono); font-variant-numeric: tabular-nums; color: var(--wd-primary); }
+#events img { display: block; width: 42px; height: 58px; object-fit: cover; background: var(--wd-bg); border-radius: var(--wd-radius-sm); }
+#events .what { min-width: 0; font-weight: 500; overflow-wrap: anywhere; }
+#events .what small { display: block; color: var(--wd-muted); font: var(--wd-type-caption); }
+#side > .small { margin: 14px 0 0; }
+
+/* the hover card: a card preview, a surface panel with a 1.5px primary border and 8px corners */
+.hover { position: fixed; z-index: 10; max-width: 560px; padding: 12px; background: var(--wd-surface); border: 1.5px solid var(--wd-primary); border-radius: var(--wd-radius); box-shadow: 0 12px 32px color-mix(in srgb, var(--wd-bg) 70%, transparent); pointer-events: none; animation: wd-fade var(--wd-fast) var(--wd-ease); }
+.hover:not(:has(img)) { max-width: 300px; color: var(--wd-muted); }
+.hover .one img { display: block; height: 300px; border-radius: var(--wd-radius-sm); }
+.hover .name { margin-top: 10px; font: 600 16px/1.3 var(--wd-font-ui); }
+.hover .meta { margin-top: 2px; color: var(--wd-muted); font: var(--wd-type-caption); }
+.hover .meta .id { font-family: var(--wd-font-mono); }
+.hover .sure { margin-top: 8px; color: var(--wd-primary); font: 500 11px/1.4 var(--wd-font-ui); }
+.hover .note { margin-bottom: 8px; color: var(--wd-warning); font: 500 12px/1.4 var(--wd-font-ui); }
+.hover .three { display: flex; gap: 10px; }
+.hover .three figure { width: 160px; margin: 0; }
+.hover .three img { display: block; width: 100%; height: 210px; object-fit: cover; border-radius: var(--wd-radius-sm); }
+.hover .three figcaption { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; font: 600 12px/1.3 var(--wd-font-ui); }
+.hover .three figcaption .p { color: var(--wd-primary); font: 500 11px/1.3 var(--wd-font-mono); }
+
+footer { padding: 12px 20px; color: var(--wd-muted); font: var(--wd-type-caption); border-top: var(--wd-hairline) solid var(--wd-border); }
+
+@keyframes wd-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0s !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
+}

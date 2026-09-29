@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // What one row of the bench (one model, one precision, one runtime) reports, and what the page and its
 // workers say to each other. Plain data: it crosses postMessage.

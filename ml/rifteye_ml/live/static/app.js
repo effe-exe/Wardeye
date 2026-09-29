@@ -235,10 +235,16 @@
       var name = document.createElement("div");
       name.className = "hover-name";
       name.textContent = track.name || "(unnamed)";
+      one.appendChild(name);
+      if (track.printing_id) {
+        var meta = document.createElement("div");
+        meta.className = "hover-meta"; // the printing id, in mono
+        meta.textContent = track.printing_id;
+        one.appendChild(meta);
+      }
       var sure = document.createElement("div");
       sure.className = "hover-sure";
       sure.textContent = "Wardeye is " + Math.round((track.confidence || 0) * 100) + "% sure";
-      one.appendChild(name);
       one.appendChild(sure);
       hoverEl.appendChild(one);
     } else if (track.state === "unsure") {
@@ -253,7 +259,13 @@
         var fig = document.createElement("figure");
         fig.appendChild(artImg(g.printing_id, g.name));
         var cap = document.createElement("figcaption");
-        cap.textContent = (g.name || g.printing_id || "?") + " · " + Math.round((g.p || 0) * 100) + "%";
+        var capName = document.createElement("span");
+        capName.textContent = g.name || g.printing_id || "?";
+        var pct = document.createElement("span"); // the guess's probability, small and primary, under its name
+        pct.className = "p";
+        pct.textContent = Math.round((g.p || 0) * 100) + "%";
+        cap.appendChild(capName);
+        cap.appendChild(pct);
         fig.appendChild(cap);
         row.appendChild(fig);
       }

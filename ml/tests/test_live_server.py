@@ -4,13 +4,18 @@ import socket
 import time
 import urllib.error
 from io import BytesIO
+from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import urlopen
 
 import pytest
 from PIL import Image
 
-from rifteye_ml.live.server import LiveServer
+from rifteye_ml.live.server import STATIC_DIR, LiveServer
+
+REPO = Path(__file__).resolve().parents[2]
+# the live page's copies of the brand book's files: live/static/<name> -> the original in assets/brand
+BRAND_COPIES = {"tokens.css": REPO / "assets" / "brand" / "tokens.css", "mark.svg": REPO / "assets" / "brand" / "logo" / "mark.svg"}
 
 SAMPLE_STATE = {
     "t": 12.5, "status": "live", "message": "", "title": "test match",
@@ -166,12 +171,39 @@ def test_state_json_has_a_sensible_default_before_any_publish(server):
 
 def test_static_files_are_served_with_sensible_content_types(server):
     _srv, url = server
-    checks = {"": "text/html", "app.js": "text/javascript", "style.css": "text/css"}
+    checks = {"": "text/html", "app.js": "text/javascript", "style.css": "text/css",
+              "tokens.css": "text/css", "mark.svg": "image/svg+xml"}
     for path, want in checks.items():
         with urlopen(url + path, timeout=5) as resp:
             assert resp.status == 200
             assert want in resp.headers["Content-Type"]
             assert len(resp.read()) > 0
+
+
+# The page wears Wardeye's brand (assets/brand/README.md). The Python package cannot reach the repository's assets when it
+# is installed, so the page keeps copies of two brand files: the design tokens and the mark. They must not drift.
+
+def test_the_brand_files_kept_in_static_are_copies_of_the_brand_books():
+    for name, original in BRAND_COPIES.items():
+        assert original.is_file(), f"{original} is missing: it is what live/static/{name} is a copy of"
+        assert (STATIC_DIR / name).read_bytes() == original.read_bytes(), (
+            f"live/static/{name} differs from {original.relative_to(REPO)}: copy the brand book's file over it")
+
+
+def test_the_server_serves_the_brand_files_as_they_are(server):
+    _srv, url = server
+    for name, content_type in (("tokens.css", "text/css"), ("mark.svg", "image/svg+xml")):
+        with urlopen(url + name, timeout=5) as resp:
+            assert resp.headers["Content-Type"].startswith(content_type)
+            assert resp.read() == BRAND_COPIES[name].read_bytes()
+
+
+def test_the_page_links_the_tokens_before_its_own_stylesheet(server):
+    _srv, url = server
+    with urlopen(url, timeout=5) as resp:
+        html = resp.read().decode("utf-8")
+    assert 'href="/tokens.css"' in html and 'href="/style.css"' in html
+    assert html.index('href="/tokens.css"') < html.index('href="/style.css"')
 
 
 # --------------------------------------------------------------------------------------------

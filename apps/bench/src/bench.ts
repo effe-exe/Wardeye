@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The bench page. It reads models/index.json and each model's manifest from the extension package, plans one row
 // per model x variant x runtime, and runs each row in a worker of its own (so a hung row can be given up on and

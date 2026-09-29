@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +8,10 @@ import { mirror, standInFiles, writeFiles } from './standins';
 
 const BENCH = fileURLToPath(new URL('../', import.meta.url));
 const DIST = join(BENCH, 'dist');
+// the extension's own manifest: the version the summary's first line names and the icons the build has to ship are read
+// from it, never written out here (a release changes them, a test must not have to)
+const MANIFEST = JSON.parse(readFileSync(join(BENCH, 'src', 'manifest.json'), 'utf8')) as { version: string; icons: Record<string, string> };
+const VERSION = MANIFEST.version;
 
 test.beforeAll(() => {
   // the tests load the built extension: build it when nobody has (npm run build does)
@@ -63,8 +67,16 @@ test('the bench extension runs stand-in models on every runtime this browser has
   try {
     loaded = await load(true);
     const { context, page } = loaded;
-    await expect(page).toHaveTitle('RiftEye bench');
+    await expect(page).toHaveTitle('Wardeye bench');
+    await expect(page.locator('h1')).toHaveText('Wardeye bench');
     expect(page.url()).toMatch(/^chrome-extension:\/\/[a-p]{32}\/bench\.html$/);
+    // the build puts the mark and every icon the manifest names next to the page, the header shows the mark, and the
+    // brand's three fonts (inlined in bench.css) load under the page's content security policy
+    for (const file of ['mark.svg', ...Object.values(MANIFEST.icons)]) expect(await page.evaluate(async (f) => (await fetch(f)).ok, file), file).toBe(true);
+    expect(await page.locator('h1 img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+    await expect
+      .poll(() => page.evaluate(() => [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family).sort()))
+      .toEqual(['Inter', 'JetBrains Mono', 'Space Grotesk']);
     // the manifest's COOP and COEP make the page cross-origin isolated: WASM threads can work
     expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
     expect(await page.evaluate(() => typeof SharedArrayBuffer)).toBe('function');
@@ -82,7 +94,8 @@ test('the bench extension runs stand-in models on every runtime this browser has
     console.log(summary);
 
     // environment: the page and, from the rows, the workers (threads need isolated workers too)
-    expect(summary).toMatch(/^RiftEye bench 0\.1\.0 \| onnxruntime-web 1\.\d+\.\d+ \| \d{4}-\d\d-\d\dT.* \| done in \d+ s$/m);
+    const first = new RegExp(`^Wardeye bench ${VERSION.replaceAll('.', '\\.')} \\| onnxruntime-web 1\\.\\d+\\.\\d+ \\| \\d{4}-\\d\\d-\\d\\dT.* \\| done in \\d+ s$`, 'm');
+    expect(summary).toMatch(first);
     expect(summary).toContain('crossOriginIsolated yes');
     expect(summary).toMatch(/wasm threads asked [1-4] /);
     expect(summary).toMatch(/^workers: crossOriginIsolated yes \| wasm threads used [1-4]$/m);

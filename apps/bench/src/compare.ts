@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The correctness check: what the browser computed against what PyTorch computed (the manifest's check files).
 // "maxabs" is the largest |browser - expected| per output; "cosine" is the smallest cosine between a browser row

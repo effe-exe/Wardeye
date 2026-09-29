@@ -12,6 +12,7 @@ import {
   formatTime,
   hoverState,
   sampleAt,
+  type CardInfo,
   type DemoBundle,
   type Track,
 } from './demo';
@@ -60,6 +61,21 @@ function img(src: string, alt: string): HTMLImageElement {
   return el;
 }
 
+/** The card's type, then its printing id (in mono): "Unit · FAK-001". */
+function metaLine(card: CardInfo): HTMLElement {
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  if (card.type) meta.append(card.type);
+  if (card.type && card.printing) meta.append(' · ');
+  if (card.printing) {
+    const id = document.createElement('span');
+    id.className = 'id';
+    id.textContent = card.printing;
+    meta.append(id);
+  }
+  return meta;
+}
+
 function showHover(track: Track): void {
   const state = hoverState(bundle, track.guesses, track.faceDown);
   hover.replaceChildren();
@@ -72,7 +88,7 @@ function showHover(track: Track): void {
     const sure = document.createElement('div');
     sure.className = 'sure';
     sure.textContent = `Wardeye is ${Math.round(state.p * 100)}% sure`;
-    one.append(img(state.card.art, state.card.name), name, sure);
+    one.append(img(state.card.art, state.card.name), name, metaLine(state.card), sure);
     hover.append(one);
   } else if (state.kind === 'unsure') {
     const note = document.createElement('div');
@@ -83,7 +99,12 @@ function showHover(track: Track): void {
     for (const o of state.options) {
       const fig = document.createElement('figure');
       const cap = document.createElement('figcaption');
-      cap.textContent = `${o.card.name} · ${Math.round(o.p * 100)}%`;
+      const label = document.createElement('span');
+      label.textContent = o.card.name;
+      const pct = document.createElement('span'); // the guess's probability, small and primary, under its name
+      pct.className = 'p';
+      pct.textContent = `${Math.round(o.p * 100)}%`;
+      cap.append(label, pct);
       fig.append(img(o.card.art, o.card.name), cap);
       three.append(fig);
     }

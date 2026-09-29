@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The ways the bench runs a model. onnxruntime-web 1.30 ships its WebGPU support twice: the native WebGPU
 // execution provider (the recommended one; the JSPI build) and JSEP (the older one, kept for comparison), and a

@@ -16,4 +16,5 @@ await build({
 });
 copyFileSync(here('./src/index.html'), here('./dist/index.html'));
 writeFileSync(here('./dist/style.css'), withBrand(readFileSync(here('./src/style.css'), 'utf8'))); // Wardeye's brand
+copyFileSync(here('../../assets/brand/logo/mark.svg'), here('./dist/mark.svg')); // the mark in the page header
 console.log('reviewer built -> apps/reviewer/dist/');

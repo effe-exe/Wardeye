@@ -1,12 +1,18 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { OutputCheck } from '../src/compare';
 import { estimates } from '../src/estimate';
 import { checkText, fmtMs, fmtValue, frameLines, renderSummary, rowLine, sortRows, workerLine, type EnvInfo } from '../src/summary';
 import { blankRow, type BatchResult, type CheckSummary, type RowResult } from '../src/types';
 
+// The bench's own version comes from its manifest (build.mjs hands it to the page), so the summary's first line is checked
+// against that and no version is written out here.
+const VERSION = (JSON.parse(readFileSync(fileURLToPath(new URL('../src/manifest.json', import.meta.url)), 'utf8')) as { version: string }).version;
+
 const env: EnvInfo = {
   date: '2026-09-28T12:00:00.000Z',
-  benchVersion: '0.1.0',
+  benchVersion: VERSION,
   ortVersion: '1.30.0',
   userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/141.0.0.0',
   platform: 'macOS 15.1 arm 64-bit',
@@ -142,7 +148,7 @@ describe('the summary', () => {
   it('has the environment, a line per row, and the per-frame estimate', () => {
     const text = renderSummary({ env, rows, modelOrder: ['det', 'emb'], frame, est, state: 'done', elapsedMs: 143_400, hiddenDuringRun: false, problems: [] });
     const lines = text.split('\n');
-    expect(lines[0]).toBe('RiftEye bench 0.1.0 | onnxruntime-web 1.30.0 | 2026-09-28T12:00:00.000Z | done in 143 s');
+    expect(lines[0]).toBe(`Wardeye bench ${VERSION} | onnxruntime-web 1.30.0 | 2026-09-28T12:00:00.000Z | done in 143 s`);
     expect(text).toContain('browser: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/141.0.0.0');
     expect(text).toContain('cores 10 | crossOriginIsolated yes | SharedArrayBuffer yes | wasm threads asked 4 | JSPI yes | battery charging 100%');
     expect(text).toContain('WebGPU: yes | vendor apple | architecture metal-3 | device - | description -');

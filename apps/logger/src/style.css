@@ -1,67 +1,127 @@
+/* The timeline logger. Colours, type, shape and motion come from Wardeye's brand tokens (assets/brand/tokens.css),
+   which build.mjs puts in front of this file together with the fonts. */
 :root {
   color-scheme: dark;
-  accent-color: #6153cc;
-  /* Gradeon's look (D-020): see assets/brand/README.md */
-  --bg: #0a0a0a;
-  --panel: #111111;
-  --raised: #1a1a1a;
-  --rule: #1a1a1a;
-  --line: #333333;
-  --text: #ffffff;
-  --muted: #999999;
-  --faint: #666666;
-  --accent: #6153cc;
-  --accent-2: #7b6fd4;
-  --good: #00ff88;
-  --warn: #ff6600;
-  --bad: #ff0044;
-  --mono: 'Space Mono', ui-monospace, Menlo, Consolas, monospace;
-  --danger: #d9534f;
-  font: 14px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  accent-color: var(--wd-primary);
+  scrollbar-color: var(--wd-dim) transparent;
 }
 * { box-sizing: border-box; }
 /* `display` rules below would otherwise override the hidden attribute. */
 [hidden] { display: none !important; }
-body { margin: 0; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
-h1 { font: 700 15px/1.2 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; margin: 0; }
-h1 span { color: var(--muted); font-weight: 400; }
-.actions { display: flex; gap: 8px; flex-wrap: wrap; }
-button, .button { background: var(--raised); color: var(--text); border: 1px solid var(--line); border-radius: 2px; padding: 6px 12px; cursor: pointer; font: 12px/1.45 var(--mono); letter-spacing: 0.02em; }
-button:hover, .button:hover { border-color: var(--accent-2); }
-button:disabled { opacity: 0.5; cursor: default; }
-button[type='submit'] { background: var(--accent); border-color: var(--accent); }
+::selection { background: color-mix(in srgb, var(--wd-primary) 45%, transparent); color: var(--wd-text); }
+:focus-visible { outline: 2px solid var(--wd-primary); outline-offset: 2px; }
+body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: var(--wd-bg); color: var(--wd-text); font: var(--wd-type-body); }
+
+/* header: the mark, the name, the tool's name (muted), and the actions */
+header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 16px; padding: 12px 20px; background: var(--wd-surface); border-bottom: var(--wd-hairline) solid var(--wd-border); }
+h1 { display: flex; align-items: center; gap: 8px; margin: 0; font: 700 18px/1.2 var(--wd-font-display); letter-spacing: -0.01em; }
+h1 img { display: block; flex: none; margin-right: 2px; }
+h1 span { color: var(--wd-muted); font-weight: 500; }
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+
+/* controls: raised, hairline, soft corners; primary for the action, the focus and the selection */
+button, .button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 32px; padding: 0 12px;
+  font: 500 13px/1 var(--wd-font-ui); color: var(--wd-text);
+  background: var(--wd-surface-2); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius-sm);
+  cursor: pointer; user-select: none;
+  transition: border-color var(--wd-fast) var(--wd-ease), background-color var(--wd-fast) var(--wd-ease), color var(--wd-fast) var(--wd-ease);
+}
+button:hover:not(:disabled), .button:hover { border-color: var(--wd-primary-light); }
+button:active:not(:disabled), .button:active { border-color: var(--wd-primary-dark); background: color-mix(in srgb, var(--wd-primary-dark) 25%, var(--wd-surface-2)); }
+button:disabled { opacity: 0.4; cursor: default; }
+button[type='submit'] { font-weight: 600; color: var(--wd-bg); background: var(--wd-primary); border-color: var(--wd-primary); }
+button[type='submit']:hover:not(:disabled) { background: var(--wd-primary-light); border-color: var(--wd-primary-light); }
+button[type='submit']:active:not(:disabled) { color: var(--wd-text); background: var(--wd-primary-dark); border-color: var(--wd-primary-dark); }
+#show-help { min-width: 32px; padding: 0; font-weight: 600; }
+
+input, select {
+  min-width: 0; padding: 7px 10px;
+  font: 400 13px/1.4 var(--wd-font-ui); color: var(--wd-text);
+  background: var(--wd-surface-2); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius-sm);
+  transition: border-color var(--wd-fast) var(--wd-ease);
+}
+input:hover, select:hover { border-color: var(--wd-dim); }
+input:focus-visible, select:focus-visible { border-color: var(--wd-primary); outline-offset: -1px; }
+input::placeholder { color: var(--wd-dim); }
+input[type='number'] { font-family: var(--wd-font-mono); font-variant-numeric: tabular-nums; }
+input[type='checkbox'] { padding: 0; }
+
+kbd { display: inline-block; padding: 1px 5px; font: 500 11px/1.4 var(--wd-font-mono); color: var(--wd-text); background: var(--wd-bg); border: var(--wd-hairline) solid var(--wd-border); border-bottom-width: 2px; border-radius: var(--wd-radius-sm); }
+button[type='submit'] kbd { color: var(--wd-bg); background: color-mix(in srgb, var(--wd-bg) 14%, transparent); border-color: color-mix(in srgb, var(--wd-bg) 35%, transparent); }
+.muted { color: var(--wd-muted); }
+
+/* the stage: the recording, and under it the clock, the active player and the card count */
 main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 380px; min-height: 0; }
 @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
-#stage { display: flex; flex-direction: column; padding: 16px; gap: 8px; min-width: 0; }
-video { width: 100%; max-height: calc(100vh - 170px); background: #000; border-radius: 4px; }
-.empty { border: 1px dashed var(--line); border-radius: 4px; padding: 48px 24px; text-align: center; }
-.muted { color: var(--muted); }
-#status { display: flex; gap: 16px; align-items: center; font-variant-numeric: tabular-nums; }
-#clock { font: 18px var(--mono); }
-#player-chip { background: var(--accent); border-radius: 2px; padding: 2px 10px; font: 12px/1.45 var(--mono); }
-#player-chip.b { background: var(--warn); color: var(--bg); }
-#side { border-left: 1px solid var(--rule); padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow: auto; position: relative; }
-form label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }
-form label.inline { flex-direction: row; align-items: center; gap: 6px; }
-input, select { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 2px; padding: 6px 8px; font: inherit; }
-input:focus, select:focus { outline: 2px solid var(--accent-2); outline-offset: -1px; }
-.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-#match, #entry { display: flex; flex-direction: column; gap: 8px; }
-#entry { background: var(--panel); border: 1px solid var(--accent); border-radius: 4px; padding: 12px; }
-.entry-head { display: flex; justify-content: space-between; }
-.buttons { display: flex; gap: 8px; }
-kbd { font-family: var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 2px; padding: 0 4px; font-size: 11px; }
-.suggestions { list-style: none; margin: 0; padding: 4px; position: absolute; z-index: 5; background: var(--panel); border: 1px solid var(--line); border-radius: 2px; max-height: 260px; overflow: auto; }
-.suggestions li { padding: 6px 8px; border-radius: 2px; cursor: pointer; display: flex; justify-content: space-between; gap: 12px; }
-.suggestions li.active, .suggestions li:hover { background: var(--accent); }
-.suggestions li small { color: var(--muted); }
-#events { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
-#events li { display: grid; grid-template-columns: 64px 18px 1fr auto; gap: 8px; align-items: center; background: var(--panel); border-radius: 2px; padding: 6px 8px; }
-#events li .time { font-family: var(--mono); color: var(--accent-2); cursor: pointer; font-variant-numeric: tabular-nums; }
-#events li .who { font-weight: 600; }
-#events li .what small { color: var(--muted); display: block; }
-#events li button { padding: 2px 8px; }
-dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; }
-dialog td { padding: 3px 12px 3px 0; }
-footer { color: var(--muted); font-size: 11px; padding: 8px 16px; border-top: 1px solid var(--rule); }
+#stage { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 20px; }
+video { width: 100%; max-height: calc(100vh - 190px); background: var(--wd-bg); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius); }
+.empty { padding: 56px 24px; text-align: center; background: var(--wd-surface); border: var(--wd-hairline) dashed var(--wd-border); border-radius: var(--wd-radius-lg); }
+.empty p { max-width: 54ch; margin: 0 auto; }
+.empty p:first-child { margin-bottom: 8px; font: var(--wd-type-h2); }
+.empty .muted { font-size: 13px; }
+#status { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 16px; padding: 10px 14px; background: var(--wd-surface); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius); }
+#clock { min-width: 6ch; font: 500 20px/1 var(--wd-font-mono); font-variant-numeric: tabular-nums; }
+#player-chip {
+  padding: 5px 10px; font: 600 11px/1 var(--wd-font-ui); letter-spacing: 0.04em;
+  color: var(--wd-primary-light); background: color-mix(in srgb, var(--wd-primary) 16%, transparent);
+  border: var(--wd-hairline) solid color-mix(in srgb, var(--wd-primary) 55%, transparent); border-radius: var(--wd-radius-sm);
+}
+#player-chip.b { color: var(--wd-accent); background: color-mix(in srgb, var(--wd-accent) 12%, transparent); border-color: color-mix(in srgb, var(--wd-accent) 45%, transparent); }
+#card-count { margin-left: auto; font: var(--wd-type-caption); font-variant-numeric: tabular-nums; }
+
+/* the side: the match's details, the entry form, and the events as a timeline */
+/* The hairline on the side's inner edge is an inset shadow, not a border: main.ts places the suggestions from this box's
+   padding edge, which stays its border edge that way. */
+#side { position: relative; display: flex; flex-direction: column; gap: 16px; padding: 20px; overflow: auto; background: var(--wd-surface); box-shadow: inset var(--wd-hairline) 0 0 var(--wd-border); }
+@media (max-width: 900px) { #side { box-shadow: inset 0 var(--wd-hairline) 0 var(--wd-border); } }
+form label { display: flex; flex-direction: column; gap: 6px; color: var(--wd-muted); font: var(--wd-type-caption); }
+form label.inline { flex-direction: row; align-items: center; gap: 8px; }
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+#match, #entry { display: flex; flex-direction: column; gap: 10px; }
+#entry { padding: 14px; background: var(--wd-surface-2); border: var(--wd-hairline) solid var(--wd-primary); border-radius: var(--wd-radius); animation: wd-fade var(--wd-fast) var(--wd-ease); }
+#entry input, #entry select { background: var(--wd-bg); }
+.entry-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+#entry-type { font: 500 16px/1.3 var(--wd-font-display); }
+#entry-type::first-letter { text-transform: uppercase; }
+#entry-time { font: var(--wd-type-data); }
+.buttons { display: flex; gap: 8px; margin-top: 2px; }
+
+.suggestions { position: absolute; z-index: 5; max-height: 260px; margin: 0; padding: 4px; list-style: none; overflow: auto; background: var(--wd-surface-2); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius); box-shadow: 0 12px 32px color-mix(in srgb, var(--wd-bg) 80%, transparent); animation: wd-fade var(--wd-fast) var(--wd-ease); }
+.suggestions li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 10px; border-radius: var(--wd-radius-sm); cursor: pointer; }
+.suggestions li.active, .suggestions li:hover { background: color-mix(in srgb, var(--wd-primary) 22%, transparent); box-shadow: inset 2px 0 var(--wd-primary); }
+.suggestions li small { align-self: center; color: var(--wd-muted); font: var(--wd-type-caption); }
+
+/* the timeline: primary dots on a hairline */
+#events { position: relative; display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0 0 0 20px; list-style: none; }
+#events::before { content: ''; position: absolute; left: 4px; top: 12px; bottom: 12px; width: var(--wd-hairline); background: var(--wd-border); }
+#events li { position: relative; display: grid; grid-template-columns: 52px 16px 1fr auto; gap: 8px; align-items: center; padding: 6px 8px; background: var(--wd-surface-2); border-radius: var(--wd-radius-sm); }
+#events li::before { content: ''; position: absolute; left: -19px; top: 50%; width: 7px; height: 7px; margin-top: -3px; border-radius: 50%; background: var(--wd-primary); box-shadow: 0 0 0 3px var(--wd-surface); }
+#events li .time { font: 500 12px/1.4 var(--wd-font-mono); font-variant-numeric: tabular-nums; color: var(--wd-primary); cursor: pointer; transition: color var(--wd-fast) var(--wd-ease); }
+#events li .time:hover { color: var(--wd-primary-light); text-decoration: underline; }
+#events li .who { font: 500 12px/1.4 var(--wd-font-mono); color: var(--wd-muted); text-align: center; }
+#events li .what { min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
+#events li .what small { display: block; color: var(--wd-muted); font: var(--wd-type-caption); }
+#events li button { min-height: 24px; padding: 0 8px; font-size: 16px; color: var(--wd-muted); background: transparent; border-color: transparent; }
+#events li button:hover:not(:disabled) { color: var(--wd-error); border-color: var(--wd-error); }
+
+dialog { max-width: min(560px, calc(100vw - 32px)); padding: 20px 24px; color: var(--wd-text); background: var(--wd-surface); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius-lg); box-shadow: 0 24px 64px color-mix(in srgb, var(--wd-bg) 85%, transparent); }
+dialog[open] { animation: wd-open var(--wd-slow) var(--wd-ease); }
+dialog::backdrop { background: color-mix(in srgb, var(--wd-bg) 72%, transparent); }
+dialog h2 { margin: 0 0 12px; font: var(--wd-type-h1); }
+dialog table { border-collapse: collapse; }
+dialog td { padding: 5px 18px 5px 0; vertical-align: baseline; }
+dialog td:first-child { white-space: nowrap; }
+dialog p { margin: 12px 0 0; }
+dialog form { margin-top: 16px; }
+
+footer { padding: 12px 20px; color: var(--wd-muted); font: var(--wd-type-caption); border-top: var(--wd-hairline) solid var(--wd-border); }
+
+/* a panel opens once, in a moment; nothing here moves on its own. The form and the suggestions only fade: main.ts measures
+   them to place the suggestions, and a moving box would skew that. The dialog also rises a few pixels. */
+@keyframes wd-fade { from { opacity: 0; } }
+@keyframes wd-open { from { opacity: 0; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0s !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
+}

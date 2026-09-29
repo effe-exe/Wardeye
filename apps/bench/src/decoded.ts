@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The decoded detector check: the check tile's outputs turned into cards with the engine's port of the detector's
 // postprocess (@rifteye/engine, as Detector.detect_tiles does it), and matched to the cards Python found on the same

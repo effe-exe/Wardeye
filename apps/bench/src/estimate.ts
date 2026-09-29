@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The per-frame estimate: what one processed frame costs when every model runs on the items a frame gives it
 // (the detector's tiles, the embedder's crops) at the batch size that suits it best, and how many reads a second

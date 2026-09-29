@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The plain-text summary the page shows in its text box, for the person running the bench to paste into a chat:
 // the environment, one line per row, and the per-frame estimate. Pure text, no DOM.
@@ -184,7 +184,7 @@ export function renderSummary(s: SummaryInput): string {
   const state =
     s.state === 'done' ? `done in ${((s.elapsedMs ?? 0) / 1000).toFixed(0)} s` : s.state === 'stopped' ? 'STOPPED, results are partial' : s.state === 'running' ? 'RUNNING, results so far' : 'not run yet';
   const head = [
-    `RiftEye bench ${s.env.benchVersion} | onnxruntime-web ${s.env.ortVersion} | ${s.env.date} | ${state}`,
+    `Wardeye bench ${s.env.benchVersion} | onnxruntime-web ${s.env.ortVersion} | ${s.env.date} | ${state}`,
     ...envLines(s.env),
   ];
   if (s.state === 'ready') return [...head, '', 'Press Run.'].join('\n');

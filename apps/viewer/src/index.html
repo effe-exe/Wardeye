@@ -4,11 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Wardeye preview</title>
+    <link rel="icon" href="mark.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <header>
-      <h1>Wardeye <span id="title">preview</span></h1>
+      <h1><img src="mark.svg" alt="" height="22" /> Wardeye <span id="title">preview</span></h1>
       <label class="toggle"><input id="show-boxes" type="checkbox" checked /> show boxes</label>
     </header>
     <p class="intro">Point at a card on the table to see what it is. The timeline lists cards as they are played; click one to jump there.</p>
@@ -19,7 +20,7 @@
           <video id="video" controls playsinline preload="auto"></video>
           <svg id="overlay" preserveAspectRatio="none" aria-hidden="true"></svg>
         </div>
-        <div id="now"><strong>On the table now:</strong> <span id="now-list" class="muted">–</span></div>
+        <div id="now"><strong>On the table now</strong> <span id="now-list" class="muted">–</span></div>
         <p id="problem" class="problem" hidden></p>
       </section>
 

@@ -53,6 +53,9 @@ test('review a pack from the keyboard, export valid answers, and continue after 
   expect(validateReviewPack(pack)).toEqual([]);
   const packFile = { name: 'e2e.reviewpack.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(pack)) };
   await page.goto(APP);
+  // the page wears Wardeye's brand: the build ships the mark next to it and puts the tokens in front of its stylesheet
+  expect(await page.locator('h1 img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--wd-primary').trim())).not.toBe('');
   page.on('dialog', (d) => void d.accept());
 
   await page.setInputFiles('#open-pack', packFile);

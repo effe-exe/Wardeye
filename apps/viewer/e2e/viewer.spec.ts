@@ -75,6 +75,9 @@ test('hover a recognised card, see three guesses for an unsure one, and jump fro
   writeFileSync(join(dir, 'data.js'), `window.RIFTEYE_DEMO = ${JSON.stringify(bundle)};\n`);
 
   await page.goto(`file://${join(dir, 'index.html')}`);
+  // the page wears Wardeye's brand: the build ships the mark next to it and puts the tokens in front of its stylesheet
+  expect(await page.locator('h1 img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--wd-primary').trim())).not.toBe('');
   await expect(page.locator('#title')).toHaveText('e2e match');
   await expect(page.locator('#events li')).toHaveCount(1);
   await expect(page.locator('#events li .what')).toContainText('Fake Hero');
