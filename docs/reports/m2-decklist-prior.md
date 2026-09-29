@@ -104,6 +104,11 @@ Measured on 29 September 2026:
 
 - **Parity.** On the Los Angeles grand final replay, the engine gives Python's board and events at every step, with the rule on:
   - 240 of 240 steps in Chromium, and 18 of 18 in the camera-cut scenario.
+  - Through the extension's own engine worker, with the real models on WASM in Chromium:
+    - the events equal Python's at all 240 steps;
+    - 224 steps are identical to six decimals, against 216 without the rule;
+    - every number is within 0.11 at every step;
+    - the embedder's rows are at a cosine of 0.99996 or better.
 - **The Los Angeles clip** (two minutes, 21 labelled crops). This match was already named at 99.4%, so there is little to gain:
   - With the rule, 12 crops are named right, 3 wrong and 4 unsure, and 2 have no track. Without it: 11 right, 2 wrong, 6 unsure, 2 no track.
   - One unsure Body Rune gets named.
