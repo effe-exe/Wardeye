@@ -1,10 +1,10 @@
 import { defineConfig } from '@playwright/test';
 
-// Browser end-to-end tests for the apps. CI installs Playwright's Chromium; locally you can
+// Browser end-to-end tests for the apps and the engine. CI installs Playwright's Chromium; locally you can
 // point at any Chromium build with RIFTEYE_CHROMIUM=/path/to/chrome.
 export default defineConfig({
-  testDir: 'apps',
-  testMatch: '**/e2e/*.spec.ts',
+  testDir: '.',
+  testMatch: ['apps/*/e2e/*.spec.ts', 'packages/*/e2e/*.spec.ts'],
   timeout: 60_000,
   reporter: [['list']],
   use: {

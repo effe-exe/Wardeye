@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@rifteye/schema': fileURLToPath(new URL('./packages/schema/src/index.ts', import.meta.url)),
+      '@rifteye/engine': fileURLToPath(new URL('./packages/engine/src/index.ts', import.meta.url)),
     },
   },
   test: {

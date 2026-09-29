@@ -16,7 +16,8 @@
     "noEmit": true,
     "types": ["node"],
     "paths": {
-      "@rifteye/schema": ["./packages/schema/src/index.ts"]
+      "@rifteye/schema": ["./packages/schema/src/index.ts"],
+      "@rifteye/engine": ["./packages/engine/src/index.ts"]
     }
   },
   "include": ["packages/*/src", "packages/*/test", "apps/*/src", "apps/*/test", "apps/*/e2e", "scripts/*.ts", "*.config.ts"]

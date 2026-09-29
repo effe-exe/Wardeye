@@ -1,0 +1,12 @@
+{
+  "name": "@rifteye/engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RiftEye's recognition pipeline in TypeScript, for the browser: the image operations, the detector and the embedder on ONNX Runtime Web, and the tracker, ported from ml/ and checked against it",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
