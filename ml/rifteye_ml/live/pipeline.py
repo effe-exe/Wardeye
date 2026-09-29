@@ -114,9 +114,15 @@ def card_crop(frame: Image.Image, box: CardBox) -> Image.Image:
     return rot.crop((round(lx - w / 2), round(ly - h / 2), round(lx + w / 2), round(ly + h / 2)))
 
 
-def detector_boxes(dets: Sequence[dict], min_score: float = 0.4) -> list[CardBox]:
+MIN_ASPECT = 0.5  # a card's short side over its long side is 0.72 (63 x 88 mm); a box under half is a strip
+
+
+def detector_boxes(dets: Sequence[dict], min_score: float = 0.4, min_aspect: float = MIN_ASPECT) -> list[CardBox]:
     """The trained detector's cards (`detect.model.Detector.detect`: corners in frame px) as boxes for the
-    tracker. A `card_back` is marked `back`, so it is never identified."""
+    tracker. A `card_back` is marked `back`, so it is never identified. A box less than `min_aspect` as wide
+    as it is long is not a card: the detector outlines the art of Riot's showdown banner, laid over the
+    bottom of the table, as strips 2.5 times as long as wide (the detector's cards, even under others, keep
+    a card's shape)."""
     out = []
     for d in dets:
         if d["score"] < min_score:
@@ -124,6 +130,8 @@ def detector_boxes(dets: Sequence[dict], min_score: float = 0.4) -> list[CardBox
         q = np.asarray(d["quad"], np.float64).reshape(4, 2)
         e = [q[(k + 1) % 4] - q[k] for k in range(4)]
         a, b = (np.linalg.norm(e[0]) + np.linalg.norm(e[2])) / 2, (np.linalg.norm(e[1]) + np.linalg.norm(e[3])) / 2
+        if min(a, b) < min_aspect * max(a, b):
+            continue
         long_e = e[0] if a >= b else e[1]
         box = CardBox(tuple(q.mean(axis=0)), max(a, b), min(a, b), math.degrees(math.atan2(long_e[1], long_e[0])) % 180, 1.0)
         box.back = d["cls"] == "card_back"  # type: ignore[attr-defined]

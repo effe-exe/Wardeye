@@ -114,12 +114,17 @@ Measured on 29 September 2026:
   - One unsure Body Rune gets named.
   - One unsure spot is now named Sand Soldier where the label says Emperor's Dais. A token standing on that battlefield is the likely reason.
   - One impossible play goes: a Mind unit, which neither legend (Calm and Chaos, Fury and Body) allows.
-- **A problem the rule does not touch.** Both runs announce plays at the bottom edge of the frame, where the broadcast shows its showdown banner. The detector takes the banner's art for cards. That needs the table window to leave the banner out, not a prior.
+- **A problem the rule does not touch: the showdown banner.** Both runs announced plays at the bottom edge of the frame, where the broadcast lays its showdown banner over the table. The detector outlined the banner's art as cards. Those outlines are strips, 2.5 times as long as wide, where a card is 1.4, even under other cards.
+  - Since 29 September the tracker drops every box less than half as wide as it is long, in the pipeline and the engine alike.
+  - On the Los Angeles clip, that removes all 188 of the banner's boxes, and 146 of the other 11,740: slips at the table's side edges, at a median score of 0.48.
+  - The banner's play goes, and so does a card announced again after its track slipped: 8 plays become 6, and the other six are as before.
+  - Of the 41 labelled looks at the clip's cards, 27 are named right, against 26.
+  - The extension's own engine, with the real models on WASM in Chromium, still gives Python's events at all 240 steps, and every number within 0.11.
 - **Not measured yet:** Barcelona end to end. The 97.8% above is per crop, with legends from the labels. The live runner has to read the legend first.
 
 ## Next
 
-1. **Barcelona end to end,** with the legend read by the model, and the showdown banner kept out of the table window.
+1. **Barcelona end to end,** with the legend read by the model.
 2. **Decklist import in the extension.** The viewer pastes each player's deck code or export. A list is used only on the half whose legend it names, each listed card stands for all its printings, and both lists' battlefields are allowed on both halves.
 3. **The zone rule:** legends only in the legend zone, battlefields only in their slots.
 

@@ -362,9 +362,14 @@ export function boxQuad(box: CardBox): [number, number][] {
   ];
 }
 
+/** A card's short side over its long side is 0.72 (63 x 88 mm); a box under half is a strip. */
+export const MIN_ASPECT = 0.5;
+
 /** The trained detector's cards (Detector.detect: corners in frame px) as boxes for the tracker. A card_back is
- * marked `back`, so it is never identified. */
-export function detectorBoxes(dets: readonly Detection[], minScore = DET_SCORE): CardBox[] {
+ * marked `back`, so it is never identified. A box less than `minAspect` as wide as it is long is not a card: the
+ * detector outlines the art of Riot's showdown banner, laid over the bottom of the table, as strips 2.5 times as long
+ * as wide (the detector's cards, even under others, keep a card's shape). */
+export function detectorBoxes(dets: readonly Detection[], minScore = DET_SCORE, minAspect = MIN_ASPECT): CardBox[] {
   const out: CardBox[] = [];
   for (const d of dets) {
     if (d.score < minScore) continue;
@@ -374,6 +379,7 @@ export function detectorBoxes(dets: readonly Detection[], minScore = DET_SCORE):
     const len = (v: Point) => norm2(v[0], v[1]);
     const a = (len(e[0]!) + len(e[2]!)) / 2;
     const b = (len(e[1]!) + len(e[3]!)) / 2;
+    if (Math.min(a, b) < minAspect * Math.max(a, b)) continue;
     const longE = a >= b ? e[0]! : e[1]!;
     out.push({
       centre: mean(q),

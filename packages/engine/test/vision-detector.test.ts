@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CLASSES,
   DET_SCORE,
+  MIN_ASPECT,
   Detector,
   TILE,
   boxQuad,
@@ -140,6 +141,13 @@ describe('detectorBoxes, dropNested, dropStraddlers', () => {
     expect(dropStraddlers(dropNested(extra))).toEqual(V.boxes.straddlers);
     expect(V.boxes.straddlers.length).toBeLessThan(V.boxes.nested.length);
     expect(V.boxes.nested.length).toBeLessThan(V.boxes.extra.length);
+  });
+
+  it('skip strips: a box less than half as wide as it is long is a banner\'s art, not a card', () => {
+    const d = (w: number, h: number): Detection => ({ cls: 'card', score: 0.8, box: [0, 0, w, h], quad: [[0, 0], [w, 0], [w, h], [0, h]], found: [1, 1, 1, 1], visible: [1, 1, 1, 1] });
+    expect(MIN_ASPECT).toBe(0.5);
+    expect(detectorBoxes([d(56, 78), d(160, 64)]).map((b) => b.long_px)).toEqual([78]);
+    expect(detectorBoxes([d(56, 78), d(160, 64)], DET_SCORE, 0)).toHaveLength(2);
   });
 
   it('skip scores below the tracker\'s --det-score', () => {

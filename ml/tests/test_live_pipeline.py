@@ -90,6 +90,19 @@ def test_detector_quads_become_boxes_and_backs_stay_unnamed():
     assert b.angle_deg == pytest.approx(90)
 
 
+def test_a_strip_is_not_a_card():
+    # Riot's showdown banner lies over the bottom of the table, and the detector outlines its art as strips 2.5
+    # times as long as wide; a card, even one under others, keeps its 63 x 88 shape
+    from rifteye_ml.live.pipeline import MIN_ASPECT, detector_boxes
+
+    card = [100, 50, 156, 50, 156, 128, 100, 128]    # 56 x 78
+    strip = [300, 1016, 460, 1016, 460, 1080, 300, 1080]  # 160 x 64
+    dets = [{"cls": "card", "score": 0.8, "quad": card}, {"cls": "card", "score": 0.8, "quad": strip}]
+    assert MIN_ASPECT == 0.5
+    assert [b.long_px for b in detector_boxes(dets)] == pytest.approx([78])
+    assert len(detector_boxes(dets, min_aspect=0.0)) == 2
+
+
 def test_a_legend_named_on_a_side_is_that_players_legend():
     rows, art, rec = _setup()
     rows[2]["type"] = "Legend"
