@@ -1,6 +1,6 @@
 # Contributing to Wardeye
 
-Thanks for helping. Wardeye is in the **design phase**: the architecture and research docs are written and code lands milestone by milestone ([ROADMAP](docs/ROADMAP.md)). Useful contributions right now:
+Thanks for helping. Wardeye is in **alpha**, at milestone M2 ([ROADMAP](docs/ROADMAP.md)): the models are trained and tested on real broadcasts, and the extension reads the table of a Twitch broadcast in the browser. Useful contributions right now:
 
 - **Critique the design.** Open an issue against anything in [`docs/`](docs/) that looks wrong, risky or naive.
 - **Broadcast layouts.** Tell us which Riftbound broadcasts you watch and how they frame the table (see [Layout presets](#4-layout-presets)).
@@ -30,7 +30,9 @@ These are the rules reviewers enforce most often.
 4. **No secrets in client code.** The extension is public. Anything keyed goes behind a server.
 5. **Respect Riot's IP.** Never add card images or card text to the repository or to release assets; the extension loads them from Riot's public card gallery at display time. No cross-match statistics (play rates, win rates). No Riot logos ([D-015](docs/decisions.md#d-015-no-riot-api-no-riot-assets-distributed), [08](docs/research/08-legal-and-policy.md)).
 6. **Model changes need numbers.** A PR that changes a model or its pre-/post-processing includes a leaderboard row measured on the real test set. Maintainers run it for you if you do not have access ([04 §4.7](docs/research/04-data-and-evaluation.md#47-metrics-and-the-leaderboard)).
-7. **AI-assisted contributions are welcome.** You are responsible for them as for your own work: review them, test them, and make sure they do not reproduce code under incompatible licences. You sign the CLA for the whole pull request.
+7. **The brand.** Pages and the overlay use the brand book's tokens, fonts and logo ([assets/brand](assets/brand/README.md)), through `assets/brand/brand.mjs`; public copy says Wardeye.
+8. **The trained models are private** ([D-022](docs/decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)). Tests use stand-in models made at test time, and every test must pass without the private data; the maintainers run the checks that need the real models.
+9. **AI-assisted contributions are welcome.** You are responsible for them as for your own work: review them, test them, and make sure they do not reproduce code under incompatible licences. You sign the CLA for the whole pull request.
 
 ## 3. Pull requests
 
@@ -54,9 +56,13 @@ pip install -e '.[dev]' && pytest -q
 
 | Path | What it is | Licence |
 |---|---|---|
+| `apps/extension` | The browser extension: the overlay and the in-browser engine host | AGPL-3.0-only |
+| `apps/bench` | Times the models in Chrome and checks them against PyTorch | AGPL-3.0-only |
+| `apps/logger`, `apps/reviewer`, `apps/viewer` | Timeline logger, correct/wrong reviewer, preview of a recorded match | AGPL-3.0-only |
+| `packages/engine` | The recognition pipeline in TypeScript, checked against `ml/` | AGPL-3.0-only |
 | `packages/schema` | Data formats and validators | Apache-2.0 |
-| `apps/logger` | Timeline logger for ground truth | AGPL-3.0-only |
-| `ml/` | Catalogue, stream simulator, encoders, M0 spike, index builder | AGPL-3.0-only |
+| `ml/` | Catalogue, stream simulator, training, evaluation, the live runner | AGPL-3.0-only |
+| `assets/brand` | Tokens and build helper; fonts; logo | AGPL-3.0-only; fonts OFL-1.1; the logo is a trademark ([TRADEMARKS.md](TRADEMARKS.md)) |
 
 
 ## 4. Layout presets
