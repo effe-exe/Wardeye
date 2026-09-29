@@ -94,9 +94,27 @@ Every prior names all 329 crops, except the wrong lists read hard: 36.8%, with 2
 - **More than one broadcast.** This is Barcelona only: 947 crops in three matches, and the Swiss round carries the result. Los Angeles and Shenyang come next.
 - **The zone rule.** Legends appear only in the legend zone. That rule would remove the legend read as a battlefield or a spell (6 of the 10 crops left). It is not applied here.
 
+## In the pipeline and the engine
+
+The legend rule is now in the live runner (`live/pipeline.py`) and in the extension's engine (`packages/engine`), on by default. The shared code is `rifteye_ml/priors.py`, ported as `packages/engine/src/priors.ts`.
+- **When it applies:** once a side's legend is pinned. Until then, the whole gallery competes.
+- **What it covers:** the tracker's reads and the change gate's alike.
+
+Measured on 29 September 2026:
+
+- **Parity.** On the Los Angeles grand final replay, the engine gives Python's board and events at every step, with the rule on:
+  - 240 of 240 steps in Chromium, and 18 of 18 in the camera-cut scenario.
+- **The Los Angeles clip** (two minutes, 21 labelled crops). This match was already named at 99.4%, so there is little to gain:
+  - With the rule, 12 crops are named right, 3 wrong and 4 unsure, and 2 have no track. Without it: 11 right, 2 wrong, 6 unsure, 2 no track.
+  - One unsure Body Rune gets named.
+  - One unsure spot is now named Sand Soldier where the label says Emperor's Dais. A token standing on that battlefield is the likely reason.
+  - One impossible play goes: a Mind unit, which neither legend (Calm and Chaos, Fury and Body) allows.
+- **A problem the rule does not touch.** Both runs announce plays at the bottom edge of the frame, where the broadcast shows its showdown banner. The detector takes the banner's art for cards. That needs the table window to leave the banner out, not a prior.
+- **Not measured yet:** Barcelona end to end. The 97.8% above is per crop, with legends from the labels. The live runner has to read the legend first.
+
 ## Next
 
-1. **The legend rule in the live pipeline and the extension**, gated on the pinned legend: Python first, then the engine, keeping the replay's parity. Then measure it on the three broadcasts.
+1. **Barcelona end to end,** with the legend read by the model, and the showdown banner kept out of the table window.
 2. **Decklist import in the extension.** The viewer pastes each player's deck code or export. A list is used only on the half whose legend it names, each listed card stands for all its printings, and both lists' battlefields are allowed on both halves.
 3. **The zone rule:** legends only in the legend zone, battlefields only in their slots.
 

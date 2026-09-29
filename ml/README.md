@@ -295,6 +295,7 @@ python -m rifteye_ml.decklist evaluate --match final=12:18:30-12:44:00 --deck fi
 - **The legend rule needs no list:** each half is held to its own legend's domains, runes included, while battlefields and tokens are always allowed. On the Barcelona Swiss round it names 97.8% of the crops, against 91.8% with the whole gallery.
 - **A list is used only on the half whose legend it names.** Another match's list then falls back to the legend rule, instead of wrecking the reads as a hard filter does (8.4%).
 - The lists, crops and results stay private (D-006); `evaluate` refuses to write inside the repository.
+- **In the live runner** the legend rule is on by default (`priors.py`, shared with the engine as `packages/engine/src/priors.ts`). Once a side's legend is pinned, its cards compete only with the printings that legend allows. `--no-legend-rule` reads every card against the whole gallery.
 
 ## Live: a recording or a stream, named as it plays
 
