@@ -64,6 +64,8 @@ Cards are small on stream (roughly 70–140 px tall at 1080p) and their text is 
 | [Architecture](docs/ARCHITECTURE.md) | Components, data contracts, runtime topologies, sync, performance targets |
 | [Roadmap](docs/ROADMAP.md) | Milestones M0–M5 with measurable exit criteria |
 | [Decision log](docs/decisions.md) | What is settled and why |
+| [Privacy policy](docs/PRIVACY.md) | What the extension reads, and that it collects and sends nothing |
+| [Releasing](docs/releasing.md) | Making the repository public; the Chrome Web Store release |
 
 ## Repository layout
 
