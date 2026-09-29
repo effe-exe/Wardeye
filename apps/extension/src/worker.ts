@@ -5,11 +5,14 @@
 // browser that can run the engine, the frame goes to the engine document (an offscreen page that reads it with
 // ONNX Runtime Web) and the board it answers with is handed back; otherwise, as in the public build, the frame is
 // posted to the live runner on this machine (companion mode), the only place a page script cannot reach itself.
-// Nothing is sent anywhere else. The worker keeps nothing the engine needs: a tab's board lives in the engine
-// document, so the worker can be put to sleep and woken at any time.
+// The Chrome Web Store build (`__STORE__`, store.d.ts) has no companion mode, and no code for it: when the engine
+// cannot run, the overlay is told so, and its badge says why; a card's picture is asked of the engine document, which
+// holds Riot's card list. Nothing is sent anywhere else. The worker keeps nothing the engine needs: a tab's board lives
+// in the engine document, so the worker can be put to sleep and woken at any time.
 
 import * as companion from './companion';
-import { Standalone, type Env } from './standalone';
+import { RETRY_AFTER_MS } from './mode';
+import { Standalone, cannotReadState, type Env } from './standalone';
 import type { State } from './geometry';
 import type { FromContent, ToContent } from './protocol';
 
@@ -44,7 +47,7 @@ const env: Env = {
   send: (request) => chrome.runtime.sendMessage(request),
 };
 
-const standalone = new Standalone(env);
+const standalone = new Standalone(env, RETRY_AFTER_MS, __STORE__);
 let anonymous = 0; // a port that names no tab still gets a board of its own
 
 chrome.runtime.onConnect.addListener((port) => {
@@ -65,12 +68,18 @@ chrome.runtime.onConnect.addListener((port) => {
         const served = await standalone.frame(tab, msg);
         if (served) {
           send({ kind: 'state', online: true, state: served.state });
-          return;
+        } else if (__STORE__) {
+          send({ kind: 'state', online: true, state: cannotReadState(msg.t, (await standalone.package()) === null) });
+        } else {
+          const state = await companion.postFrame(msg);
+          send({ kind: 'state', online: state !== null, state: (state ?? null) as State | null });
         }
-        const state = await companion.postFrame(msg);
-        send({ kind: 'state', online: state !== null, state: (state ?? null) as State | null });
       } else if (msg.kind === 'art') {
-        const jpeg = (await standalone.usable()) ? await standalone.art(msg.printing_id) : await companion.art(msg.printing_id);
+        const jpeg = __STORE__
+          ? await standalone.art(msg.printing_id)
+          : (await standalone.usable())
+            ? await standalone.art(msg.printing_id)
+            : await companion.art(msg.printing_id);
         send({ kind: 'art', printing_id: msg.printing_id, jpeg });
       }
     } catch (e) {

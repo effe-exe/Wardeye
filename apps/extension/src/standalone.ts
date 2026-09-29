@@ -2,11 +2,12 @@
 // Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The worker's side of standalone mode: whether there is an engine here (the private build's package, an engine
-// document that can run), asking it for a tab's frame, and the card pictures from the package. When it cannot
-// serve, it says so and the worker uses the live runner instead; it asks again after a while.
+// document that can run), asking it for a tab's frame, and the card pictures: from the package (the developer build), or
+// from Riot's gallery through the engine document (the store build). When it cannot serve, it says so and the worker uses
+// the live runner instead (the store build has none: it tells the overlay, `cannotReadState`); it asks again after a while.
 
 import { parsePackage, type StandalonePackage } from './assets';
-import { b64Of } from './companion';
+import { b64Of } from './base64';
 import type { State } from './geometry';
 import { RETRY_AFTER_MS } from './mode';
 import { isEngineReply, type EngineReply, type EngineRequest, type FrameMessage } from './protocol';
@@ -36,15 +37,34 @@ function within<T>(p: Promise<T>, ms: number): Promise<T> {
   });
 }
 
+/** How long the overlay waits before it sends another frame while the store build has no engine (ms). */
+export const UNAVAILABLE_RETRY_MS = 5000;
+
+/** What the overlay is told when the store build cannot read a frame: it has no live runner to hand the frame to, so the
+ * badge says plainly why (geometry.badge shows an error state's message). `missing`: the package is not there at all. */
+export function cannotReadState(t: number, missing: boolean): State {
+  return {
+    t,
+    status: 'error',
+    message: missing ? "the engine's files are missing from this install, reinstall Wardeye" : 'this browser cannot run the engine (WebGPU or WebAssembly needed)',
+    frame: { width: 0, height: 0 },
+    tracks: [],
+    retry_ms: UNAVAILABLE_RETRY_MS,
+  };
+}
+
 export class Standalone {
   private pkg: Promise<StandalonePackage | null> | null = null;
   private offUntil = 0;
   /** Why the engine was last written off (for the console). */
   lastReason = '';
 
+  /** `store`: the Chrome Web Store build. It has no live runner, so a package that says `companion` is asked like any other
+   * (the engine document says it has nothing to run), and a card's picture comes from Riot's gallery, through the document. */
   constructor(
     private readonly env: Env,
     private readonly retryMs = RETRY_AFTER_MS,
+    private readonly store = false,
   ) {}
 
   /** standalone.json's package, or null when this build has none (the public build) or it cannot be read. Read once. */
@@ -55,7 +75,7 @@ export class Standalone {
       try {
         return parsePackage(JSON.parse(new TextDecoder().decode(bytes)));
       } catch (e) {
-        console.warn(`Wardeye: standalone.json cannot be used, the live runner is used instead: ${e instanceof Error ? e.message : String(e)}`);
+        console.warn(`Wardeye: standalone.json cannot be used${this.store ? '' : ', the live runner is used instead'}: ${e instanceof Error ? e.message : String(e)}`);
         return null;
       }
     })();
@@ -66,13 +86,14 @@ export class Standalone {
    * off a moment ago. */
   async usable(): Promise<boolean> {
     const pkg = await this.package();
-    return pkg !== null && pkg.runtime !== 'companion' && this.env.now() >= this.offUntil;
+    return pkg !== null && (pkg.runtime !== 'companion' || this.store) && this.env.now() >= this.offUntil;
   }
 
   private writeOff(reason: string): void {
     this.lastReason = reason;
     this.offUntil = this.env.now() + this.retryMs;
-    console.warn(`Wardeye: no engine in this browser (${reason}); the live runner is used, and the engine tried again in ${Math.round(this.retryMs / 60000)} min`);
+    const then = this.store ? 'the overlay says so' : 'the live runner is used';
+    console.warn(`Wardeye: no engine in this browser (${reason}); ${then}, and the engine tried again in ${Math.round(this.retryMs / 60000)} min`);
   }
 
   /** One request to the engine document, made again once if the document is gone or does not answer. */
@@ -115,9 +136,14 @@ export class Standalone {
     }
   }
 
-  /** A card's hover picture from the package, base64; null when there is none. */
+  /** A card's hover picture, base64; null when there is none. From the package (the developer build), or, in the store build, from
+   * Riot's gallery: the engine document holds the card list and fetches the picture. */
   async art(printingId: string): Promise<string | null> {
     if (!(await this.package())) return null;
+    if (this.store) {
+      const reply = await this.ask({ target: 'engine', kind: 'art', printing_id: printingId });
+      return reply?.kind === 'art' ? reply.jpeg : null;
+    }
     const bytes = await this.env.read(thumbPath(printingId));
     return bytes ? b64Of(bytes) : null;
   }

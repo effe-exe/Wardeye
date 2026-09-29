@@ -71,4 +71,31 @@ describe('how the engine runs', () => {
     expect(plan(noEmbedder, gpu()).attempts).toEqual([]);
     expect(plan(noEmbedder, gpu()).reason).toContain('no complete set of models');
   });
+
+  describe('in the store build, which has no live runner to fall back on', () => {
+    it('runs plain WASM in a browser with no WebGPU adapter, where the developer build goes to the live runner', () => {
+      const noGpu = gpu({ webgpu: false, shaderF16: false });
+      expect(plan(pkg(), noGpu).attempts).toEqual([]);
+      const p = plan(pkg(), noGpu, pkg().runtime, true);
+      expect(p.attempts).toEqual([{ runtime: 'wasm', detector: 'fp32', embedder: 'fp16' }]);
+      expect(p.reason).toContain('no WebGPU adapter'); // and says why the GPU is not used
+    });
+
+    it('goes WebGPU first, then WASM, as the developer build does, when the browser has WebGPU', () => {
+      expect(plan(pkg(), gpu(), 'auto', true).attempts).toEqual(plan(pkg(), gpu(), 'auto', false).attempts);
+      expect(plan(pkg(everything()), gpu({ jspi: false }), 'auto', true).attempts).toEqual([{ runtime: 'wasm', detector: 'fp32', embedder: 'fp32' }]);
+    });
+
+    it('has nothing to try, so the engine is unavailable, for a package that says to use the live runner, and says it has none', () => {
+      const p = plan(pkg({ runtime: 'companion' }), gpu(), 'companion', true);
+      expect(p.attempts).toEqual([]);
+      expect(p.reason).toContain('this build does not have');
+      expect(plan(pkg({ runtime: 'companion' }), gpu(), 'companion', false).reason).toBe('standalone.json says to use the live runner');
+    });
+
+    it('has nothing to try for a package with no complete set of models, or that forces WebGPU on a browser without it', () => {
+      expect(plan(pkg({ embedder: { id: 'e' } as never }), gpu({ webgpu: false }), 'auto', true).attempts).toEqual([]);
+      expect(plan(pkg({ runtime: 'webgpu' }), gpu({ webgpu: false }), 'webgpu', true).attempts).toEqual([]);
+    });
+  });
 });

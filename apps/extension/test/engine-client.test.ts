@@ -55,6 +55,18 @@ describe('the link to the engine worker', () => {
     expect(progress).toEqual(['reading the gallery']);
   });
 
+  it("gives the engine worker the card list's rows with its init (the store build), a copy of them, and none for the developer build", async () => {
+    const rows = [{ printing_id: 'A-1', card_id: 'a', name: 'A', type: 'Unit' }];
+    const e = new WorkerEngine('engine-webgpu.js');
+    const w = FakeWorker.last;
+    void e.init(pkg, attempt, () => {}, rows);
+    expect(w.sent).toEqual([{ kind: 'init', pkg, attempt, cards: rows }]);
+    expect((w.sent[0] as { cards: unknown }).cards).not.toBe(rows);
+    const none = new WorkerEngine('engine-webgpu.js');
+    void none.init(pkg, attempt, () => {}, []); // the list could not be read: an empty one is still said
+    expect(FakeWorker.last.sent).toEqual([{ kind: 'init', pkg, attempt, cards: [] }]);
+  });
+
   it('says why a load failed, and does not wait for a load that never ends', async () => {
     const e = new WorkerEngine('engine-webgpu.js');
     const w = FakeWorker.last;

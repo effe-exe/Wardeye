@@ -201,3 +201,163 @@ describe.skipIf(!haveTools)('pack.mjs', () => {
     expect(run([]).stderr).toContain('usage');
   });
 });
+
+const REPO = fileURLToPath(new URL('../../../', import.meta.url));
+const BUILD = fileURLToPath(new URL('../build.mjs', import.meta.url));
+const haveZip = ['zip', 'unzip'].every((c) => spawnSync(c, ['-v']).status !== null && !spawnSync(c, ['-v']).error);
+const notices = readdirSync(join(REPO, 'licenses')).filter((n) => /^onnxruntime-.+-ThirdPartyNotices\.txt$/.test(n));
+
+describe.skipIf(!haveZip)('pack.mjs --store: the Chrome Web Store zip', () => {
+  let root: string;
+  let dist: string;
+  let devDist: string;
+  let ort: string;
+  let models: string;
+  let assets: string;
+  let stage: string;
+  let out: string;
+  const args = (...more: string[]) => ['--store', '--dist', dist, '--ort', ort, '--models', models, '--assets', assets, '--stage', stage, ...more];
+  const body = (f: string) => `${f} ${'x'.repeat(3000)}`;
+  const build = (...a: string[]) => expect(spawnSync('node', [BUILD, ...a], { encoding: 'utf8' }).status).toBe(0);
+  const copyDir = (from: string, to: string) => {
+    mkdirSync(to);
+    spawnSync('cp', ['-r', `${from}/.`, to]);
+  };
+
+  beforeAll(() => {
+    root = mkdtempSync(join(tmpdir(), 'wardeye-store-pack-test-'));
+    [dist, devDist, ort, models, assets, stage, out] = ['dist', 'dev-dist', 'ort', 'models', 'assets', 'stage', 'out'].map((d) => join(root, d)) as [string, string, string, string, string, string, string];
+    for (const d of [ort, models, join(assets, 'gallery'), stage, out]) mkdirSync(d, { recursive: true });
+    build('--store', '--out', dist); // the real store build: its manifest is what the zip's must be
+    build('--out', devDist);
+    for (const f of ['ort-wasm-simd-threaded.jspi.mjs', 'ort-wasm-simd-threaded.jspi.wasm', 'ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm', 'ort-wasm-simd-threaded.jsep.wasm']) writeFileSync(join(ort, f), `ort ${f}`);
+    for (const f of ['detector-v0.onnx', 'detector-v0.fp16.onnx', 'embedder-v1.onnx', 'embedder-v1.fp16.onnx']) writeFileSync(join(models, f), body(f));
+    const rows = ['TST-001', 'TST-002*', 'TST-003'];
+    writeFileSync(join(assets, 'gallery', 'index.json'), JSON.stringify({
+      format: 1, encoder: 'onnx:embedder-v1-abc', model: 'embedder-v1', sha256: sha(body('embedder-v1.onnx')), fp16_sha256: sha(body('embedder-v1.fp16.onnx')),
+      dim: 4, dtype: 'float16', levels: [80, 90], rows,
+    }));
+    for (const l of [80, 90]) writeFileSync(join(assets, 'gallery', `L${l}.bin`), Buffer.alloc(rows.length * 4 * 2, l));
+    // what the private build takes from here and the store's must not: a catalogue (names, types) and pictures
+    writeFileSync(join(assets, 'catalog.json'), JSON.stringify(rows.map((r) => ({ printing_id: r, card_id: r, name: 'A Name', type: 'Unit' }))));
+    mkdirSync(join(assets, 'thumbs'));
+    for (const r of ['TST-001', 'TST-002_2a', 'TST-003']) writeFileSync(join(assets, 'thumbs', `${r}.jpg`), `jpeg ${r}`);
+  }, 60_000);
+
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
+
+  it('makes ONE zip whose root is the extension: manifest.json at the root, the models and the gallery, the notices, and nothing of the private build', () => {
+    const zip = join(out, 'wardeye-0.1.0.zip');
+    const r = run(args('--out', zip));
+    expect(r.status, r.stderr).toBe(0);
+    expect(readdirSync(out)).toEqual(['wardeye-0.1.0.zip']); // one file: no parts, no partial zip left
+    const bytes = readFileSync(zip);
+    const files = readZip(bytes);
+    expect([...files.keys()].sort()).toEqual(
+      [
+        'LICENSE', 'NOTICE', 'content.js', 'data/gallery/L80.bin', 'data/gallery/L90.bin', 'data/gallery/index.json', 'engine-wasm.js', 'engine-webgpu.js',
+        'fonts/Inter-latin.woff2', 'fonts/JetBrainsMono-latin.woff2', 'fonts/OFL-Inter.txt', 'fonts/OFL-JetBrainsMono.txt', 'fonts/OFL-SpaceGrotesk.txt',
+        'fonts/SpaceGrotesk-latin.woff2', 'icons/icon-128.png', 'icons/icon-16.png', 'icons/icon-32.png', 'icons/icon-48.png',
+        ...notices.map((n) => `licenses/${n}`), 'manifest.json', 'models/detector-v0.onnx', 'models/embedder-v1.fp16.onnx', 'offscreen.html', 'offscreen.js',
+        'ort/ort-wasm-simd-threaded.jspi.mjs', 'ort/ort-wasm-simd-threaded.jspi.wasm', 'ort/ort-wasm-simd-threaded.mjs', 'ort/ort-wasm-simd-threaded.wasm',
+        'overlay.css', 'standalone.json', 'worker.js',
+      ].sort(),
+    );
+    // the notices and the licence are in, and are the repository's own
+    expect(notices.length).toBeGreaterThan(0);
+    for (const n of notices) expect(files.get(`licenses/${n}`)!.equals(readFileSync(join(REPO, 'licenses', n))), n).toBe(true);
+    expect(files.get('LICENSE')!.equals(readFileSync(join(REPO, 'LICENSE')))).toBe(true);
+    expect(files.get('NOTICE')!.equals(readFileSync(join(REPO, 'NOTICE')))).toBe(true);
+    expect(files.get('NOTICE')!.toString()).toContain('Riot Games');
+    // no catalogue, no thumbnails, no picture but the toolbar icons, though the folder it was made from had them
+    expect([...files.keys()].filter((n) => n.includes('catalog') || n.includes('thumbs') || /\.jpe?g$/i.test(n))).toEqual([]);
+    expect([...files.keys()].filter((n) => n.endsWith('.png')).sort()).toEqual(['icons/icon-128.png', 'icons/icon-16.png', 'icons/icon-32.png', 'icons/icon-48.png']);
+    expect([...files.keys()].some((n) => n.startsWith('rifteye-standalone/') || n === 'INSTALL.txt')).toBe(false);
+    // the models: the detector in float32, the embedder in float16; the JSEP runtime and the other precisions are left out
+    expect(files.get('models/embedder-v1.fp16.onnx')!.toString()).toContain('embedder-v1.fp16.onnx');
+    expect(files.get('ort/ort-wasm-simd-threaded.jspi.wasm')!.toString()).toBe('ort ort-wasm-simd-threaded.jspi.wasm');
+    expect(JSON.parse(files.get('standalone.json')!.toString())).toEqual({
+      format: 1,
+      runtime: 'auto',
+      detector: { id: 'detector-v0', fp32: 'models/detector-v0.onnx' },
+      embedder: { id: 'embedder-v1', fp16: 'models/embedder-v1.fp16.onnx' },
+      data: 'data/',
+    });
+    // the manifest in it is the store's: no 127.0.0.1, and the two hosts of Riot's card gallery
+    const manifest = JSON.parse(files.get('manifest.json')!.toString()) as { host_permissions: string[] };
+    expect(manifest.host_permissions).toEqual(['https://content.publishing.riotgames.com/*', 'https://cmsassets.rgpub.io/*']);
+    expect(files.get('manifest.json')!.toString()).not.toContain('127.0.0.1');
+    expect(files.get('worker.js')!.toString()).not.toContain('127.0.0.1');
+    // it says what it made: the size, that it was checked, what is at the top
+    expect(r.stdout).toContain(`${bytes.length} bytes`);
+    expect(r.stdout).toContain(`sha256 ${sha(bytes)}`);
+    expect(r.stdout).toMatch(/top level: .*manifest\.json/);
+    expect(r.stdout).toContain('verified: unzip -t passes for every entry');
+    expect(readdirSync(stage)).toEqual([]); // the staging symlinks are removed
+    expect(readFileSync(join(models, 'embedder-v1.fp16.onnx'), 'utf8')).toContain('embedder-v1.fp16.onnx'); // and what they pointed to is not
+  });
+
+  it('needs no catalogue and no thumbnails to be there', () => {
+    const bare = join(root, 'bare-assets');
+    mkdirSync(join(bare, 'gallery'), { recursive: true });
+    for (const f of ['index.json', 'L80.bin', 'L90.bin']) writeFileSync(join(bare, 'gallery', f), readFileSync(join(assets, 'gallery', f)));
+    const zip = join(out, 'bare.zip');
+    const r = run(args('--out', zip, '--assets', bare));
+    expect(r.status, r.stderr).toBe(0);
+    expect(readZip(readFileSync(zip)).has('data/gallery/L90.bin')).toBe(true);
+  });
+
+  it('replaces the zip of an earlier pack of the same name, and leaves the other files of the folder', () => {
+    const zip = join(out, 'again.zip');
+    writeFileSync(zip, 'an old zip');
+    writeFileSync(join(out, 'notes.txt'), 'mine');
+    expect(run(args('--out', zip)).status).toBe(0);
+    expect(readZip(readFileSync(zip)).has('manifest.json')).toBe(true);
+    expect(readFileSync(join(out, 'notes.txt'), 'utf8')).toBe('mine');
+  });
+
+  it('refuses the developer build (it has 127.0.0.1), a build that holds anything the store zip does not, and a manifest with other hosts', () => {
+    const r = run(args('--out', join(out, 'dev.zip'), '--dist', devDist));
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain('mentions 127.0.0.1');
+    expect(r.stderr).toContain('build:store');
+    expect(existsSync(join(out, 'dev.zip'))).toBe(false);
+    // a picture in the build
+    const messy = join(root, 'messy-dist');
+    copyDir(dist, messy);
+    writeFileSync(join(messy, 'card.jpg'), 'jpeg');
+    const m = run(args('--out', join(out, 'messy.zip'), '--dist', messy));
+    expect(m.status).toBe(1);
+    expect(m.stderr).toContain('holds files the store zip does not: card.jpg');
+    expect(existsSync(join(out, 'messy.zip'))).toBe(false);
+    // a manifest with other hosts
+    const wide = join(root, 'wide-dist');
+    copyDir(dist, wide);
+    const mf = JSON.parse(readFileSync(join(wide, 'manifest.json'), 'utf8')) as { host_permissions: string[] };
+    mf.host_permissions.push('https://example.com/*');
+    writeFileSync(join(wide, 'manifest.json'), JSON.stringify(mf));
+    expect(run(args('--out', join(out, 'wide.zip'), '--dist', wide)).stderr).toContain('host_permissions are');
+  });
+
+  it('refuses a build that is not built, models that are missing, and a gallery made for another embedder', () => {
+    expect(run(args('--out', join(out, 'e.zip'), '--dist', join(root, 'nowhere'))).stderr).toContain('build the store version first');
+    expect(run(args('--out', join(out, 'e.zip'), '--models', join(root, 'nowhere'))).stderr).toContain('does not exist');
+    writeFileSync(join(models, 'embedder-v1.fp16.onnx'), 'another export');
+    const r = run(args('--out', join(out, 'e.zip')));
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain('is not the fp16 embedder the gallery was made with');
+    writeFileSync(join(models, 'embedder-v1.fp16.onnx'), body('embedder-v1.fp16.onnx'));
+    expect(existsSync(join(out, 'e.zip'))).toBe(false);
+    expect(run(args('--out', join(out, 'e.zip'), '--assets', join(root, 'nowhere'))).stderr).toContain('run python -m rifteye_ml.web_assets first');
+    expect(run(args('--out', join(root, 'not-a-zip'))).stderr).toContain('must end in .zip');
+  });
+
+  it("refuses the private build's options, which mean nothing for one zip", () => {
+    for (const flag of [['--part-bytes', '3000'], ['--size-only'], ['--runtime', 'wasm'], ['--layout', 'la-rq'], ['--no-verify']]) {
+      const r = run(args('--out', join(out, 'x.zip'), ...flag));
+      expect(r.status, flag.join(' ')).toBe(1);
+      expect(r.stderr).toContain(`${flag[0]} does not apply to --store`);
+    }
+    expect(run(['--store']).stderr).toContain('usage');
+  });
+});

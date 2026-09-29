@@ -3,9 +3,11 @@
 //
 // The engine document's brain: what can run here (the package's models, the browser's WebGPU), starting the engine
 // worker (the best way first, the next when one will not start), answering the extension worker's requests, and
-// starting it again when it crashes. The document is a thin shell around this; the worker and the clock come in
-// through `ControllerEnv`, so it is tested without a browser.
+// starting it again when it crashes. In the store build it also waits a moment for Riot's card list, which names the
+// gallery's rows, and starts the engine afresh if the list comes after the engine started without it. The document is a
+// thin shell around this; the worker and the clock come in through `ControllerEnv`, so it is tested without a browser.
 
+import type { CatalogRow } from '@rifteye/engine';
 import type { StandalonePackage } from './assets';
 import type { State } from './geometry';
 import { plan, RETRY_AFTER_MS, type Attempt, type Capabilities } from './mode';
@@ -31,8 +33,8 @@ export interface FrameOut {
 
 /** An engine worker, as the document runs it. */
 export interface EngineWorker {
-  /** Loads the models and the gallery; rejects with why it could not. */
-  init(pkg: StandalonePackage, attempt: Attempt, progress: (message: string) => void): Promise<void>;
+  /** Loads the models and the gallery; rejects with why it could not. `cards` (the store build) are the rows Riot's card list gives. */
+  init(pkg: StandalonePackage, attempt: Attempt, progress: (message: string) => void, cards?: readonly CatalogRow[]): Promise<void>;
   frame(req: FrameReq): Promise<FrameOut>;
   forget(tab: number): void;
   /** Called once when the worker dies on its own. */
@@ -45,6 +47,11 @@ export interface ControllerEnv {
   readPackage(): Promise<StandalonePackage | null>;
   probe(): Promise<Capabilities>;
   spawn(attempt: Attempt): EngineWorker;
+  /** The store build, which has no live runner: a browser without WebGPU runs the engine on WASM (see `plan`). */
+  store?: boolean;
+  /** The store build's rows from Riot's card list, once the first try to read it is over (or a moment has passed): empty when
+   * it could not be read. The developer build has none, and reads catalog.json instead. */
+  cards?(): Promise<readonly CatalogRow[]>;
 }
 
 type Decision = { pkg: StandalonePackage; attempts: Attempt[] } | { reason: string };
@@ -52,7 +59,8 @@ type Decision = { pkg: StandalonePackage; attempts: Attempt[] } | { reason: stri
 type Status =
   | { kind: 'idle' }
   | { kind: 'loading'; message: string }
-  | { kind: 'ready'; worker: EngineWorker; attempt: Attempt }
+  /** `fed`: the engine was given the card list's rows (or has no need of any). */
+  | { kind: 'ready'; worker: EngineWorker; attempt: Attempt; fed: boolean }
   | { kind: 'failed'; reason: string; until: number };
 
 const message = (e: unknown): string => (e instanceof Error ? e.message : String(e));
@@ -71,6 +79,8 @@ export class Controller {
   private crashes: number[] = [];
   private bad = 0;
   private decision: Promise<Decision> | null = null;
+  /** The card list was read while an engine was loading that was not given it. */
+  private late = false;
   /** When a frame last came (ms, the env's clock): the document closes itself when none has for a while. */
   lastFrame: number;
   /** The way the engine runs, once it does. */
@@ -94,7 +104,7 @@ export class Controller {
     this.decision ??= (async (): Promise<Decision> => {
       const pkg = await this.env.readPackage();
       if (!pkg) return { reason: 'this build has no models' };
-      const { attempts, reason } = plan(pkg, await this.env.probe());
+      const { attempts, reason } = plan(pkg, await this.env.probe(), pkg.runtime, this.env.store ?? false);
       return attempts.length > 0 ? { pkg, attempts } : { reason: reason || 'nothing to run' };
     })().catch((e): Decision => ({ reason: message(e) }));
     return this.decision;
@@ -110,10 +120,19 @@ export class Controller {
   }
 
   private async load(): Promise<void> {
+    this.late = false;
     try {
       const decided = await this.decide();
       if ('reason' in decided) return this.fail(decided.reason);
       const { pkg, attempts } = decided;
+      // the store build names the cards from Riot's card list: the engine waits a moment for it, and starts without it (each
+      // printing named by its id) when it does not come
+      let cards: readonly CatalogRow[] | undefined;
+      if (this.env.cards) {
+        this.status = { kind: 'loading', message: 'loading the card list' };
+        cards = await this.env.cards();
+      }
+      const fed = cards === undefined || cards.length > 0;
       const errors: string[] = [];
       for (const attempt of attempts) {
         const worker = this.env.spawn(attempt);
@@ -121,21 +140,42 @@ export class Controller {
         try {
           await worker.init(pkg, attempt, (m) => {
             if (this.status.kind === 'loading') this.status = { kind: 'loading', message: m };
-          });
+          }, cards);
         } catch (e) {
           worker.terminate();
           errors.push(`${describeAttempt(attempt)}: ${message(e)}`);
           continue;
         }
         worker.onCrash((why) => this.crashed(worker, why));
-        this.status = { kind: 'ready', worker, attempt };
+        this.status = { kind: 'ready', worker, attempt, fed };
         this.running = attempt;
         this.bad = 0;
+        if (!fed && this.late) this.restart(worker);
+        this.late = false;
         return;
       }
       this.fail(errors.join('; '));
     } catch (e) {
       this.fail(message(e));
+    }
+  }
+
+  /** Lets the engine go, to start afresh with the next frame (its boards are lost). */
+  private restart(worker: EngineWorker): void {
+    worker.terminate();
+    this.status = { kind: 'idle' };
+    this.running = null;
+  }
+
+  /** Riot's card list was read after the engine had started without it (its first try failed or was slow, and a later one
+   * worked): an engine that was given no rows is started afresh with them, since the rows it holds name every card by its
+   * id and know no type. One that was given the list, or has no need of it, is left alone. */
+  cardsArrived(): void {
+    const s = this.status;
+    if (s.kind === 'ready') {
+      if (!s.fed) this.restart(s.worker);
+    } else if (s.kind === 'loading') {
+      this.late = true; // when it is up
     }
   }
 

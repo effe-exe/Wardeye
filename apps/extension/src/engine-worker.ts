@@ -2,8 +2,9 @@
 // Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The engine worker's loop, for one onnxruntime-web build (engine-webgpu.ts, engine-wasm.ts): the document sends
-// `init` (which models, which way), then a frame at a time; the worker answers with the board. It runs in a worker
-// of the engine document so that a hung or lost GPU costs only this worker, which the document starts afresh.
+// `init` (which models, which way, and in the store build the card list's rows), then a frame at a time; the worker
+// answers with the board. It runs in a worker of the engine document so that a hung or lost GPU costs only this worker,
+// which the document starts afresh.
 
 import { loadGallery, type Reader } from './assets';
 import { bytesOfBase64, decodeJpeg } from './decode';
@@ -43,7 +44,12 @@ export function serve(ort: Ort): void {
     ort.env.logLevel = 'warning';
     const progress = (message: string): void => post({ kind: 'progress', message });
     progress('reading the gallery');
-    const gallery = await loadGallery(read, m.pkg.data);
+    const gallery = await loadGallery(read, m.pkg.data, m.cards);
+    if (m.cards) {
+      // the store build: how many of the gallery's printings Riot's card list named (the rest are named by their ids)
+      const listed = new Set(m.cards.map((c) => c.printing_id));
+      console.info(`Wardeye: the card list names ${gallery.index.rows.filter((id) => listed.has(id)).length} of the gallery's ${gallery.index.rows.length} printings`);
+    }
     const timer = new Timer(() => performance.now());
     const fps = m.pkg.fps ?? FPS;
     const trace: Trace | undefined = m.pkg.trace

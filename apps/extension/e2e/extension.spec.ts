@@ -259,8 +259,18 @@ test('frames from the Twitch player reach the runner and its board is drawn on t
     expect(await animationNames()).toEqual(['none', 'none']);
     await page.emulateMedia({ reducedMotion: 'no-preference' });
 
+    // Alt+R turns it off: hidden, and not a frame read while the video plays; again, and it reads and draws the board once more
     await page.keyboard.press('Alt+KeyR');
     await expect(page.locator('.rifteye-root')).toBeHidden();
+    await page.evaluate(() => (document.getElementById('v') as HTMLVideoElement).play());
+    await page.waitForTimeout(600);
+    const off = posted.length;
+    await page.waitForTimeout(1500);
+    expect(posted.length).toBe(off); // off: nothing is read or sent
+    await page.keyboard.press('Alt+KeyR');
+    await expect(page.locator('.rifteye-root')).toBeVisible();
+    await expect.poll(() => posted.length, { timeout: 10_000 }).toBeGreaterThan(off);
+    await expect(boxes).toHaveCount(2);
   } finally {
     await context?.close();
     runner.close();

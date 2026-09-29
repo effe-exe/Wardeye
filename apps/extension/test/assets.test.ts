@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkPairing, floatsOf, halfToFloat, loadGallery, loadLevels, parseCatalog, parseGalleryIndex, parsePackage, sha256Hex } from '../src/assets';
+import { catalogFromFeed, checkPairing, floatsOf, halfToFloat, loadGallery, loadLevels, parseCatalog, parseGalleryIndex, parsePackage, sha256Hex } from '../src/assets';
 import { floatToHalf } from '../../bench/src/tiny-onnx';
 
 const halves = (values: number[]): Uint8Array => {
@@ -144,5 +144,64 @@ describe('loading the gallery', () => {
 
   it('can tell a file by its hash', async () => {
     expect(await sha256Hex(new TextEncoder().encode('abc'))).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+  });
+});
+
+describe("the store build's catalogue: the gallery's rows named by Riot's card list", () => {
+  // what the engine document gives: a row for each printing the list names (more than the gallery holds, in another order)
+  const listed = [
+    { printing_id: 'Z-9', card_id: 'not-in-the-gallery', name: 'Not In The Gallery', type: 'Unit', domains: [], variant: 'standard' },
+    { printing_id: 'C-3', card_id: 'card-c', name: 'Card C', type: 'Legend', domains: ['Calm', 'Order'], variant: 'standard', tags: ['A Keeper'] },
+    { printing_id: 'A-1', card_id: 'card-a', name: 'Card A, the First', type: 'Unit', domains: ['Fury'], variant: 'standard' },
+  ];
+
+  it("has a row for each row of the gallery's index, in its order, whatever the order of the list", () => {
+    const rows = catalogFromFeed(index.rows, listed);
+    expect(rows.map((r) => r.printing_id)).toEqual(['A-1', 'B-2', 'C-3']);
+    expect(rows[0]).toEqual(listed[2]);
+    expect(rows[2]).toEqual(listed[1]);
+    expect(rows.some((r) => r.printing_id === 'Z-9')).toBe(false); // a printing the gallery does not hold is no row
+  });
+
+  it("names a printing the list does not name by its id, with no type: {printing_id, card_id: printing_id, name: printing_id, type: ''}", () => {
+    expect(catalogFromFeed(index.rows, listed)[1]).toStrictEqual({ printing_id: 'B-2', card_id: 'B-2', name: 'B-2', type: '' });
+    const none = catalogFromFeed(index.rows, []);
+    expect(none).toStrictEqual(index.rows.map((id) => ({ printing_id: id, card_id: id, name: id, type: '' })));
+  });
+
+  it("names another art of a listed printing as that card, and a token the list lacks as 'Token'; the rest by their ids", () => {
+    const base = { printing_id: 'VEN-R01', card_id: 'fury-rune', name: 'Fury Rune', type: 'Rune', domains: ['Fury'], variant: 'standard' };
+    const legend = { printing_id: 'SFD-195', card_id: 'blade-dancer', name: 'Blade Dancer', type: 'Legend', domains: ['Fury', 'Calm'], variant: 'standard', tags: ['Irelia'] };
+    const rows = catalogFromFeed(['VEN-R01', 'VEN-R01a', 'SFD-195a', 'SFD-T01', 'OGN-500a', 'SFD-952*'], [base, legend]);
+    expect(rows[0]).toStrictEqual(base);
+    expect(rows[1]).toStrictEqual({ ...base, printing_id: 'VEN-R01a', variant: 'alt_art' });
+    expect(rows[2]).toStrictEqual({ ...legend, printing_id: 'SFD-195a', variant: 'alt_art' });
+    expect(rows[3]).toStrictEqual({ printing_id: 'SFD-T01', card_id: 'SFD-T01', name: 'Token', type: 'Unit', variant: 'token' });
+    expect(rows[4]).toStrictEqual({ printing_id: 'OGN-500a', card_id: 'OGN-500a', name: 'OGN-500a', type: '' }); // no listed printing to be another art of
+    expect(rows[5]).toStrictEqual({ printing_id: 'SFD-952*', card_id: 'SFD-952*', name: 'SFD-952*', type: '' });
+  });
+
+  it("carries what the list says of a printing (its domains, its variant, a Legend's tags) into the row", () => {
+    const rows = catalogFromFeed(index.rows, listed);
+    expect(rows[2]).toMatchObject({ domains: ['Calm', 'Order'], variant: 'standard', tags: ['A Keeper'] });
+    expect(rows[0]).toMatchObject({ domains: ['Fury'] });
+  });
+
+  it('is what the engine loads instead of catalog.json, and goes with the index as the catalogue does', async () => {
+    const read = async (path: string): Promise<Uint8Array> => {
+      if (path === 'data/gallery/index.json') return new TextEncoder().encode(JSON.stringify(index));
+      if (path === 'data/gallery/L80.bin') return halves([1, 0, 0, 1, 0.6, 0.8]);
+      if (path === 'data/gallery/L90.bin') return halves([0.6, 0.8, 1, 0, 0, 1]);
+      throw new Error(`${path}: HTTP 404`); // the store build has no catalog.json
+    };
+    const g = await loadGallery(read, 'data/', listed);
+    expect(g.rows.map((r) => r.name)).toEqual(['Card A, the First', 'B-2', 'Card C']);
+    expect([...g.levels.keys()]).toEqual([80, 90]);
+    expect(() => checkPairing(g.index, g.rows)).not.toThrow();
+    // the list could not be read: the engine still loads, each printing named by its id
+    const bare = await loadGallery(read, 'data/', []);
+    expect(bare.rows.map((r) => r.name)).toEqual(['A-1', 'B-2', 'C-3']);
+    // and without a list, the developer build's way: catalog.json is asked for
+    await expect(loadGallery(read, 'data/')).rejects.toThrow('data/catalog.json: HTTP 404');
   });
 });

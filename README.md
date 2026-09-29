@@ -26,7 +26,7 @@ It is made by Federico Vietti, who also makes [Gradeon](https://gradeon.ai), the
 2. The Wardeye badge on the player says what it is doing: finding the table, then how many cards it has named.
 3. Point at a card on the table. The hover card shows its name, its official image, how sure Wardeye is, and what lies under it, such as gear on a unit.
 
-It works in theatre mode and fullscreen. **Alt+R** (Option+R on a Mac) hides or shows the overlay.
+It works in theatre mode and fullscreen. **Alt+R** (Option+R on a Mac) turns Wardeye off and on: off, the overlay is hidden and it reads nothing.
 
 ## Status: alpha
 

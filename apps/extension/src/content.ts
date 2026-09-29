@@ -4,7 +4,7 @@
 // Wardeye on the player itself. While the video plays, this grabs its current frame a few times a
 // second and hands it to the extension's worker, which asks the live runner on this machine; the
 // board it answers with is drawn over the picture: each card's box, its name once Wardeye is sure,
-// and a hover card when you point at it. Paused, nothing is sent and the board stays. Alt+R hides it.
+// and a hover card when you point at it. Paused, or turned off with Alt+R, nothing is read or sent and the board stays.
 // How it looks is overlay.css (the brand book's section 8); this file makes the markup and never sets a colour.
 
 import { NAME, badge, badgeDetail, badgeParts, becameNamed, boxClass, captureSize, contentRect, drawn, frameInterval, hoverCard, label, labelAnchor, type State, type Track } from './geometry';
@@ -129,7 +129,7 @@ async function capture(v: HTMLVideoElement): Promise<string | null> {
 function tick(): void {
   video = findVideo();
   place();
-  if (!video || video.paused || video.ended || inFlight || !port) return;
+  if (!video || !shown || video.paused || video.ended || inFlight || !port) return; // off (Alt+R) or paused: nothing is read
   const now = performance.now();
   if (now - lastSent < frameInterval(state, EVERY_MS)) return;
   inFlight = true;
@@ -299,6 +299,7 @@ function moveCard(e: PointerEvent): void {
   card.style.top = `${y}px`;
 }
 
+// Alt+R (Option+R on a Mac) turns Wardeye off and on: off, the overlay is hidden and no frame is read or sent; the board stays
 document.addEventListener('keydown', (e) => {
   if (e.altKey && (e.key === 'r' || e.key === 'R' || e.code === 'KeyR')) {
     shown = !shown;

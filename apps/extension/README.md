@@ -16,7 +16,7 @@ Twitch player ──frame──▶ content script ──port──▶ worker ─
 
 - **Nothing leaves the computer.** The engine reads the frames in the browser, the runner on 127.0.0.1, and only the table window is looked at: hand cams, player cams and the broadcast's hand lists are hidden information and never read ([D-005](../../docs/decisions.md)). Face-down cards are shown as face-down and never identified.
 - **It follows the video.** Paused, nothing is sent and the board stays. A jump in the video starts a new board; another video (another page) finds its own table. The engine reads up to five frames a second (the runner about two), so boxes trail the picture by a fraction of a second.
-- **Keys.** Alt+R hides or shows the overlay.
+- **Keys.** Alt+R (Option+R on a Mac) turns Wardeye off and on: off, the overlay is hidden and no frame is read or sent.
 
 ## Use it
 
@@ -51,6 +51,23 @@ Unzip, then **Load unpacked** on the `rifteye-standalone` folder. The zip holds 
 | `layout` | a preset (`la-rq`, `plusrb`, `shenyang`) for every video, instead of finding the table from the footage. |
 | `fps`, `threads` | the frames a second the boards are built for (default 5); the WASM threads (default up to 4). |
 
+## The Chrome Web Store build
+
+The store's version ([D-025](../../docs/decisions.md#d-025-release-on-the-chrome-web-store-now-and-apply-to-riot-in-parallel)) is standalone only, and one zip with the manifest at its root:
+
+```bash
+npm run build:store -w @rifteye/extension                      # dist-store/: no companion code, no access to 127.0.0.1
+RIFTEYE_DATA=~/rifteye-data npm run pack:store -w @rifteye/extension -- --out wardeye-VERSION.zip
+```
+
+- **What the zip holds:** the models and the embedding gallery, keyed by printing id. It holds no catalogue and no hover pictures: `src/feed.ts` loads the card names, types and pictures from Riot's public card gallery as the viewer watches ([privacy policy](../../docs/PRIVACY.md)). `pack.mjs --store` refuses a zip that holds a card picture, name or text, or lacks the licences.
+- **A printing the list does not name:**
+  - another art of a listed one (`SET-NNNa`) takes that card's name and type;
+  - a token by its code is named "Token";
+  - the rest are named by their ids.
+- **If the list cannot be read,** recognition still runs, with printing ids for names. The list is asked for again a minute later, at most five times.
+- **Its browser tests:** `e2e/store.spec.ts`, against a local fake of the gallery (`e2e/fake-riot.ts`, which needs `openssl`).
+
 ## How the standalone mode works
 
 - **The worker** (`src/worker.ts`) gets each frame over the content script's port. A Twitch tab that connects makes the engine document. A build with no `standalone.json` (the public build) makes nothing and asks nothing: it is companion mode, as before. When the browser has no WebGPU adapter, or the engine cannot start, the worker says why in the console, uses the live runner, and asks the engine again after five minutes.
@@ -70,7 +87,7 @@ Unzip, then **Load unpacked** on the `rifteye-standalone` folder. The zip holds 
 - `src/engine-worker.ts`, `src/engine-webgpu.ts`, `src/engine-wasm.ts`, `src/engine-host.ts`, `src/session.ts`: the engine worker for each build of onnxruntime-web, the host (a board for each tab, what it adds to the state) and one tab's video (layout, jumps, videos).
 - `src/parts.ts`, `src/parts-engine.ts`: what the host needs of the engine, as interfaces, and the engine behind them (the only file that reaches into `@rifteye/engine`).
 - `src/geometry.ts`: the pure part of the overlay (where the picture sits in the player, what each track draws and says, the badge), unit-tested. The other pure modules: `assets.ts` (the package's files), `levels.ts`, `mode.ts`, `presets.ts`, `thumbs.ts`, `timer.ts`, `decode.ts`.
-- `pack.mjs`: the private build as zip parts. `build.mjs`: the public build.
+- `pack.mjs`: the private build as zip parts, or with `--store` the store's zip. `build.mjs`: the public build, or with `--store` the store's.
 - The companion side: `ml/rifteye_ml/live/browser.py` and `POST /frame` in `ml/rifteye_ml/live/server.py`, which refuses frames from web pages (only the extension or this machine may post).
 
 ## Tests

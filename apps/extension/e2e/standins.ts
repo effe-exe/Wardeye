@@ -3,7 +3,8 @@
 //
 // The private build's package with stand-ins for what is private, made at test time (nothing here is committed as a
 // file): two tiny ONNX models, a gallery of three "cards" and their catalogue, hover pictures and standalone.json.
-// The embedder is the mean colour of an 8 x 8 crop; the gallery's rows are colours.
+// The embedder is the mean colour of an 8 x 8 crop; the gallery's rows are colours. The store build's package has no
+// catalogue and no hover pictures (`store`): its names, types and pictures come from a fake of Riot's gallery (fake-riot.ts).
 
 import { encodeModel, floatToHalf, type TinyGraph } from '../../bench/src/tiny-onnx';
 import { thumbName } from '../src/thumbs';
@@ -87,6 +88,8 @@ export interface StandIn {
   noModels?: boolean;
   /** The embedder in float16 only, as the private build ships it (the detector is float32 either way). */
   embedderFp16?: boolean;
+  /** The Chrome Web Store build's package: no catalog.json and no data/thumbs. */
+  store?: boolean;
 }
 
 /** Every file of the package's private part, by its path in the package. */
@@ -110,8 +113,8 @@ export function standInFiles(opts: StandIn = {}): Record<string, Uint8Array | st
       levels,
       rows: ROWS.map((r) => r.printing_id),
     }),
-    'data/catalog.json': json(ROWS.map(({ emb: _emb, ...r }) => r)),
   };
+  if (!opts.store) files['data/catalog.json'] = json(ROWS.map(({ emb: _emb, ...r }) => r));
   if (!opts.noModels) {
     files['models/standin-detector.onnx'] = encodeModel(detectorGraph());
     if (opts.embedderFp16) files['models/standin-embedder.fp16.onnx'] = encodeModel(embedderGraph(true));
@@ -121,6 +124,6 @@ export function standInFiles(opts: StandIn = {}): Record<string, Uint8Array | st
   const view = new DataView(half.buffer);
   ROWS.forEach((r, i) => r.emb.forEach((v, d) => view.setUint16((i * 4 + d) * 2, floatToHalf(v), true)));
   for (const lv of levels) files[`data/gallery/L${lv}.bin`] = half;
-  for (const r of ROWS) files[`data/thumbs/${thumbName(r.printing_id)}.jpg`] = JPEG;
+  if (!opts.store) for (const r of ROWS) files[`data/thumbs/${thumbName(r.printing_id)}.jpg`] = JPEG;
   return files;
 }
