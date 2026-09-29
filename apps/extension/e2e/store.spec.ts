@@ -9,7 +9,7 @@ import { load, offscreenDocuments, twitch, unload, type Loaded } from './harness
 
 // The stand-in gallery (standins.ts) holds TST-001 (the gold block), TST-002 and TST-003 (which the blue block cannot tell apart).
 // The fake list names the first two, differently from anything the package could say, and does not name TST-003; it also holds a
-// printing the gallery does not, one with no picture, and enough filler for a second page.
+// printing the gallery does not, one with no picture, and filler: more than a page of 200, which the list is not read in.
 const LIST = [
   item('TST-001/100', 'Fed Unit', { subtitle: 'The Golden' }), // a champion unit: its subtitle is in its name
   item('TST-002/100', 'Fed Guess Two'),
@@ -75,8 +75,8 @@ test("the store build names the cards from Riot's gallery, and draws the picture
     await expect(page.locator('.rifteye-badge-main')).toHaveText(/^Wardeye · 1 card named · \d+\.\d reads\/s$/);
     await expect(page.locator('.rifteye-badge-detail')).toHaveText(/^WebGPU · detector fp32 · embedder fp32 · /);
 
-    // the list was read a page at a time, 200 items from each `from`
-    expect(feedRequests(riot)).toEqual([0, 200].map((from) => `/publishing-content/v2.0/public/channel/riftbound_website/list/riftbound_gallery_cards?locale=en_US&from=${from}&limit=200`));
+    // the list was read in one request, all of it at once
+    expect(feedRequests(riot)).toEqual(['/publishing-content/v2.0/public/channel/riftbound_website/list/riftbound_gallery_cards?locale=en_US&from=0&limit=2000']);
 
     // the hover card: the name, and the picture the gallery gives (400 x 559: the card is drawn 200 x 280, not the 16 x 16 of a package's)
     await boxes.first().hover();
@@ -147,7 +147,7 @@ test('with the card list down, recognition still runs and the overlay shows prin
     await expect(page.locator('text.rifteye-label', { hasText: /\S/ })).toHaveText([FED], { timeout: 200_000 });
     const asked = feedRequests(riot);
     expect(asked.filter((u) => u.includes('from=0')).length).toBeGreaterThanOrEqual(2); // the first try, and the one that worked
-    expect(asked.filter((u) => u.includes('from=200'))).toHaveLength(1); // the second page was asked for by the one that worked, and by no other
+    expect(asked.every((u) => u.endsWith('?locale=en_US&from=0&limit=2000'))).toBe(true); // every try asked for the whole list at once
     await boxes.first().hover();
     await expect(card).toContainText(FED);
     await expect.poll(async () => near(await middle(card.locator('canvas.rifteye-art').first()), MAGENTA), { timeout: 10_000 }).toBe(true);

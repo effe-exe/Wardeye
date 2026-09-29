@@ -207,7 +207,7 @@ describe('the store build of the extension (node build.mjs --store)', () => {
     expect(JSON.stringify(manifest)).not.toContain('127.0.0.1');
     expect(manifest.host_permissions).toEqual(['https://content.publishing.riotgames.com/*', 'https://cmsassets.rgpub.io/*']); // exactly these two
     expect({ ...manifest, host_permissions: srcManifest.host_permissions }).toEqual(srcManifest); // every other key as it is in src/manifest.json
-    expect(manifest.version).toBe('0.1.0');
+    expect(manifest.version).toBe('0.1.1');
     expect(manifest.permissions).toEqual(['offscreen']);
     expect(manifest.content_scripts.flatMap((c) => c.matches)).toEqual(['https://www.twitch.tv/*']); // it runs on twitch.tv and nowhere else
   });

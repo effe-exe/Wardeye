@@ -158,9 +158,9 @@ function server(n: number, over: (page: number, body: Record<string, unknown>) =
   return { asked, getJson };
 }
 
-function feedOf(getJson: FeedEnv['getJson']) {
+function feedOf(getJson: FeedEnv['getJson'], pageSize = PAGE_SIZE) {
   const timers: { run: () => void; ms: number }[] = [];
-  const feed = new Feed({ getJson, later: (run, ms) => void timers.push({ run, ms }) });
+  const feed = new Feed({ getJson, later: (run, ms) => void timers.push({ run, ms }) }, RETRY_MS, MAX_RETRIES, pageSize);
   return { feed, timers };
 }
 
@@ -176,13 +176,14 @@ describe('the card list', () => {
     info.mockRestore();
   });
 
-  it('is read a page at a time, 200 items from each `from`, until the pages the feed says it has', async () => {
+  it('is asked for all at once, in one request', async () => {
     const s = server(450);
     const { feed, timers } = feedOf(s.getJson);
     expect(feed.loaded).toBe(false);
     expect(feed.rows()).toEqual([]);
     await feed.settled();
-    expect(s.asked).toEqual([0, 200, 400].map((from) => `${FEED_URL}?locale=en_US&from=${from}&limit=${PAGE_SIZE}`));
+    expect(PAGE_SIZE).toBe(2000);
+    expect(s.asked).toEqual([`${FEED_URL}?locale=en_US&from=0&limit=2000`]);
     expect(feed.loaded).toBe(true);
     expect(feed.rows()).toHaveLength(450);
     expect(feed.rows()[0]).toEqual({ printing_id: 'TST-001', card_id: 'card-1', name: 'Card 1', type: 'Unit', domains: ['Fury', 'Calm'], variant: 'standard' }); // no picture address
@@ -200,16 +201,39 @@ describe('the card list', () => {
     expect(s.asked).toHaveLength(1);
   });
 
+  it('reads a list longer than one request page by page, twice, until the pages the feed says it has', async () => {
+    const s = server(450);
+    const { feed } = feedOf(s.getJson, 200);
+    await feed.settled();
+    expect(s.asked).toEqual([0, 200, 400, 0, 200, 400].map((from) => `${FEED_URL}?locale=en_US&from=${from}&limit=200`));
+    expect(feed.rows()).toHaveLength(450);
+  });
+
+  it('keeps a printing that moved across the edge of a page between two requests, as Riot\'s pages do', async () => {
+    const all = Array.from({ length: 6 }, (_, i) => item(`TST-${String(i + 1).padStart(3, '0')}/6`, `Card ${i + 1}`));
+    // the first pass sees the list in another order: TST-003 twice (on both pages) and TST-004 on neither
+    const shifted = [all[0], all[1], all[2], all[2], all[4], all[5]];
+    let calls = 0;
+    const { feed } = feedOf(async (url) => {
+      const from = Number(new URL(url).searchParams.get('from'));
+      const list = calls++ < 2 ? shifted : all;
+      return { metadata: { totalItems: 6, totalPages: 2 }, data: list.slice(from, from + 3) };
+    }, 3);
+    await feed.settled();
+    expect(calls).toBe(4);
+    expect(feed.rows().map((r) => r.printing_id).sort()).toEqual(['TST-001', 'TST-002', 'TST-003', 'TST-004', 'TST-005', 'TST-006']);
+  });
+
   it('stops where the pages end even when the feed gives no count of them, and never runs on', async () => {
     const noPages = server(300, (_p, b) => ({ data: b.data }));
-    await feedOf(noPages.getJson).feed.settled();
-    expect(noPages.asked).toHaveLength(2); // a full page, then a short one
+    await feedOf(noPages.getJson, 200).feed.settled();
+    expect(noPages.asked).toHaveLength(4); // a full page, then a short one; twice
     const totalOnly = server(450, (_p, b) => ({ metadata: { totalItems: 450 }, data: b.data }));
-    await feedOf(totalOnly.getJson).feed.settled();
-    expect(totalOnly.asked).toHaveLength(3);
+    await feedOf(totalOnly.getJson, 200).feed.settled();
+    expect(totalOnly.asked).toHaveLength(6);
     const endless = server(7000, (_p, b) => ({ metadata: { totalPages: 1e9 }, data: b.data }));
-    await feedOf(endless.getJson).feed.settled();
-    expect(endless.asked).toHaveLength(30); // a stop for a feed that never says where it ends
+    await feedOf(endless.getJson, 200).feed.settled();
+    expect(endless.asked).toHaveLength(60); // a stop for a feed that never says where it ends: 30 pages, twice
   });
 
   it('fails as a whole when a page fails, and keeps nothing of the pages before it', async () => {
@@ -218,7 +242,7 @@ describe('the card list', () => {
     const { feed } = feedOf(async (url) => {
       if (fail && url.includes('from=200')) throw new Error('HTTP 503');
       return s.getJson(url);
-    });
+    }, 200);
     await feed.settled();
     expect(feed.loaded).toBe(false);
     expect(feed.rows()).toEqual([]);

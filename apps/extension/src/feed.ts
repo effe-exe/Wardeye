@@ -3,7 +3,7 @@
 //
 // Riot's public card gallery, for the Chrome Web Store build (decisions D-015 and D-025): that build carries the models and
 // an embedding gallery keyed by printing id, and no card name, type, text or image. The engine document reads the gallery's
-// card list once (a few pages of JSON) and keeps the names and types in memory; a card's picture is fetched from Riot's
+// card list once (one request, about 3 MB of JSON) and keeps the names and types in memory; a card's picture is fetched from Riot's
 // image server when the overlay shows it, and the last 64 are kept in memory. Nothing is stored anywhere by the extension
 // (the browser's own HTTP cache may keep the responses), and nothing is sent but these requests (docs/PRIVACY.md).
 //
@@ -18,14 +18,17 @@
 import type { CatalogRow } from '@rifteye/engine';
 import { b64Of } from './base64';
 
-/** The gallery's list of cards, in English; `from` counts items, `limit` is at most 200. */
+/** The gallery's list of cards, in English; `from` counts items, and `limit` takes the whole list (2000 answers with all of it). */
 export const FEED_URL = 'https://content.publishing.riotgames.com/publishing-content/v2.0/public/channel/riftbound_website/list/riftbound_gallery_cards';
 /** Where the pictures are: the only place a card's picture is fetched from. */
 export const IMAGE_ORIGIN = 'https://cmsassets.rgpub.io';
 /** What is added to a picture's address: 400 px wide, as a JPEG (about 42 KB; the original is a 778 KB PNG). The address has
  * a query already (`?accountingTag=RB`), which stays. */
 export const PICTURE_QUERY = 'w=400&fm=jpg&q=80';
-export const PAGE_SIZE = 200;
+/** How many items one request asks for: the whole list, which holds about 1,200. Riot's pages are not stable from one request to the
+ * next: measured on 29 September 2026, the same seven pages of 200, asked for twice, came back in another order, one printing
+ * doubled and another missing. So the list is read in one request, and page by page only when it outgrows one (`Feed.readAll`). */
+export const PAGE_SIZE = 2000;
 /** A list is asked for again this long after a try that failed, up to `MAX_RETRIES` times. */
 export const RETRY_MS = 60_000;
 export const MAX_RETRIES = 5;
@@ -155,6 +158,7 @@ export class Feed {
     private readonly env: FeedEnv,
     private readonly retryMs = RETRY_MS,
     private readonly maxRetries = MAX_RETRIES,
+    private readonly pageSize = PAGE_SIZE,
   ) {}
 
   /** Starts reading the list (once) and says when the first try is over, whether it worked or not; it does not fail. */
@@ -197,22 +201,32 @@ export class Feed {
     }
   }
 
-  /** Every page, from = 0, 200, ... until the pages the feed says it has; all of it or nothing. */
+  /** The whole list, all of it or nothing: one request while it fits in one. A longer list is read page by page twice, keeping every
+   * printing either pass saw, since a printing can move across a page's edge between two requests (`PAGE_SIZE`). */
   private async readAll(): Promise<FeedCard[]> {
     const all = new Map<string, FeedCard>();
+    if ((await this.pass(all)) > 1) await this.pass(all);
+    if (all.size === 0) throw new Error('the list names no card');
+    return [...all.values()];
+  }
+
+  /** One reading of the pages, from = 0, pageSize, ... until the pages the feed says it has, into `all`; how many pages it read. */
+  private async pass(all: Map<string, FeedCard>): Promise<number> {
+    const size = this.pageSize;
     let pages = 1;
+    let read = 0;
     for (let page = 0; page < pages; page++) {
-      const body = object(await this.env.getJson(`${FEED_URL}?locale=en_US&from=${page * PAGE_SIZE}&limit=${PAGE_SIZE}`));
+      const body = object(await this.env.getJson(`${FEED_URL}?locale=en_US&from=${page * size}&limit=${size}`));
       if (!Array.isArray(body.data)) throw new Error('the list has no data');
+      read++;
       for (const c of parseFeed(body.data)) if (!all.has(c.printing_id)) all.set(c.printing_id, c);
       const meta = object(body.metadata);
       const total =
-        typeof meta.totalPages === 'number' ? meta.totalPages : typeof meta.totalItems === 'number' ? Math.ceil(meta.totalItems / PAGE_SIZE) : body.data.length >= PAGE_SIZE ? page + 2 : page + 1;
+        typeof meta.totalPages === 'number' ? meta.totalPages : typeof meta.totalItems === 'number' ? Math.ceil(meta.totalItems / size) : body.data.length >= size ? page + 2 : page + 1;
       pages = Math.min(total, MAX_PAGES);
       if (body.data.length === 0) break;
     }
-    if (all.size === 0) throw new Error('the list names no card');
-    return [...all.values()];
+    return read;
   }
 }
 
