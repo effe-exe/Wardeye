@@ -4,6 +4,7 @@
 // An engine worker as the engine document runs it: requests out with an id, answers matched back, and a worker
 // that dies or does not answer reported, not waited for.
 
+import type { CatalogRow } from '@rifteye/engine';
 import type { StandalonePackage } from './assets';
 import type { EngineWorker, FrameOut, FrameReq } from './controller';
 import type { Attempt } from './mode';
@@ -76,11 +77,11 @@ export class WorkerEngine implements EngineWorker {
     this.pending.clear();
   }
 
-  init(pkg: StandalonePackage, attempt: Attempt, progress: (message: string) => void): Promise<void> {
+  init(pkg: StandalonePackage, attempt: Attempt, progress: (message: string) => void, cards?: readonly CatalogRow[]): Promise<void> {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => this.die(`the engine did not start in ${this.initMs / 1000} s`), this.initMs);
       this.starting = { resolve, reject, progress, timer };
-      this.post({ kind: 'init', pkg, attempt });
+      this.post({ kind: 'init', pkg, attempt, ...(cards ? { cards: [...cards] } : {}) });
     });
   }
 

@@ -55,6 +55,7 @@ venv/
 # Node / web
 node_modules/
 dist/
+dist-store/
 build/
 .output/
 .wxt/

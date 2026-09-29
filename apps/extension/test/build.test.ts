@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { FEED_URL, IMAGE_ORIGIN } from '../src/feed';
 import { MARK_SHAPES } from '../src/mark';
 
 const EXT = fileURLToPath(new URL('../', import.meta.url));
@@ -21,6 +22,7 @@ interface Manifest {
   icons: Record<string, string>;
   content_scripts: { matches: string[]; js: string[]; css: string[] }[];
   web_accessible_resources: { resources: string[]; matches: string[] }[];
+  host_permissions?: string[];
   [key: string]: unknown;
 }
 
@@ -159,6 +161,13 @@ describe('the build of the extension', () => {
     for (const c of made) expect(rules, c).toMatch(new RegExp(`\\.${c}(?![\\w-])`));
   });
 
+  it('is the developer build: its companion mode is there (the live runner on 127.0.0.1), and its manifest asks for that access and no other', () => {
+    expect(manifest.host_permissions).toEqual(['http://127.0.0.1/*']);
+    expect(built('worker.js')).toContain('127.0.0.1');
+    expect(built('offscreen.js')).not.toContain('cmsassets.rgpub.io'); // Riot's card gallery is the store build's: this one reads its packaged catalogue
+    expect(built('offscreen.js')).not.toContain('riotgames.com');
+  });
+
   it('is what pack.mjs packs: the private build takes every file of dist, so the icons and the typefaces the manifest names go into the zip', () => {
     const list = /const DIST_FILES = \[([^\]]*)\]/.exec(readFileSync(join(EXT, 'pack.mjs'), 'utf8'))![1]!;
     const packed = [...stripComments(list.replace(/\/\/.*$/gm, '')).matchAll(/'([^']+)'/g)].map((m) => m[1]!).sort();
@@ -166,5 +175,79 @@ describe('the build of the extension', () => {
     for (const path of [...Object.values(manifest.icons), ...manifest.web_accessible_resources.flatMap((w) => w.resources), ...manifest.content_scripts.flatMap((c) => [...c.js, ...c.css])]) {
       expect(packed, path).toContain(path);
     }
+  });
+});
+
+describe('the store build of the extension (node build.mjs --store)', () => {
+  let store: string;
+  let dev: string;
+  let manifest: Manifest;
+  const listFiles = (dir: string, prefix = ''): string[] =>
+    readdirSync(join(dir, prefix), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? listFiles(dir, join(prefix, e.name)) : [join(prefix, e.name)]));
+  const srcManifest = JSON.parse(readFileSync(join(EXT, 'src', 'manifest.json'), 'utf8')) as Manifest;
+  const scripts = (): string[] => readdirSync(store).filter((n) => n.endsWith('.js'));
+
+  beforeAll(() => {
+    store = mkdtempSync(join(tmpdir(), 'wardeye-store-build-test-'));
+    dev = mkdtempSync(join(tmpdir(), 'wardeye-dev-build-test-'));
+    for (const [args, dir] of [[['--store'], store], [[], dev]] as const) {
+      const run = spawnSync('node', [join(EXT, 'build.mjs'), ...args, '--out', dir], { encoding: 'utf8' });
+      expect(run.status, run.stderr).toBe(0);
+    }
+    manifest = JSON.parse(readFileSync(join(store, 'manifest.json'), 'utf8')) as Manifest;
+  }, 60_000);
+
+  afterAll(() => {
+    rmSync(store, { recursive: true, force: true });
+    rmSync(dev, { recursive: true, force: true });
+  });
+
+  it("has the developer's manifest less its access to 127.0.0.1, plus access to Riot's card gallery, and nothing else different", () => {
+    expect(srcManifest.host_permissions).toEqual(['http://127.0.0.1/*']);
+    expect(JSON.stringify(manifest)).not.toContain('127.0.0.1');
+    expect(manifest.host_permissions).toEqual(['https://content.publishing.riotgames.com/*', 'https://cmsassets.rgpub.io/*']); // exactly these two
+    expect({ ...manifest, host_permissions: srcManifest.host_permissions }).toEqual(srcManifest); // every other key as it is in src/manifest.json
+    expect(manifest.version).toBe('0.1.0');
+    expect(manifest.permissions).toEqual(['offscreen']);
+    expect(manifest.content_scripts.flatMap((c) => c.matches)).toEqual(['https://www.twitch.tv/*']); // it runs on twitch.tv and nowhere else
+  });
+
+  it("asks for the hosts the code reads from: the card list's and the pictures'", () => {
+    expect(manifest.host_permissions).toEqual([`${new URL(FEED_URL).origin}/*`, `${IMAGE_ORIGIN}/*`]);
+  });
+
+  it('has no companion mode in it: no bundle names 127.0.0.1 or the live runner\'s client', () => {
+    for (const file of scripts()) {
+      const js = readFileSync(join(store, file), 'utf8');
+      expect(js, file).not.toContain('127.0.0.1');
+      expect(js, file).not.toMatch(/findRunner|postFrame|X-Media-Time|\/frame`/);
+    }
+    // ... and the developer build's has, as before
+    expect(readFileSync(join(dev, 'worker.js'), 'utf8')).toContain('127.0.0.1');
+  });
+
+  it("reads Riot's card list and pictures in the engine document, and only there", () => {
+    const has = (file: string, text: string): boolean => readFileSync(join(store, file), 'utf8').includes(text);
+    expect(has('offscreen.js', 'riftbound_gallery_cards')).toBe(true);
+    expect(has('offscreen.js', IMAGE_ORIGIN)).toBe(true);
+    for (const file of ['worker.js', 'content.js', 'engine-webgpu.js', 'engine-wasm.js']) {
+      expect(has(file, 'riftbound_gallery_cards'), file).toBe(false);
+      expect(has(file, IMAGE_ORIGIN), file).toBe(false);
+    }
+  });
+
+  it('is built the way the developer build is otherwise: the same files, so that pack.mjs packs it', () => {
+    expect(listFiles(store).sort()).toEqual(listFiles(dev).sort());
+    for (const path of ['overlay.css', 'offscreen.html', 'fonts/OFL-Inter.txt', 'icons/icon-128.png']) {
+      expect(readFileSync(join(store, path)).equals(readFileSync(join(dev, path))), path).toBe(true);
+    }
+  });
+
+  it('refuses what it does not know, and writes to dist-store/ (never over dist/) when no folder is named', () => {
+    const run = spawnSync('node', [join(EXT, 'build.mjs'), '--store', '--nonsense'], { encoding: 'utf8' });
+    expect(run.status).not.toBe(0);
+    expect(run.stderr).toContain('usage: node build.mjs [--store] [--out DIR]');
+    const src = readFileSync(join(EXT, 'build.mjs'), 'utf8');
+    expect(src).toContain("here(store ? './dist-store' : './dist')");
   });
 });

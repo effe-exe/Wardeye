@@ -12,6 +12,7 @@
 //   node pack.mjs --out OUT.zip [--models DIR] [--assets DIR] [--precisions detector:fp32,embedder:fp16] [--size-only]
 //                 [--part-bytes N] [--runtime auto|webgpu|wasm|companion] [--layout NAME]
 //                 [--dist DIR] [--ort DIR] [--stage DIR] [--no-verify]
+//   node pack.mjs --store --out OUT.zip [--models DIR] [--assets DIR] [--precisions ...] [--dist DIR] [--ort DIR] [--stage DIR]
 //
 // --out         the parts are OUT.part-aa, OUT.part-ab, ...; OUT ends in .zip
 // --models      where the ONNX files are (default $RIFTEYE_DATA/models/onnx)
@@ -25,18 +26,26 @@
 // --size-only   builds nothing: streams the zip through a byte counter and prints what it would be
 // --no-verify   skips the check of the parts (their sha256 and every file of the joined zip)
 // --stage       where the staging folder of symlinks goes (default: a folder of its own under the temp folder)
+// --store       the Chrome Web Store zip (decision D-025) instead of the private build: ONE zip whose root is the extension
+//               (manifest.json at the root), from the store build (npm run build:store -w @rifteye/extension: --dist defaults to
+//               dist-store/, and is refused when it is not the store's). It holds the extension, ort/, models/ (the detector in
+//               float32, the embedder in float16), data/gallery/ (the embedding gallery, keyed by printing id), standalone.json,
+//               LICENSE, NOTICE, and the onnxruntime notices; and NO data/catalog.json, no data/thumbs, no card picture, name or
+//               text: those load from Riot's public card gallery as the viewer watches (D-015). The zip is checked (unzip -t, and
+//               that its files are what was staged and nothing that must not be there) and its size printed.
 //
 // Nothing big is copied: the staging folder holds symlinks, which `zip` follows. The models, the gallery and the
-// thumbnails are made from Riot's card art and stay private (decision D-006): they go only into this zip.
+// thumbnails are made from Riot's card art and stay private (decision D-006): they go only into this zip (the store's
+// has the models and the gallery, whose vectors are keyed by printing id, and never a thumbnail).
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
-  createReadStream, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmdirSync, statSync, symlinkSync, unlinkSync,
-  writeFileSync,
+  createReadStream, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmdirSync, rmSync, statSync, symlinkSync,
+  unlinkSync, writeFileSync,
 } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { Transform, Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
@@ -54,9 +63,12 @@ const DIST_FILES = [
 const ORT_FILES = ['ort-wasm-simd-threaded.jspi.mjs', 'ort-wasm-simd-threaded.jspi.wasm', 'ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm'];
 const PORTABLE = /^[A-Za-z0-9._-]+$/; // a file name that every system unzips
 const MODELS = ['detector-v0', 'embedder-v1'];
+// the store's manifest: access to Riot's public card gallery and nothing else (build.mjs --store writes it)
+const RIOT_HOSTS = ['https://content.publishing.riotgames.com/*', 'https://cmsassets.rgpub.io/*'];
 const USAGE =
   'usage: node pack.mjs --out FILE.zip [--models DIR] [--assets DIR] [--precisions detector:fp32,embedder:fp16] [--size-only] [--part-bytes N] ' +
-  '[--runtime auto|webgpu|wasm|companion] [--layout NAME] [--dist DIR] [--ort DIR] [--stage DIR] [--no-verify]';
+  '[--runtime auto|webgpu|wasm|companion] [--layout NAME] [--dist DIR] [--ort DIR] [--stage DIR] [--no-verify]\n' +
+  '   or: node pack.mjs --store --out FILE.zip [--models DIR] [--assets DIR] [--precisions ...] [--dist DIR] [--ort DIR] [--stage DIR]';
 
 class PackError extends Error {}
 const fail = (message) => {
@@ -88,12 +100,15 @@ function parseArgs(argv) {
   const data = process.env.RIFTEYE_DATA || null;
   const o = {
     out: null, models: data && join(data, 'models', 'onnx'), assets: data && join(data, 'm3', 'web-assets'), precisions: parsePrecisions('detector:fp32,embedder:fp16'), sizeOnly: false, partBytes: 30_800_000,
-    runtime: 'auto', layout: null, dist: here('./dist'), ort: null, stage: null, verify: true,
+    runtime: 'auto', layout: null, dist: null, ort: null, stage: null, verify: true, store: false,
   };
+  const given = new Set();
   for (let i = 0; i < argv.length; i++) {
     const [flag, inline] = argv[i].startsWith('--') ? argv[i].split(/=(.*)/s, 2) : [argv[i]];
+    given.add(flag);
     const value = () => inline ?? argv[++i] ?? fail(USAGE);
-    if (flag === '--out') o.out = value();
+    if (flag === '--store') o.store = true;
+    else if (flag === '--out') o.out = value();
     else if (flag === '--models') o.models = value();
     else if (flag === '--assets') o.assets = value();
     else if (flag === '--precisions') o.precisions = parsePrecisions(value());
@@ -109,7 +124,12 @@ function parseArgs(argv) {
   }
   if (!['auto', 'webgpu', 'wasm', 'companion'].includes(o.runtime)) fail('--runtime is auto, webgpu, wasm or companion');
   if (!Number.isInteger(o.partBytes) || o.partBytes < 1000) fail('--part-bytes must be a whole number of at least 1000');
-  if (!o.sizeOnly && !o.out) fail(USAGE);
+  if (o.store) {
+    // one zip, made the way the store takes it: nothing of the private build's parts, and its runtime is the browser's to choose
+    for (const flag of ['--part-bytes', '--size-only', '--runtime', '--layout', '--no-verify']) if (given.has(flag)) fail(`${flag} does not apply to --store (one zip, always checked, its runtime is auto)`);
+    if (!o.out) fail(USAGE);
+  } else if (!o.sizeOnly && !o.out) fail(USAGE);
+  o.dist ??= here(o.store ? './dist-store' : './dist');
   if (!o.models) fail('--models: name the folder with the ONNX files, or set RIFTEYE_DATA to the private data folder');
   if (!o.assets) fail('--assets: name the folder web_assets.py wrote, or set RIFTEYE_DATA to the private data folder');
   return o;
@@ -158,28 +178,30 @@ function chooseModels(modelsDir, precisions) {
   return out;
 }
 
-/** The gallery, the catalogue and the thumbnails, read and checked against each other and against the models. */
-async function checkAssets(assetsDir, modelsDir, models) {
+/** The gallery, the catalogue and the thumbnails, read and checked against each other and against the models. The store build has
+ * neither catalogue nor thumbnails (Riot's card gallery gives names, types and pictures as the viewer watches): with `store`,
+ * only the gallery, and the models it was made with, are read. */
+async function checkAssets(assetsDir, modelsDir, models, store = false) {
   const at = (...p) => join(assetsDir, ...p);
-  for (const f of ['gallery/index.json', 'catalog.json', 'thumbs']) if (!existsSync(at(f))) fail(`${at(f)} is missing: run python -m rifteye_ml.web_assets first`);
+  for (const f of store ? ['gallery/index.json'] : ['gallery/index.json', 'catalog.json', 'thumbs']) if (!existsSync(at(f))) fail(`${at(f)} is missing: run python -m rifteye_ml.web_assets first`);
   let index;
-  let catalog;
+  let catalog = [];
   try {
     index = JSON.parse(readFileSync(at('gallery', 'index.json'), 'utf8'));
-    catalog = JSON.parse(readFileSync(at('catalog.json'), 'utf8'));
+    if (!store) catalog = JSON.parse(readFileSync(at('catalog.json'), 'utf8'));
   } catch (e) {
     return fail(`the gallery's index or the catalogue cannot be read (${e.message})`);
   }
   if (index.dtype !== 'float16') fail(`the gallery is ${index.dtype}: the package ships float16 (python -m rifteye_ml.web_assets writes it)`);
   if (index.format !== 1 || !Array.isArray(index.levels) || !Array.isArray(index.rows) || !Array.isArray(catalog)) fail('the gallery index is not what this extension reads (format 1)');
-  if (index.rows.length !== catalog.length) fail(`the gallery has ${index.rows.length} rows and the catalogue ${catalog.length}`);
+  if (!store && index.rows.length !== catalog.length) fail(`the gallery has ${index.rows.length} rows and the catalogue ${catalog.length}`);
   const missing = index.levels.filter((l) => !existsSync(at('gallery', `L${l}.bin`)));
   if (missing.length) fail(`the gallery's levels ${missing.join(', ')} have no .bin file`);
   const want = index.rows.length * index.dim * 2;
   const wrong = index.levels.filter((l) => statSync(at('gallery', `L${l}.bin`)).size !== want);
   if (wrong.length) fail(`the gallery's levels ${wrong.join(', ')} are not ${want} bytes (${index.rows.length} rows of ${index.dim} float16)`);
-  const thumbs = readdirSync(at('thumbs')).filter((n) => n.endsWith('.jpg'));
-  if (thumbs.length < catalog.length) fail(`there are ${thumbs.length} thumbnails for ${catalog.length} printings`);
+  const thumbs = store ? [] : readdirSync(at('thumbs')).filter((n) => n.endsWith('.jpg'));
+  if (!store && thumbs.length < catalog.length) fail(`there are ${thumbs.length} thumbnails for ${catalog.length} printings`);
   // the embedder the gallery was made with is the one that goes in: a gallery for another model names cards wrongly
   const embedder = models['embedder-v1'];
   const checks = [['fp32', index.sha256], ['fp16', index.fp16_sha256]];
@@ -277,7 +299,129 @@ async function verifyParts(parts, expected) {
   return { sha, files: Number(py.stdout.trim()), note: '' };
 }
 
+/** A staging folder under `stageRoot`: symlinks to what goes in, and files written; all of it noted in `made`, for the clean-up. */
+function stager(stageRoot, made) {
+  const st = { unpacked: 0 };
+  const mkdir = (d) => {
+    mkdirSync(d, { recursive: true });
+    for (let p = d; p.length > stageRoot.length && !made.dirs.includes(p); p = dirname(p)) made.dirs.push(p);
+  };
+  st.link = (from, to) => {
+    mkdir(dirname(to));
+    symlinkSync(from, to);
+    made.files.push(to);
+    st.unpacked += statSync(from).size;
+  };
+  st.write = (to, text) => {
+    mkdir(dirname(to));
+    writeFileSync(to, text);
+    made.files.push(to);
+    st.unpacked += Buffer.byteLength(text);
+  };
+  return st;
+}
+
+/** The store's manifest, checked: access to Riot's public card gallery (its two hosts) and to nothing else, never to 127.0.0.1. */
+function checkStoreManifest(manifest, where) {
+  const hosts = JSON.stringify(manifest.host_permissions ?? []);
+  if (JSON.stringify(manifest).includes('127.0.0.1')) fail(`${where} mentions 127.0.0.1: it is not the store build (npm run build:store -w @rifteye/extension)`);
+  if (hosts !== JSON.stringify(RIOT_HOSTS)) fail(`${where}: host_permissions are ${hosts}, the store's are ${JSON.stringify(RIOT_HOSTS)} (npm run build:store -w @rifteye/extension)`);
+}
+
+/** `unzip` on the zip; its output is text. */
+function unzip(args) {
+  const r = spawnSync('unzip', args, { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+  if (r.error) fail(r.error.code === 'ENOENT' ? 'the unzip command is not installed (it checks the zip)' : r.error.message);
+  return r;
+}
+
+/** What the store zip must hold: by a name that says what it is. */
+const STORE_REQUIRED = ['manifest.json', 'standalone.json', 'LICENSE', 'NOTICE', 'models/detector-v0.onnx', 'models/embedder-v1.fp16.onnx', 'data/gallery/index.json'];
+/** What it must not: the catalogue and the thumbnails of the private build, and any picture (the toolbar icons are the extension's own). */
+const storeForbidden = (n) => n === 'data/catalog.json' || n.startsWith('data/thumbs/') || /\.(jpe?g|webp|gif|bmp|tiff?|avif|heic)$/i.test(n) || (/\.png$/i.test(n) && !n.startsWith('icons/')) || n === 'INSTALL.txt';
+
+/** The store zip, checked: every entry passes its CRC, its entries are what was staged and no more, manifest.json is at its root,
+ * nothing that must not be there is, and its manifest is the store's. Returns what it holds. */
+function verifyStoreZip(file, staged) {
+  const t = unzip(['-tq', file]);
+  if (t.status !== 0) fail(`the zip does not pass unzip -t: ${`${t.stdout}${t.stderr}`.trim().split('\n').pop()}`);
+  const names = unzip(['-Z1', file]).stdout.split('\n').filter(Boolean);
+  const want = new Set(staged);
+  const extra = names.filter((n) => !want.has(n));
+  const lost = staged.filter((n) => !names.includes(n));
+  if (extra.length || lost.length) fail(`the zip's entries are not what was staged (extra: ${extra.slice(0, 5).join(', ') || 'none'}; missing: ${lost.slice(0, 5).join(', ') || 'none'})`);
+  if (!names.includes('manifest.json')) fail('manifest.json is not at the root of the zip');
+  const bad = names.filter(storeForbidden);
+  if (bad.length) fail(`the store zip holds what it must not (no card picture, name or text; D-015, D-025): ${bad.slice(0, 5).join(', ')}`);
+  const absent = STORE_REQUIRED.filter((n) => !names.includes(n));
+  if (!names.some((n) => /^licenses\/onnxruntime-.+-ThirdPartyNotices\.txt$/.test(n))) absent.push('licenses/onnxruntime-*-ThirdPartyNotices.txt');
+  if (names.filter((n) => /^fonts\/OFL-.+\.txt$/.test(n)).length < 3) absent.push('fonts/OFL-*.txt');
+  if (absent.length) fail(`the store zip lacks ${absent.join(', ')}`);
+  checkStoreManifest(JSON.parse(unzip(['-p', file, 'manifest.json']).stdout), 'the zip\'s manifest.json');
+  return { names, top: [...new Set(names.map((n) => (n.includes('/') ? `${n.split('/')[0]}/` : n)))] };
+}
+
+/** The Chrome Web Store zip: one zip whose root is the extension (see --store above). */
+async function mainStore(o, made) {
+  const outFile = resolve(o.out);
+  if (!outFile.endsWith('.zip')) fail(`${outFile}: the output must end in .zip`);
+  const dist = resolve(o.dist);
+  for (const f of DIST_FILES) if (!existsSync(join(dist, f))) fail(`${join(dist, f)} is missing: build the store version first (npm run build:store -w @rifteye/extension)`);
+  const extra = listFiles(dist).filter((f) => !DIST_FILES.includes(f.split(sep).join('/')));
+  if (extra.length) fail(`${dist} holds files the store zip does not: ${extra.slice(0, 5).join(', ')}`);
+  checkStoreManifest(JSON.parse(readFileSync(join(dist, 'manifest.json'), 'utf8')), `${join(dist, 'manifest.json')}`);
+  const ort = ortDir(o.ort);
+  for (const f of ORT_FILES) if (!existsSync(join(ort, f))) fail(`${join(ort, f)} is missing (onnxruntime-web's runtime file)`);
+  const modelsDir = resolve(o.models);
+  const assetsDir = resolve(o.assets);
+  const models = chooseModels(modelsDir, o.precisions);
+  const { index } = await checkAssets(assetsDir, modelsDir, models, true);
+  const root = resolve(join(here('./'), '..', '..'));
+  for (const f of ['LICENSE', 'NOTICE']) if (!existsSync(join(root, f))) fail(`${join(root, f)} is missing: the store zip carries it`);
+  const notices = existsSync(join(root, 'licenses')) ? readdirSync(join(root, 'licenses')).filter((n) => /^onnxruntime-.+-ThirdPartyNotices\.txt$/.test(n)) : [];
+  if (notices.length === 0) fail(`${join(root, 'licenses')} has no onnxruntime-*-ThirdPartyNotices.txt: the store zip carries the runtime's notices`);
+
+  // the staging folder: symlinks to everything, and standalone.json. Its root is the zip's root: the extension.
+  const stageRoot = o.stage ? resolve(o.stage) : mkdtempSync(join(tmpdir(), 'wardeye-store-pack-'));
+  made.root = o.stage ? null : stageRoot;
+  const top = join(stageRoot, 'wardeye');
+  if (existsSync(top)) fail(`${top} exists already; remove it or pass another --stage`);
+  const st = stager(stageRoot, made);
+  for (const f of DIST_FILES) st.link(join(dist, f), join(top, f));
+  for (const f of ORT_FILES) st.link(join(ort, f), join(top, 'ort', f));
+  for (const id of Object.keys(models)) for (const name of Object.values(models[id])) st.link(join(modelsDir, name), join(top, 'models', name));
+  st.link(join(assetsDir, 'gallery', 'index.json'), join(top, 'data', 'gallery', 'index.json'));
+  for (const l of index.levels) st.link(join(assetsDir, 'gallery', `L${l}.bin`), join(top, 'data', 'gallery', `L${l}.bin`));
+  for (const f of ['LICENSE', 'NOTICE']) st.link(join(root, f), join(top, f));
+  for (const n of notices) st.link(join(root, 'licenses', n), join(top, 'licenses', n));
+  st.write(join(top, 'standalone.json'), standaloneJson(o, models));
+  const staged = made.files.map((f) => relative(top, f).split(sep).join('/'));
+
+  // one zip, written beside its final name and moved there once it checks out (an earlier zip of the name is replaced)
+  mkdirSync(dirname(outFile), { recursive: true });
+  const partial = `${outFile}.partial`;
+  rmSync(partial, { force: true });
+  try {
+    const zip = spawn('zip', ['-X', '-r', '-q', '-D', partial, '.'], { cwd: top, stdio: ['ignore', 'inherit', 'inherit'] });
+    await new Promise((done, reject) => {
+      zip.on('error', (e) => reject(e.code === 'ENOENT' ? new PackError('the zip command is not installed') : e));
+      zip.on('close', (code) => (code === 0 ? done() : reject(new PackError(`zip exited with code ${code}`))));
+    });
+    const held = verifyStoreZip(partial, staged);
+    renameSync(partial, outFile);
+    const bytes = statSync(outFile).size;
+    console.log(`  ${held.names.length} files: the extension, ${ORT_FILES.length} onnxruntime-web files, models (${MODELS.map((id) => `${id.split('-')[0]} ${o.precisions[id].join('+')}`).join(', ')}), ` +
+      `${index.levels.length} gallery levels of ${index.rows.length} printings, notices; ${mb(st.unpacked)} unpacked; no catalogue, no thumbnails`);
+    console.log(`${outFile}: ${bytes} bytes (${mb(bytes)}), sha256 ${await sha256File(outFile)}`);
+    console.log(`top level: ${held.top.join(' ')}`);
+    console.log('verified: unzip -t passes for every entry; the entries are the ones staged; manifest.json is at the root and is the store\'s (no 127.0.0.1); no card picture, name or text');
+  } finally {
+    rmSync(partial, { force: true });
+  }
+}
+
 async function main(o, made) {
+  if (o.store) return mainStore(o, made);
   const dist = resolve(o.dist);
   for (const f of DIST_FILES) if (!existsSync(join(dist, f))) fail(`${join(dist, f)} is missing: build first (npm run build -w @rifteye/extension)`);
   const ort = ortDir(o.ort);
@@ -295,23 +439,8 @@ async function main(o, made) {
   made.root = o.stage ? null : stageRoot;
   const top = join(stageRoot, TOP);
   if (existsSync(top)) fail(`${top} exists already; remove it or pass another --stage`);
-  const mkdir = (d) => {
-    mkdirSync(d, { recursive: true });
-    for (let p = d; p.length > stageRoot.length && !made.dirs.includes(p); p = dirname(p)) made.dirs.push(p);
-  };
-  let unpacked = 0;
-  const link = (from, to) => {
-    mkdir(dirname(to));
-    symlinkSync(from, to);
-    made.files.push(to);
-    unpacked += statSync(from).size;
-  };
-  const write = (to, text) => {
-    mkdir(dirname(to));
-    writeFileSync(to, text);
-    made.files.push(to);
-    unpacked += Buffer.byteLength(text);
-  };
+  const st = stager(stageRoot, made);
+  const { link, write } = st;
   for (const f of DIST_FILES) link(join(dist, f), join(top, f));
   for (const f of ORT_FILES) link(join(ort, f), join(top, 'ort', f));
   for (const id of Object.keys(models)) for (const name of Object.values(models[id])) link(join(modelsDir, name), join(top, 'models', name));
@@ -339,7 +468,7 @@ async function main(o, made) {
   const summary = () =>
     console.log(
       `  ${fileCount} files: the extension, ${ORT_FILES.length} onnxruntime-web files, models (${MODELS.map((id) => `${id.split('-')[0]} ${o.precisions[id].join('+')}`).join(', ')}), ` +
-        `${index.levels.length} gallery levels of ${catalog.length} printings, ${thumbs.length} thumbnails; ${mb(unpacked)} unpacked`,
+        `${index.levels.length} gallery levels of ${catalog.length} printings, ${thumbs.length} thumbnails; ${mb(st.unpacked)} unpacked`,
     );
 
   if (o.sizeOnly) {

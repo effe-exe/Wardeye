@@ -2,8 +2,9 @@
 // Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The private build's files, read and checked: standalone.json (what the package holds), the gallery (an index and
-// one float16 .bin a level) and the catalogue, all made by ml/rifteye_ml/web_assets.py. Pure: the bytes come in
-// through a reader, so the tests need no files and no browser.
+// one float16 .bin a level) and the catalogue, all made by ml/rifteye_ml/web_assets.py. The store build has no catalogue
+// file: its rows are the index's, named by Riot's card list. Pure: the bytes come in through a reader, so the tests need
+// no files and no browser.
 
 import type { CatalogRow } from '@rifteye/engine';
 
@@ -201,11 +202,33 @@ export interface Gallery {
   levels: Map<number, Float32Array>;
 }
 
-/** The catalogue and the gallery, read and checked against each other. */
-export async function loadGallery(read: Reader, folder: string): Promise<Gallery> {
+/** The store build's catalogue (it has no catalog.json, and no card name, type or image): one row for each row of the gallery's
+ * index, in its order, from Riot's card list (feed.ts). The gallery also holds a few printings seen on stream that the list does
+ * not name (ml/rifteye_ml/catalog.py's supplement):
+ * - another art of a listed printing ('SFD-195a' of 'SFD-195') is that card, under its own id: it takes the listed printing's
+ *   row (name, type, domains), as variant alt_art. It has no picture, since the list gives no address for it.
+ * - a token by its code ('SFD-T01') is a unit named 'Token';
+ * - any other is named by its own id, with no type: the engine still reads it, as a card of no known kind.
+ * Nothing is named but from the list or the printing's own id. */
+export function catalogFromFeed(ids: readonly string[], cards: readonly CatalogRow[]): CatalogRow[] {
+  const listed = new Map(cards.map((c) => [c.printing_id, c]));
+  return ids.map((id) => {
+    const card = listed.get(id);
+    if (card) return { ...card };
+    const base = /^(.+\d)[a-z]$/.exec(id);
+    const art = base ? listed.get(base[1]!) : undefined;
+    if (art) return { ...art, printing_id: id, variant: 'alt_art' };
+    if (/^[A-Z]{2,4}-T\d+$/.test(id)) return { printing_id: id, card_id: id, name: 'Token', type: 'Unit', variant: 'token' };
+    return { printing_id: id, card_id: id, name: id, type: '' };
+  });
+}
+
+/** The catalogue and the gallery, read and checked against each other. The catalogue is catalog.json (the developer build); given
+ * `cards` (the store build), it is the index's rows named by them. */
+export async function loadGallery(read: Reader, folder: string, cards?: readonly CatalogRow[]): Promise<Gallery> {
   const json = async (path: string): Promise<unknown> => JSON.parse(new TextDecoder().decode(await read(path)));
   const index = parseGalleryIndex(await json(`${folder}gallery/index.json`));
-  const rows = parseCatalog(await json(`${folder}catalog.json`));
+  const rows = cards ? catalogFromFeed(index.rows, cards) : parseCatalog(await json(`${folder}catalog.json`));
   checkPairing(index, rows);
   return { index, rows, levels: await loadLevels(read, folder, index) };
 }

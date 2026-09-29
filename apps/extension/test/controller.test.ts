@@ -1,3 +1,4 @@
+import type { CatalogRow } from '@rifteye/engine';
 import { describe, expect, it } from 'vitest';
 import type { StandalonePackage } from '../src/assets';
 import { Controller, type ControllerEnv, type EngineWorker, type FrameOut, type FrameReq } from '../src/controller';
@@ -20,8 +21,11 @@ class FakeWorker implements EngineWorker {
   crash: ((why: string) => void) | null = null;
   failFrames: Error | null = null;
   hold: Promise<void> | null = null;
+  /** The rows the engine was given with its init (the store build); undefined when it was given none. */
+  cards: readonly CatalogRow[] | undefined;
   constructor(readonly attempt: Attempt) {}
-  async init(_pkg: StandalonePackage, _attempt: Attempt, progress: (m: string) => void): Promise<void> {
+  async init(_pkg: StandalonePackage, _attempt: Attempt, progress: (m: string) => void, cards?: readonly CatalogRow[]): Promise<void> {
+    this.cards = cards;
     progress('reading the gallery');
     if (this.holdInit) await this.holdInit;
     if (this.initError) throw this.initError;
@@ -43,7 +47,9 @@ class FakeWorker implements EngineWorker {
   }
 }
 
-function setup(over: { pkg?: StandalonePackage | null; caps?: Partial<Capabilities>; setup?: (w: FakeWorker) => void } = {}) {
+function setup(
+  over: { pkg?: StandalonePackage | null; caps?: Partial<Capabilities>; setup?: (w: FakeWorker) => void; store?: boolean; cards?: () => Promise<readonly CatalogRow[]> } = {},
+) {
   let clock = 0;
   const workers: FakeWorker[] = [];
   const env: ControllerEnv = {
@@ -56,6 +62,8 @@ function setup(over: { pkg?: StandalonePackage | null; caps?: Partial<Capabiliti
       workers.push(w);
       return w;
     },
+    ...(over.store === undefined ? {} : { store: over.store }),
+    ...(over.cards ? { cards: over.cards } : {}),
   };
   const c = new Controller(env, 60_000);
   return { c, workers, tick: (ms: number) => void (clock += ms) };
@@ -181,5 +189,88 @@ describe('the engine document', () => {
     tick(5000);
     await c.frame(req());
     expect(c.lastFrame).toBe(5000);
+  });
+});
+
+describe("the engine document in the store build, which names the cards from Riot's card list", () => {
+  const rows: CatalogRow[] = [{ printing_id: 'A-1', card_id: 'a', name: 'Card A', type: 'Unit' }];
+
+  it('gives the engine the list with its init, and says what it waits for meanwhile', async () => {
+    let release!: (r: readonly CatalogRow[]) => void;
+    const { c, workers } = setup({ store: true, cards: () => new Promise((r) => (release = r)) });
+    expect(await c.frame(req())).toMatchObject({ state: { status: 'starting', message: 'starting the engine' } });
+    await settle();
+    expect(await c.frame(req())).toMatchObject({ state: { status: 'starting', message: 'loading the card list' } });
+    expect(workers).toHaveLength(0); // no engine until the list is in (or a moment has passed)
+    release(rows);
+    await settle();
+    expect(workers).toHaveLength(1);
+    expect(workers[0]!.cards).toEqual(rows);
+    expect(await c.frame(req(1, 2))).toMatchObject({ state: { status: 'live', t: 2 } });
+  });
+
+  it('leaves an engine that was given the list alone when the list arrives, and one that has no need of it', async () => {
+    const fed = setup({ store: true, cards: async () => rows });
+    await fed.c.frame(req());
+    await settle();
+    fed.c.cardsArrived();
+    expect(fed.c.state).toBe('ready');
+    expect(fed.workers[0]!.terminated).toBe(false);
+    const dev = setup();
+    await dev.c.frame(req());
+    await settle();
+    expect(dev.workers[0]!.cards).toBeUndefined(); // the developer build reads catalog.json: no rows are given
+    dev.c.cardsArrived();
+    expect(dev.c.state).toBe('ready');
+  });
+
+  it('starts an engine that was given no rows afresh when the list arrives, with the rows, and only then', async () => {
+    let list: readonly CatalogRow[] = []; // the first try at the list failed
+    const { c, workers } = setup({ store: true, cards: async () => list });
+    await c.frame(req());
+    await settle();
+    expect(workers[0]!.cards).toEqual([]); // every printing named by its id
+    expect(c.state).toBe('ready');
+    list = rows; // a later try worked
+    c.cardsArrived();
+    expect(workers[0]!.terminated).toBe(true);
+    expect(c.state).toBe('idle');
+    expect(c.running).toBeNull();
+    await c.frame(req(1, 2)); // the next frame starts it afresh
+    await settle();
+    expect(workers).toHaveLength(2);
+    expect(workers[1]!.cards).toEqual(rows);
+    expect(c.state).toBe('ready');
+    c.cardsArrived(); // and the engine that has them is not touched again
+    expect(c.state).toBe('ready');
+    expect(workers[1]!.terminated).toBe(false);
+  });
+
+  it('starts the engine afresh once it is up when the list arrived while it was loading without it', async () => {
+    let release!: () => void;
+    const { c, workers } = setup({ store: true, cards: async () => [], setup: (w) => (w.holdInit = new Promise<void>((r) => (release = r))) });
+    await c.frame(req());
+    await settle();
+    expect(c.state).toBe('loading');
+    c.cardsArrived(); // too late for this engine's init
+    expect(workers[0]!.terminated).toBe(false);
+    release();
+    await settle();
+    expect(workers[0]!.terminated).toBe(true);
+    expect(c.state).toBe('idle');
+  });
+
+  it("runs the engine on WASM in a browser with no WebGPU, where the developer build says it is unavailable", async () => {
+    const store = setup({ store: true, cards: async () => rows, caps: { webgpu: false, shaderF16: false } });
+    await store.c.frame(req());
+    await settle();
+    expect(store.workers.map((w) => w.attempt)).toEqual([{ runtime: 'wasm', detector: 'fp32', embedder: 'fp32' }]); // float32 files first on WASM
+    const dev = setup({ caps: { webgpu: false, shaderF16: false } });
+    expect(await dev.c.hello()).toMatchObject({ kind: 'unavailable', reason: expect.stringContaining('no WebGPU adapter') });
+  });
+
+  it('is unavailable, with the reason, when the package says to use the live runner (which this build does not have)', async () => {
+    const { c } = setup({ store: true, cards: async () => rows, pkg: { ...pkg, runtime: 'companion' } });
+    expect(await c.hello()).toMatchObject({ kind: 'unavailable', reason: expect.stringContaining('this build does not have') });
   });
 });

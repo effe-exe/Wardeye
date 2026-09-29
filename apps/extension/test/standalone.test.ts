@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Standalone, type Env } from '../src/standalone';
+import { badge, frameInterval } from '../src/geometry';
+import { Standalone, UNAVAILABLE_RETRY_MS, cannotReadState, type Env } from '../src/standalone';
 import type { EngineReply, EngineRequest } from '../src/protocol';
 
 const PKG = JSON.stringify({
@@ -9,7 +10,7 @@ const PKG = JSON.stringify({
   embedder: { id: 'e', fp16: 'models/e.fp16.onnx' },
 });
 
-function setup(files: Record<string, Uint8Array | string> = { 'standalone.json': PKG }) {
+function setup(files: Record<string, Uint8Array | string> = { 'standalone.json': PKG }, store = false) {
   let clock = 0;
   const sent: EngineRequest[] = [];
   const st = { ensured: 0, replies: [] as (EngineReply | Error | unknown)[], clock: () => clock };
@@ -25,7 +26,7 @@ function setup(files: Record<string, Uint8Array | string> = { 'standalone.json':
       return next;
     },
   };
-  const s = new Standalone(env, 60_000);
+  const s = new Standalone(env, 60_000, store);
   return { s, sent, st, tick: (ms: number) => void (clock += ms) };
 }
 
@@ -135,5 +136,59 @@ describe('standalone mode, from the worker', () => {
     const { s } = setup({ 'standalone.json': PKG, 'data/thumbs/OGN-299_2a.jpg': jpeg });
     expect(await s.art('OGN-299*')).toBe(btoa(String.fromCharCode(...jpeg)));
     expect(await s.art('SFD-195a')).toBeNull(); // no picture for it
+  });
+});
+
+describe('standalone mode in the store build, which has no live runner', () => {
+  it("gets a card's picture from the engine document, which holds Riot's card list: no file of the package is read", async () => {
+    const { s, sent, st } = setup({ 'standalone.json': PKG }, true);
+    st.replies.push({ kind: 'art', jpeg: 'QUJD' });
+    expect(await s.art('OGN-299*')).toBe('QUJD');
+    expect(sent).toEqual([{ target: 'engine', kind: 'art', printing_id: 'OGN-299*' }]);
+    expect(st.ensured).toBe(1); // the document is made when it is gone: it holds the list
+    st.replies.push({ kind: 'art', jpeg: null });
+    expect(await s.art('OGN-001')).toBeNull();
+  });
+
+  it('has no picture when the document does not answer, or answers something else, or when there is no package at all', async () => {
+    const { s, st } = setup({ 'standalone.json': PKG }, true);
+    st.replies.push(new Error('gone'), new Error('gone'));
+    expect(await s.art('OGN-001')).toBeNull();
+    st.replies.push({ kind: 'hello' }, { kind: 'hello' });
+    expect(await s.art('OGN-001')).toBeNull();
+    const none = setup({}, true);
+    expect(await none.s.art('OGN-001')).toBeNull();
+    expect(none.sent).toEqual([]);
+  });
+
+  it('asks the engine even when standalone.json says to use the live runner: the document says it has nothing to run', async () => {
+    const { s, sent, st } = setup({ 'standalone.json': PKG.replace('"auto"', '"companion"') }, true);
+    expect(await s.usable()).toBe(true);
+    st.replies.push({ kind: 'unavailable', reason: 'standalone.json says to use the live runner, which this build does not have' });
+    expect(await s.frame(1, frame)).toBeNull();
+    expect(sent).toHaveLength(1);
+    expect(s.lastReason).toContain('this build does not have');
+  });
+
+  it('does not say the live runner is used when the engine is written off', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const store = setup({ 'standalone.json': PKG }, true);
+    store.st.replies.push({ kind: 'unavailable', reason: 'nothing to run' });
+    await store.s.frame(1, frame);
+    expect(warn).toHaveBeenLastCalledWith(expect.stringContaining('no engine in this browser (nothing to run); the overlay says so'));
+    const dev = setup();
+    dev.st.replies.push({ kind: 'unavailable', reason: 'nothing to run' });
+    await dev.s.frame(1, frame);
+    expect(warn).toHaveBeenLastCalledWith(expect.stringContaining('the live runner is used'));
+    warn.mockRestore();
+  });
+
+  it('tells the overlay plainly why there is no board, in the badge, and asks for a frame now and then, not four times a second', () => {
+    const state = cannotReadState(12, false);
+    expect(badge(true, state)).toBe('Wardeye: this browser cannot run the engine (WebGPU or WebAssembly needed)');
+    expect(state).toMatchObject({ t: 12, status: 'error', frame: { width: 0, height: 0 }, tracks: [] });
+    expect(frameInterval(state)).toBe(UNAVAILABLE_RETRY_MS);
+    expect(frameInterval(state)).toBeGreaterThanOrEqual(1000);
+    expect(badge(true, cannotReadState(12, true))).toBe("Wardeye: the engine's files are missing from this install, reinstall Wardeye");
   });
 });

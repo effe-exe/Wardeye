@@ -7,7 +7,9 @@
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
-    "pack": "node pack.mjs"
+    "build:store": "node build.mjs --store",
+    "pack": "node pack.mjs",
+    "pack:store": "node pack.mjs --store"
   },
   "dependencies": {
     "@rifteye/engine": "^0.1.0",

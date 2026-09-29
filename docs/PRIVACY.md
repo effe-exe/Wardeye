@@ -14,11 +14,16 @@ Wardeye collects nothing. It has no account, no server, no analytics, no ads and
 
 ## Where it is processed
 
-In the extension itself, in your browser, on your graphics chip or processor. The recognition models ship inside the extension. No frame, and nothing learnt from one, ever leaves your computer.
+In the extension itself, in your browser, on your graphics chip or processor. The recognition models ship inside the extension. No frame ever leaves your computer, and neither does what Wardeye learns from one, with one exception: to show a card's picture, it asks Riot's image server for that card's image, which tells Riot which card is being shown (below).
 
 ## What it loads from the internet
 
-Card names, types and images, from Riot Games' public card gallery: the gallery's card list from `content.publishing.riotgames.com`, and each card's image from `cmsassets.rgpub.io` when it is shown. These are ordinary web requests, like visiting the gallery: Riot's servers see your IP address and your browser, and a request for a card's image tells them which card is being shown. Riot's own privacy policy applies to them. Wardeye sends nothing else, to Riot or to anyone.
+Card names, types and images, from Riot Games' public card gallery:
+
+- **The card list**, from `content.publishing.riotgames.com`, when you open a page on twitch.tv, whether or not a video plays. It is loaded again when the extension restarts its engine, for example after five minutes without a video.
+- **A card's image**, from `cmsassets.rgpub.io`, when the overlay shows that card.
+
+These are ordinary web requests, like visiting the gallery. Riot's servers see your IP address, your browser, and that the request comes from the Wardeye extension (the browser names the extension as the request's origin). A request for a card's image also tells them which card is being shown. The requests carry no cookies and no referrer. Riot's own privacy policy applies to them. Wardeye sends nothing else, to Riot or to anyone.
 
 ## What it stores
 

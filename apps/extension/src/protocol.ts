@@ -9,8 +9,10 @@
 //     holds nothing the engine needs, so it may be put to sleep and woken at any time; a tab's board lives in the
 //     document, under the tab's id.
 //   engine document <-postMessage-> engine worker: the same requests, with an id, and the answers.
+//   In the store build the engine document also holds Riot's card list (feed.ts): it gives the engine worker the rows with
+//   `init`, and answers the worker's 'art' request with a card's picture.
 
-import type { CardBox } from '@rifteye/engine';
+import type { CardBox, CatalogRow } from '@rifteye/engine';
 import type { BoardEvent } from './parts';
 import type { State } from './geometry';
 import type { Attempt } from './mode';
@@ -38,7 +40,9 @@ export type ToContent =
 export type EngineRequest =
   | { target: 'engine'; kind: 'hello' }
   | { target: 'engine'; kind: 'frame'; tab: number; t: number; video: string; jpeg: string }
-  | { target: 'engine'; kind: 'forget'; tab: number };
+  | { target: 'engine'; kind: 'forget'; tab: number }
+  /** A card's picture, from Riot's gallery (the store build). */
+  | { target: 'engine'; kind: 'art'; printing_id: string };
 
 /** Engine document -> worker. */
 export type EngineReply =
@@ -46,12 +50,16 @@ export type EngineReply =
   | { kind: 'hello' }
   /** The state to draw, or null when this frame was passed over (a newer one of the tab came): keep the board. */
   | { kind: 'state'; state: State | null }
-  /** The engine cannot run here (no WebGPU, no models, a failed start): the live runner takes over. */
-  | { kind: 'unavailable'; reason: string };
+  /** The engine cannot run here (no WebGPU, no models, a failed start): the live runner takes over (the store build has none). */
+  | { kind: 'unavailable'; reason: string }
+  /** A card's picture as base64, or null when there is none (the list is not read, the card is not in it, the request failed). */
+  | { kind: 'art'; jpeg: string | null };
 
 /** Engine document -> engine worker. */
 export type ToEngine =
-  | { kind: 'init'; pkg: StandalonePackage; attempt: Attempt }
+  /** `cards` (the store build): what Riot's card list says of the printings, which name the gallery's rows; without it the
+   * rows are read from the package's catalog.json. Empty when the list could not be read: each row is then its printing id. */
+  | { kind: 'init'; pkg: StandalonePackage; attempt: Attempt; cards?: CatalogRow[] }
   | { kind: 'frame'; id: number; tab: number; t: number; video: string; jpeg: string }
   | { kind: 'forget'; tab: number };
 
@@ -70,5 +78,5 @@ export type FromEngine =
 export function isEngineReply(x: unknown): x is EngineReply {
   if (typeof x !== 'object' || x === null) return false;
   const k = (x as { kind?: unknown }).kind;
-  return k === 'hello' || k === 'state' || k === 'unavailable';
+  return k === 'hello' || k === 'state' || k === 'unavailable' || k === 'art';
 }

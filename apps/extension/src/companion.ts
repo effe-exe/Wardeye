@@ -5,7 +5,11 @@
 // not reach 127.0.0.1 itself, so the worker posts each frame to the runner and hands back the newest state, and
 // fetches card pictures for the hover card. Nothing is sent anywhere else.
 
-const PORTS = Array.from({ length: 10 }, (_, k) => 8765 + k); // the runner takes the next free one of these
+import { b64Of, bytesOf } from './base64';
+
+export { b64Of, bytesOf };
+
+const PORTS = /* @__PURE__ */ Array.from({ length: 10 }, (_, k) => 8765 + k); // the runner takes the next free one of these
 let runner: string | null = null;
 let failures = 0; // answers in a row that did not come: one slow answer is not a runner gone
 
@@ -21,20 +25,6 @@ async function findRunner(): Promise<string | null> {
     }
   }
   return null;
-}
-
-export function bytesOf(b64: string): Uint8Array<ArrayBuffer> {
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-
-export function b64Of(buf: ArrayBuffer | Uint8Array): string {
-  const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
-  let bin = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return btoa(bin);
 }
 
 /** The runner's newest state; undefined when this answer was slow or lost (keep the board); null when there is no
