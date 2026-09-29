@@ -67,7 +67,7 @@ State as of **2026-09-26**.
 
 | Runtime | Version (Sept 2026) | Licence | Notes |
 |---|---|---|---|
-| **ONNX Runtime Web** | 1.30.0 (2026-09-14) | MIT | **Primary.** WebGPU EP (the native WebGPU EP is now the recommended path; WebGL and JSEP are deprecated), WASM SIMD + threads. |
+| **ONNX Runtime Web** | 1.30.0 (2026-09-14) | MIT | **Primary.** WebGPU EP (the native WebGPU EP is now the recommended path; WebGL and JSEP are deprecated), WASM SIMD + threads. Its WebAssembly builds bundle third-party code with its own notices, among it Eigen under MPL-2.0 (file-level copyleft: met by shipping the notices, `licenses/onnxruntime-1.30.0-ThirdPartyNotices.txt`, which point to Eigen's source). |
 | Transformers.js | 4.3.0 (2026-09-16) | Apache-2.0 | Built on ORT Web. Supports RF-DETR, D-FINE, RT-DETR, DINOv2, SigLIP, Whisper, Moonshine. Good for prototypes. |
 | LiteRT.js | `@litertjs/core` 2.5.3 | Apache-2.0 | `.tflite` models on WebGPU or WASM; RF-DETR exports to it. Keep as plan B. |
 | TensorFlow.js | 4.22.0 (Oct 2024) | Apache-2.0 | Effectively superseded |

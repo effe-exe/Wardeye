@@ -51,8 +51,11 @@ Copyright (c) Microsoft Corporation. Licensed under the MIT License:
   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
   IN THE SOFTWARE.
 
-  Its own third-party notices:
-  https://github.com/microsoft/onnxruntime/blob/main/ThirdPartyNotices.txt
+  Its WebAssembly builds contain third-party code under its own notices,
+  among it Eigen (Mozilla Public License 2.0; source:
+  https://gitlab.com/libeigen/eigen). They are in
+  licenses/onnxruntime-1.30.0-ThirdPartyNotices.txt, and every package that
+  ships the runtime carries a copy.
 
 As more dependencies are added, their licences and required notices
 (including Apache-2.0 NOTICE files) are listed here.
