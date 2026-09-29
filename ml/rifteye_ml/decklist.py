@@ -37,7 +37,6 @@ import json
 import os
 import re
 import time
-import unicodedata
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -45,27 +44,15 @@ from typing import Iterable, Sequence
 
 import numpy as np
 
+from . import priors
+from .priors import COLORLESS, KEEP_TYPES, base_name, normalise  # noqa: F401 - the names, as they were here
+
 BOARDS = ("main", "side")
-KEEP_TYPES = ("Rune", "Battlefield")   # kept by the legend prior whatever their domains
-COLORLESS = "Colorless"
 
 
 # ---------------------------------------------------------------------------------------
-# Names
+# Names (`normalise` and `base_name` live in priors.py, which the live runner shares)
 # ---------------------------------------------------------------------------------------
-
-def normalise(name: str) -> str:
-    """A name for matching: accents folded, case and apostrophes dropped, other punctuation a space.
-    'Ornn - Blacksmith' and 'Ornn, Blacksmith' meet at 'ornn blacksmith'; letters of other scripts stay."""
-    s = "".join(ch for ch in unicodedata.normalize("NFKD", name or "") if not unicodedata.combining(ch))
-    s = re.sub(r"['’`]", "", s.casefold())
-    return re.sub(r"[\W_]+", " ", s).strip()
-
-
-def base_name(name: str) -> str:
-    """The name without a trailing parenthetical: 'Recruit (ZN)' -> 'Recruit'."""
-    return re.sub(r"\s*\([^()]*\)\s*$", "", name or "").strip()
-
 
 class Catalogue:
     """Gallery rows indexed for decklists: by printing, by card_id and by normalised name.
@@ -98,14 +85,7 @@ class Catalogue:
     def _tokens(self) -> tuple[np.ndarray, list[str]]:
         """Tokens: printings marked token, every printing of a token's card, and printings whose name without
         its parenthetical is a token's (Origins printed some tokens as numbered cards, such as 'Recruit (ZN)')."""
-        marked = [i for i, r in enumerate(self.rows) if r.get("variant") == "token" or (r.get("type") or "").lower() == "token"]
-        cards = {self.rows[i]["card_id"] for i in marked}
-        names = {normalise(base_name(self.rows[i].get("name") or "")) for i in marked} - {""}
-        mask = np.zeros(len(self.rows), bool)
-        mask[marked] = True
-        for i, r in enumerate(self.rows):
-            if r["card_id"] in cards or normalise(base_name(r.get("name") or "")) in names:
-                mask[i] = True
+        mask, marked = priors.token_rows(self.rows)
         extra = sorted(self.rows[i]["printing_id"] for i in np.flatnonzero(mask) if i not in set(marked))
         return mask, extra
 
@@ -478,16 +458,7 @@ def legend_domains(cat: Catalogue, legends: Iterable[str], runes: bool = False) 
     plus every battlefield and token whatever its domains, and every rune; with `runes`, only the runes of the
     legends' domains, since a player's rune deck follows their legend's domains."""
     legends = sorted(set(legends))
-    keep = tuple(t for t in KEEP_TYPES if not (runes and t == "Rune"))
-    fits: list[set[str]] = []
-    for lg in legends:
-        if lg not in cat.card:
-            raise ValueError(f"legend {lg} is not in the catalogue")
-        fits.append(set(cat.rows[cat.card[lg][0]].get("domains") or []) - {COLORLESS})
-    mask = np.zeros(len(cat.rows), bool)
-    for i, r in enumerate(cat.rows):
-        doms = set(r.get("domains") or []) - {COLORLESS}
-        mask[i] = r.get("type") in keep or cat.tokens[i] or any(doms <= f for f in fits)
+    mask, fits = priors.legend_mask(cat.rows, legends, cat.tokens, runes=runes)
     kept = Counter(cat.rows[i].get("type") or "" for i in np.flatnonzero(mask))
     total = Counter(r.get("type") or "" for r in cat.rows)
     return Prior(mask, {"legends": legends, "domains": [sorted(f) for f in fits], "printings": int(mask.sum()),

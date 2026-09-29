@@ -25,6 +25,7 @@ import {
 import { rgbImage } from '../src/image';
 import { Pyramid } from '../src/retrieval';
 import type { CardBox, CatalogRow, Encoder, RgbImage } from '../src/types';
+import { ROWS } from './priors-rows';
 import { firstDifference } from './recognizer-replay';
 
 interface TrackJson {
@@ -375,6 +376,100 @@ describe('the bootstrap finder', () => {
       const boxes = await rec.find(b.t, matFrame(b.cards));
       expect(rec.mat).toEqual(b.mat);
       same(boxes, b.boxes, `bootstrap t=${b.t}`, 1e-9);
+    }
+  });
+});
+
+// --- the legend rule (D-026) --------------------------------------------------------------------------------------
+// ml/tests/test_live_pipeline.py's two tests of it, on test_decklist.py's rows: gallery row i is the unit vector i,
+// and the stub encoder gives every crop the same scores, so a read's candidates are these scores less the rows the
+// side's legend rules out. The candidates are Python's: cards, scores and rows exactly, probabilities to 1e-12.
+
+describe('the legend rule', () => {
+  const SCORES: Record<string, number> = { 'OGN-914': 0.9, 'OGN-920': 0.85, 'OGN-918': 0.8, 'SFD-902a': 0.75, 'VEN-906': 0.7 }; // the rest 0.1
+  const f = Math.fround;
+  const TENTH = f(0.1);
+  const BEFORE: [string, number, number, number][] = [
+    ['blaze-fist', 0.9054438069724243, f(0.9), 14],
+    ['ember-rune', 0.08562154120964982, f(0.85), 23],
+    ['hush-rune', 0.008096612568507557, f(0.8), 20],
+    ['fakesmith-hammerer', 0.000765638344724473, 0.75, 5],
+    ['spark-bolt', 7.240090469346561e-5, f(0.7), 13],
+    ...(
+      [
+        ['gleaming-anvil', 0], ['thunder-crown', 2], ['silent-loom', 3], ['fakesmith-hammerer-promo', 10], ['pocket-gadget', 11],
+        ['quick-trick', 12], ['iron-wall', 15], ['tidal-edict', 16], ['plain-lantern', 17], ['quiet-glade', 18], ['far-tower', 19],
+        ['muse-rune', 22], ['wisp', 24], ['squire', 26], ['squire-qx', 27], ['zed-ka', 28], ['zedka', 29],
+      ] as [string, number][]
+    ).map(([c, i]): [string, number, number, number] => [c, 3.701612953946511e-17, TENTH, i]),
+  ];
+  const LEFT: [string, number, number, number][] = [
+    ['hush-rune', 0.9136067854294455, f(0.8), 20],
+    ['fakesmith-hammerer', 0.08639321457049592, 0.75, 5],
+    ...(
+      [
+        ['gleaming-anvil', 0], ['silent-loom', 3], ['fakesmith-hammerer-promo', 10], ['pocket-gadget', 11], ['quick-trick', 12],
+        ['plain-lantern', 17], ['quiet-glade', 18], ['far-tower', 19], ['muse-rune', 22], ['wisp', 24], ['squire', 26],
+        ['squire-qx', 27], ['zed-ka', 28], ['zedka', 29],
+      ] as [string, number][]
+    ).map(([c, i]): [string, number, number, number] => [c, 4.176831586227724e-15, TENTH, i]),
+  ];
+
+  function ruled(legendRule?: boolean): Recognizer {
+    const n = ROWS.length;
+    const scores = new Float32Array(ROWS.map((r) => (r.language === 'en' ? (SCORES[r.printing_id] ?? 0.1) : 0.1)));
+    const stub: Encoder = {
+      name: 'stub',
+      dim: n,
+      embed: async (images) => {
+        const out = new Float32Array(images.length * n);
+        images.forEach((_, k) => out.set(scores, k * n));
+        return out;
+      },
+    };
+    const eye = new Float32Array(n * n);
+    for (let i = 0; i < n; i++) eye[i * n + i] = 1;
+    return new Recognizer(LAYOUT, ROWS, stub, new Pyramid(new Map([[80, eye]]), n), { fps: 5.0, gate: false, ...(legendRule === undefined ? {} : { legendRule }) });
+  }
+
+  const same = (got: [string, number, number, number][], want: [string, number, number, number][]): void => {
+    expect(got.map(([c, , sc, i]) => [c, sc, i])).toEqual(want.map(([c, , sc, i]) => [c, sc, i]));
+    got.forEach(([, p], k) => expect(Math.abs(p - want[k]![1])).toBeLessThan(1e-12));
+  };
+
+  it('holds a side to its pinned legend, and nowhere else', async () => {
+    const rec = ruled();
+    const crop = rgbImage(56, 78);
+    const before = (await rec.identify([crop], ['left']))[0]!;
+    same(before, BEFORE);
+    expect(rec.masks.size).toBe(0);
+    rec.legends.set('left', { printing_id: 'SFD-901', name: 'Gleaming Anvil' }); // Calm and Mind, pinned on the left
+    const [left, right, nowhere] = await rec.identify([crop, crop, crop], ['left', 'right', '']);
+    same(left!, LEFT); // Fury and Order+Chaos ruled out; the softmax over the cards left
+    same(right!, BEFORE);
+    same(nowhere!, BEFORE);
+    expect([...rec.masks.keys()]).toEqual(['gleaming-anvil']);
+    expect(rec.allowed('left')).toBe(rec.masks.get('gleaming-anvil'));
+    expect([rec.allowed('right'), rec.allowed(''), rec.allowed('top')]).toEqual([null, null, null]);
+    same((await rec.identify([crop]))[0]!, BEFORE); // no sides: the whole gallery
+  });
+
+  it("reads a track's crops on its side, and can be turned off", async () => {
+    let x = 12345;
+    const noise = rgbImage(960, 540, Uint8Array.from({ length: 960 * 540 * 3 }, () => ((x = (x * 1103515245 + 12345) >>> 0) >>> 16) & 255));
+    for (const rule of [true, false]) {
+      const rec = ruled(rule);
+      rec.legends.set('left', { printing_id: 'SFD-901', name: 'Gleaming Anvil' });
+      const box = (cx: number): CardBox => ({ centre: [cx, 200.0], long_px: 78.0, short_px: 56.0, angle_deg: 90.0, fill: 1.0 });
+      const a = new Track('a', box(200.0), 0.0, 0.0, 'left');
+      const b = new Track('b', box(700.0), 0.0, 0.0, 'right');
+      a.hits = b.hits = 2;
+      await rec.read(0.0, noise, [a, b]);
+      expect([a.reads, b.reads]).toEqual([1, 1]);
+      expect(a.prob.has('blaze-fist')).toBe(!rule);
+      expect(b.prob.has('blaze-fist')).toBe(true);
+      const best = [...a.prob].sort((p, q) => q[1] - p[1])[0]![0];
+      expect(best).toBe(rule ? 'hush-rune' : 'blaze-fist');
     }
   });
 });

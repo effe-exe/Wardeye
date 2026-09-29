@@ -37,6 +37,7 @@ from .live.server import LiveServer
 FORMAT = 1
 FRACTIONS = (0.8, 0.9, 1.0)  # live/__main__: the levels a table's card size reads against
 CATALOG_FIELDS = ("printing_id", "card_id", "name", "type")  # what the tracker and the overlay read (live/pipeline.py)
+RULE_FIELDS = ("domains", "variant")  # what the legend rule reads (priors.py), when a row has them; a Legend keeps its tags
 _SAFE = re.compile(r"[A-Za-z0-9.-]")
 
 
@@ -105,8 +106,10 @@ def _sha256(path: Path) -> str:
 
 
 def write_catalog(rows: Sequence[dict], out_dir: Path) -> Path:
-    """catalog.json: the rows' fields the tracker and the overlay read, in the gallery's order."""
-    slim = [{k: r.get(k, "") for k in CATALOG_FIELDS} for r in rows]
+    """catalog.json: the rows' fields the tracker and the overlay read, and those the legend rule reads, in the
+    gallery's order."""
+    slim = [{**{k: r.get(k, "") for k in CATALOG_FIELDS}, **{k: r[k] for k in RULE_FIELDS if k in r},
+             **({"tags": r["tags"]} if r.get("type") == "Legend" and r.get("tags") else {})} for r in rows]
     path = out_dir / "catalog.json"
     _write(path, json.dumps(slim, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
     return path

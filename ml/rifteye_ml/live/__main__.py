@@ -172,6 +172,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--device", help="for the detector: cuda, mps or cpu (default: the best there is)")
     ap.add_argument("--det-score", type=float, default=0.4,
                     help="the detector's confidence below which a box is dropped (higher: fewer stray boxes)")
+    ap.add_argument("--no-legend-rule", action="store_true",
+                    help="read every card against the whole gallery, even once its side's legend is pinned "
+                         "(by default a side's cards compete only with the printings its legend allows, D-026)")
     ap.add_argument("--title", default="")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8765)
@@ -252,7 +255,7 @@ def main(argv: list[str] | None = None) -> int:
                         return detector_boxes(det.detect(Image.fromarray(image), layout.box(w, h), layout.card_px(h)),
                                               min_score=a.det_score)
                 rec = Recognizer(layout, rows, enc, pyr, title=title, fps=a.fps, finder=finder,
-                                 **({"temperature": temperature} if temperature else {}))
+                                 legend_rule=not a.no_legend_rule, **({"temperature": temperature} if temperature else {}))
                 switched = False
                 for fr in frames:
                     key = getattr(fr, "video", None)
@@ -262,6 +265,7 @@ def main(argv: list[str] | None = None) -> int:
                     video = key
                     if last_t is not None and not -1.0 <= fr.t - last_t <= 15.0:
                         rec = Recognizer(layout, rows, enc, pyr, title=title, fps=a.fps, finder=finder,
+                                         legend_rule=not a.no_legend_rule,
                                          **({"temperature": temperature} if temperature else {}))  # a jump: a new board
                     last_t = fr.t
                     t_first = fr.t if t_first is None else t_first
