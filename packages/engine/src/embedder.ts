@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The card embedder: crops to rows. A port of ml/rifteye_ml/encoders.py (letterbox, l2n) and embed/onnx.py
 // (batch_of, and the Onnx encoder with its name "onnx:<stem>-<sha8>"), so a row and the name an embedding cache

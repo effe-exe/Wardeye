@@ -1,17 +1,15 @@
 # 09: Risks and open questions
 
-> Written when the project was called RiftEye. It is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)).
-
 ## 9.1 Risk register
 
 | # | Risk | Likelihood | Impact | Mitigation | Early signal |
 |---|---|---|---|---|---|
-| R1 | **Riot objects to the project.** RiftEye does not use the Riot API or hold a licence ([D-015](../decisions.md#d-015-no-riot-api-no-riot-assets-distributed), [08 §8.2](08-legal-and-policy.md#82-riot-games-policies)) | Medium | **Critical** | Distribute no Riot assets; stay free and non-commercial; carry the notice; no metagame statistics; act promptly on requests; keep the engine game-agnostic ([D-008](../decisions.md#d-008-game-agnostic-core-riftbound-as-the-first-game-pack)) | Any contact from Riot |
+| R1 | **Riot objects to the project.** Wardeye does not use the Riot API or hold a licence ([D-015](../decisions.md#d-015-no-riot-api-no-riot-assets-distributed), [08 §8.2](08-legal-and-policy.md#82-riot-games-policies)) | Medium | **Critical** | Distribute no Riot assets; stay free and non-commercial; carry the notice; no metagame statistics; act promptly on requests; keep the engine game-agnostic ([D-008](../decisions.md#d-008-game-agnostic-core-riftbound-as-the-first-game-pack)) | Any contact from Riot |
 | R2 | **Accuracy at stream resolution is too low** (hypotheses H1–H3 fail) | Medium | High | Priors (legend domains, decklists, rune-tap cost), production graphics, caster audio, VOD mode; target official broadcasts first | The M0 spike's accuracy-vs-pixels curves |
-| R3 | **Organisers do not share footage** | Medium | High | Synthetic data; **RiftEye's own recording sessions** at local events with players' consent (full rights, known camera setup); graphics-derived labels | Replies to M0 outreach |
+| R3 | **Organisers do not share footage** | Medium | High | Synthetic data; **Wardeye's own recording sessions** at local events with players' consent (full rights, known camera setup); graphics-derived labels | Replies to M0 outreach |
 | R4 | **Browser performance** on common laptops | Medium | Medium | CNN or OBB detectors, detect-on-ROI, identify-once-per-track, eco mode, server timelines for known VODs | M2 benchmarks |
 | R5 | **Competition** (RiftSight for hover, Riftbound Vision for broadcasters) | High | Medium | Lead with the timeline and measured accuracy; open tooling; consider collaborating ([06](06-prior-art-and-starting-point.md)) | Their releases |
-| R6 | **Name conflict** ("Rift", RiftSight, an existing "RiftEye") | Medium | Medium | Choose a neutral name before any public launch or trademark filing | Clearance search |
+| R6 | **Name conflict** (the working name "RiftEye" leaned on "Rift" and sat near RiftSight and an existing "RiftEye") | Low | Medium | Renamed Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)), a neutral name | Clearance search before the public launch |
 | R7 | **Dependency licences change** (as DEIMv2 and MobileCLIP did) | Medium | Medium | Pin versions and record licence-check dates; CI licence audit; prefer foundation-backed permissive projects | Upstream licence diffs |
 | R8 | **Platform churn** (Twitch or YouTube DOM, Chrome policies, embed rules) | High | Low–Medium | One adapter per site with tests; bundled code; monitor store policy updates | Breakage reports |
 | R9 | **Set cadence** (a new set every ~3 months, preview seasons) | Certain | Medium | Zero-shot index updates from catalogue art; a release checklist per set; preview labels | Set announcements |

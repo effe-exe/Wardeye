@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """The expected values for test/recognizer.test.ts, computed by live/pipeline.py itself on seeded synthetic inputs:
 
 * quad, aabb, smooth and similarity on random boxes and points (the boxes hold numpy floats, as detector_boxes

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The card detector, from a frame to the tracker's boxes: a port of ml/rifteye_ml/detect/model.py (Detector.detect,
 // detect_tiles, merge_tiles), RF-DETR's keypoint PostProcess (rfdetr 1.11.0, models/postprocess.py, Apache-2.0,

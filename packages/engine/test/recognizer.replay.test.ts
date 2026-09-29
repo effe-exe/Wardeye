@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The recognizer against its Python reference on the first steps of the LA final, in Node for a fast loop. It needs
 // the private data (RIFTEYE_M3, e.g. ~/rifteye-data/m3) and skips without it: the frames as raw RGB

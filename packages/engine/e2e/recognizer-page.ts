@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The page e2e/recognizer.spec.ts runs in Chromium. The LA final's JPEG frames are decoded as the extension decodes
 // them (createImageBitmap with no colour conversion, a 2D canvas, getImageData), each checked against the RGB

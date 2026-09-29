@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The detector, replaced by what Python's said: a callback for the layout finder that answers each call with the answer
 // the recorded call had, and throws when it is asked something else. Free of Node's modules, so the browser tests

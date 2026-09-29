@@ -21,10 +21,38 @@ are trademarks or registered trademarks of Riot Games, Inc.
 ----------------------------------------------------------------------------
 Third-party components
 
-Space Mono (assets/brand/SpaceMono-Regular.ttf, SpaceMono-Bold.ttf), inlined
-into the pages' stylesheets. Copyright 2016 The Space Mono Project Authors
-(https://github.com/googlefonts/spacemono). Licensed under the SIL Open Font
-License, Version 1.1: see assets/brand/OFL.txt.
+Space Grotesk, Inter and JetBrains Mono (assets/brand/fonts/): Latin subsets
+of the variable fonts, bundled into the pages and the extension. Licensed
+under the SIL Open Font License, Version 1.1: see assets/brand/fonts/OFL-*.txt.
+  Space Grotesk: Copyright 2020 The Space Grotesk Project Authors
+    (https://github.com/floriankarsten/space-grotesk)
+  Inter: Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter)
+  JetBrains Mono: Copyright 2020 The JetBrains Mono Project Authors
+    (https://github.com/JetBrains/JetBrainsMono)
+
+onnxruntime-web (the runtime files in the extension's and the bench's builds).
+Copyright (c) Microsoft Corporation. Licensed under the MIT License:
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to
+  deal in the Software without restriction, including without limitation the
+  rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+  sell copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+  IN THE SOFTWARE.
+
+  Its own third-party notices:
+  https://github.com/microsoft/onnxruntime/blob/main/ThirdPartyNotices.txt
 
 As more dependencies are added, their licences and required notices
 (including Apache-2.0 NOTICE files) are listed here.

@@ -1,6 +1,4 @@
-# RiftEye research
-
-> Written when the project was called RiftEye. It is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)).
+# Wardeye research
 
 How to build an open-source tool that watches Riftbound streams, logs every card played on a timeline, and lets viewers hover a card on the video to see it. What it takes, what already exists, and what constrains it. Researched in September 2026.
 
@@ -43,12 +41,12 @@ How to build an open-source tool that watches Riftbound streams, logs every card
    - No cross-match "metagame" statistics.
    - Monetisation only with an approved key or a licence, a free tier and transformative paid content.
    - Riot also receives a broad licence to fan projects (LJJ §7).
-   - **RiftEye does not use the Riot API** ([D-015](../decisions.md#d-015-no-riot-api-no-riot-assets-distributed)). It distributes no card images or text: the extension loads them from Riot's public card gallery in the viewer's browser. For Riftbound the project stays free and non-commercial.
+   - **Wardeye does not use the Riot API** ([D-015](../decisions.md#d-015-no-riot-api-no-riot-assets-distributed)). It distributes no card images or text: the extension loads them from Riot's public card gallery in the viewer's browser. For Riftbound the project stays free and non-commercial.
 9. **Competition exists**:
    - RiftSight already does hover, at a self-reported ~80% on in-person streams.
    - Riftbound Vision is in beta for OBS and Twitch.
-   - RiftEye leads with the **timeline**, **measured accuracy** and **open tooling**, and should consider collaborating ([06](06-prior-art-and-starting-point.md)).
-10. **The name "RiftEye" is a working name.** "Rift" leans on Riot's marks and sits close to RiftSight. Choose a neutral, game-agnostic name before any public launch ([D-010](../decisions.md#d-010-rifteye-is-a-working-name)).
+   - Wardeye leads with the **timeline**, **measured accuracy** and **open tooling**, and should consider collaborating ([06](06-prior-art-and-starting-point.md)).
+10. **The name.** The working name, "RiftEye", leaned on Riot's marks and sat close to RiftSight. The project is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)), a neutral name that a trademark search must clear before the public launch.
 
 ## Chapters
 

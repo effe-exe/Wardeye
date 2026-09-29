@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // scipy.optimize.linear_sum_assignment, ported from SciPy 1.17.1 (scipy/optimize/_lsap.c and
 // scipy/optimize/rectangular_lsap/rectangular_lsap.cpp, BSD-3-Clause, notice at the end of this file). It is

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The page of table.spec.ts: it decodes the LA final's JPEGs as the extension does, makes the change gate's view of each
 // (the table window, 320 px wide, bilinear: live/pipeline.py Recognizer.watch), runs the gate over them and the layout

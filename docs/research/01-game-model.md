@@ -1,8 +1,6 @@
 # 01: Riftbound, as a computer-vision problem
 
-> Written when the project was called RiftEye. It is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)).
-
-What RiftEye needs to know about the game: the card pool it must recognise, what the table looks like, which events are visible from an overhead camera, and which rules shrink the search space. Everything here is current as of **September 2026**. The game adds a set roughly every three months, so the numbers go stale fast: update this chapter with each release.
+What Wardeye needs to know about the game: the card pool it must recognise, what the table looks like, which events are visible from an overhead camera, and which rules shrink the search space. Everything here is current as of **September 2026**. The game adds a set roughly every three months, so the numbers go stale fast: update this chapter with each release.
 
 Rule numbers refer to the *Riftbound Core Rules* (last updated 2026-07-16) and the *Riftbound Tournament Rules* (last updated 2026-07-16) [R1, R2].
 
@@ -57,7 +55,7 @@ Zones (106–109):
 
 - **Rows:** runes sit closest to each player, and everything else is further in, toward the opponent (508.2–508.3).
 - **Sides:** main deck and trash sit together on one side, and the rune deck on the other (508.4–508.5). Legend and Chosen Champion sit together on one side, with the legend between the other cards and the champion (508.6).
-- **Orientation:** **ready cards face their controller, and exhausted cards are rotated 90°, all in the same direction** (508.10). For RiftEye this is a gift. A card's facing tells you who controls it, even on the shared battlefields in the middle, and its rotation tells you whether it is exhausted.
+- **Orientation:** **ready cards face their controller, and exhausted cards are rotated 90°, all in the same direction** (508.10). For Wardeye this is a gift. A card's facing tells you who controls it, even on the shared battlefields in the middle, and its rotation tells you whether it is exhausted.
 
 ## 1.4 Turn structure and what the camera sees
 
@@ -74,7 +72,7 @@ Scoring is to **8 points**. Players score by conquering and holding battlefields
 
 ## 1.5 Events and their visual signatures
 
-| RiftEye event | Visual evidence | Rules |
+| Wardeye event | Visual evidence | Rules |
 |---|---|---|
 | `card_played` (unit) | New face-up card in Base or at a battlefield, arriving **exhausted** unless it has Accelerate | 143.4, 355.2 |
 | `card_played` (gear) | New card in Base, arriving ready | 149 |
@@ -133,7 +131,7 @@ The legend is the easiest card on the table to identify: it is large, static, fa
 
 **Example VODs (YouTube):** Barcelona top 8 `irYSCjcbdPs`, Vancouver top 8 `_PEjx43XIMM`, Singapore top 8 `7ft1nhgYjr0`, Hartford top 8 `kMxYbM1Aumc` [R15].
 
-## 1.9 Implications for RiftEye
+## 1.9 Implications for Wardeye
 
 1. **Art-first identification.** Text is unreadable at stream scale, and any language is legal.
 2. **Legend → domains → a third of the pool,** usable from the first seconds of every match. The rune-tap cost cue and the decklist prior stack on top of it.

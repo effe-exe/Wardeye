@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // Layer 1, the change gate, ported from ml/rifteye_ml/changegate.py: it watches a small, downscaled view of the table
 // and fires when a region differs from the still table and has settled (no motion for `settle_s`). Hands passing over

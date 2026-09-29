@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The detector and the embedder in Chromium, as the extension runs them, against Python on the same pictures:
 // frames decoded the extension's way must be Pillow's bytes, the tiles and letterboxed crops the same bytes as

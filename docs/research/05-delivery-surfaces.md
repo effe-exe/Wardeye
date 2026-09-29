@@ -1,8 +1,6 @@
 # 05: Delivery surfaces
 
-> Written when the project was called RiftEye. It is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)).
-
-Where RiftEye runs, and in which order. State as of September 2026.
+Where Wardeye runs, and in which order. State as of September 2026.
 
 ## 5.1 Summary
 
@@ -55,12 +53,12 @@ This matches [ARCHITECTURE §5](../ARCHITECTURE.md#5-runtime-topologies) and the
 
 **Store policies.**
 
-- **Single purpose:** "narrow and easy to understand". RiftEye's is *identify the cards in Riftbound videos and log what was played*. Collected data must be strictly necessary to that purpose (2026 policy update).
+- **Single purpose:** "narrow and easy to understand". Wardeye's is *identify the cards in Riftbound videos and log what was played*. Collected data must be strictly necessary to that purpose (2026 policy update).
 - **No remotely hosted code:** all JS and WASM, including ONNX Runtime's WASM files, ship in the package (`wasmPaths` pointed at bundled files; CDN-loaded ORT WASM has caused rejections).
   - Model weights and the catalogue are **data**, and fetching data is allowed. Hugging Face's own MV3 sample downloads weights at runtime.
   - Plan: ship a baseline model in the package, fetch versioned updates, verify hashes ([ARCHITECTURE §8](../ARCHITECTURE.md#8-model-and-index-versioning)).
-- **Package limit:** 2 GB. Irrelevant at RiftEye's sizes (tens of MB).
-- **No downloading of YouTube video.** RiftEye never saves or uploads frames; the opt-in correction payload is a single card crop ([04 §4.10](04-data-and-evaluation.md#410-opt-in-corrections-from-the-extension)).
+- **Package limit:** 2 GB. Irrelevant at Wardeye's sizes (tens of MB).
+- **No downloading of YouTube video.** Wardeye never saves or uploads frames; the opt-in correction payload is a single card crop ([04 §4.10](04-data-and-evaluation.md#410-opt-in-corrections-from-the-extension)).
 
 **Firefox.**
 
@@ -100,7 +98,7 @@ This matches [ARCHITECTURE §5](../ARCHITECTURE.md#5-runtime-topologies) and the
 - **Output:**
   - An OBS **Browser Source** overlay (card pop-ups, board graphics). It is burned into the stream, so it reaches mobile and VOD viewers too.
   - Optionally a Twitch Extension feed.
-- **Precedent:** obs-backgroundremoval ships ONNX Runtime models inside OBS (GPL-3.0). It proves the runtime side, and its licence is a reminder of why RiftEye stays out of process.
+- **Precedent:** obs-backgroundremoval ships ONNX Runtime models inside OBS (GPL-3.0). It proves the runtime side, and its licence is a reminder of why Wardeye stays out of process.
 - **Competition:** Riftbound Vision already offers a beta OBS plugin and Twitch extension. Pursue this surface with an organiser partner ([06](06-prior-art-and-starting-point.md)).
 
 ## 5.5 Twitch Extensions

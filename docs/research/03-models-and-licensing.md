@@ -1,14 +1,12 @@
 # 03: Models, runtimes and their licences
 
-> Written when the project was called RiftEye. It is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)).
-
-Every component here was checked for **two** licences: the code's and the **weights'**. RiftEye's dual-licensing plan only works if everything that ships is permissive ([D-002](../decisions.md#d-002-permissive-dependencies-only)). Licences change: two of the models below changed terms during 2025–2026. **Re-check before adopting anything, and record the date you checked.**
+Every component here was checked for **two** licences: the code's and the **weights'**. Wardeye's dual-licensing plan only works if everything that ships is permissive ([D-002](../decisions.md#d-002-permissive-dependencies-only)). Licences change: two of the models below changed terms during 2025–2026. **Re-check before adopting anything, and record the date you checked.**
 
 State as of **2026-09-26**.
 
 ## 3.1 Headline findings
 
-1. **The MobileCLIP and MobileCLIP2 weights are research-only.** On 2025-08-29 Apple replaced the permissive weights licence with the *Apple Machine Learning Research Model* terms. They allow use "exclusively for Research Purposes", which excludes use in commercial products and product development, and the terms extend to fine-tuned "Model Derivatives". **Nothing derived from MobileCLIP can ship in RiftEye.**
+1. **The MobileCLIP and MobileCLIP2 weights are research-only.** On 2025-08-29 Apple replaced the permissive weights licence with the *Apple Machine Learning Research Model* terms. They allow use "exclusively for Research Purposes", which excludes use in commercial products and product development, and the terms extend to fine-tuned "Model Derivatives". **Nothing derived from MobileCLIP can ship in Wardeye.**
 2. **DEIMv2 became non-commercial on 2026-08-24** (commit `bb64e5e` replaced Apache-2.0 with the "DEIMv2 License"). Avoid it, and avoid EdgeCrafter from the same lab.
 3. **RF-DETR 1.11.0 (2026-09-24) is Apache-2.0** for:
    - detection sizes N, S, M and L;
@@ -16,7 +14,7 @@ State as of **2026-09-26**.
    - a **keypoint model** that can be fine-tuned with any number of keypoints, so four card corners work out of the box.
 
    Only the XL and 2XL detectors are under Roboflow's PML licence, which requires a platform account.
-4. **Ultralytics YOLO11 and YOLO26** are excellent (native OBB, pose, NMS-free heads) but AGPL-3.0. Ultralytics treats trained weights as covered too. Including them would permanently block a commercial RiftEye edition.
+4. **Ultralytics YOLO11 and YOLO26** are excellent (native OBB, pose, NMS-free heads) but AGPL-3.0. Ultralytics treats trained weights as covered too. Including them would permanently block a commercial Wardeye edition.
 5. **ViT-backbone DETRs are slow in today's browsers.** Public demos show RF-DETR-N at about 0.7–1 s per frame on integrated-GPU WebGPU at fp32, with fp16 silently returning nothing. **Browser: small CNN-backbone or OBB detectors. Server: RF-DETR.**
 
 ## 3.2 Detectors
@@ -109,7 +107,7 @@ Practical constraints for ORT Web:
 | ORT Web; Transformers.js; LiteRT.js; trackers; supervision; Norfair | | Community models trained with Ultralytics (e.g. existing YOLO11 card detectors) |
 | PaddleOCR(.js); RapidOCR; docTR; Tesseract.js; Whisper; Moonshine (streaming/EN); CVAT; Label Studio; SAM 2 | | |
 
-Fonts: **Space Mono**, Gradeon's typeface ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)), ships unmodified in `assets/brand/` under the SIL Open Font License 1.1. It may be bundled with any software, the AGPL included, if every copy carries its copyright notice and licence. The font itself stays under the OFL and may not be sold on its own. Space Mono reserves no font name. Checked 2026-09-29.
+Fonts: **Space Grotesk**, **Inter** and **JetBrains Mono**, the brand book's typefaces ([D-024](../decisions.md#d-024-wardeye-has-its-own-brand-book)), ship in `assets/brand/fonts/` as Latin subsets of the Google Fonts releases, under the SIL Open Font License 1.1. The OFL lets them be bundled with any software, the AGPL included, if every copy carries the copyright notice and licence (the files' metadata keep both, and the licences sit next to them). A subset is a modified font: it stays under the OFL and may not use a reserved font name, and none of the three reserves one. Checked 2026-09-29.
 
 ## 3.8 Research tooling in `ml/` (not shipped)
 
@@ -136,7 +134,7 @@ Suggested by the Maintainer as a "layer 1" decision on whether a card was added 
 | Jev (TypeSafe AI) | The hosted, closed-weights typed-decision API that Laya is the open counterpart of. Early access, priced per input token | Proprietary service | ✖ Closed weights and a network call per decision: cannot run in the extension or be retrained on our data |
 | Laya Vision (github.com/r33drichards/laya-vision, independent fork, experimental) | The same API over an image plus text: SmolVLM-256M-Instruct cut to 20 layers, 201M. About 41 ms per question on an L4 GPU | Code Apache-2.0. **Weights CC BY-NC-SA 4.0** (training data includes ScienceQA and CrisisMMD) | ✖ The published weights cannot ship. Our own checkpoint can: SmolVLM-256M (Apache-2.0) as the base, the Apache-2.0 code, and our own training data |
 
-Neither can label for us either ([D-018](../decisions.md#d-018-labels-come-from-reviewing-model-proposals)). Labels come from a person reviewing RiftEye's own guesses.
+Neither can label for us either ([D-018](../decisions.md#d-018-labels-come-from-reviewing-model-proposals)). Labels come from a person reviewing Wardeye's own guesses.
 
 Verdict: not layer 1. The pixel change gate ([ARCHITECTURE §3.1.1](../ARCHITECTURE.md#311-change-gate-layer-1)) does that job at almost no cost and already works on real footage. A Laya-style model is a candidate **verifier of the gate's events** in M2, trained on labeled events, and it must beat the gate plus detector rules.
 

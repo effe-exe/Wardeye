@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The table modules against Python on real footage: the mat and card tests on the table window of three raw frames of the
 // LA final, on real card crops, and the change gate and the layout finder on frames held for a few steps each. The

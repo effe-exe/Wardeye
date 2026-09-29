@@ -1,7 +1,5 @@
 # 04: Data strategy and evaluation
 
-> Written when the project was called RiftEye. It is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)).
-
 The models are the easy part to write down. The data engine that keeps improving them, and the test sets that keep everyone honest, are the hard part. This chapter covers where data comes from, how it is labeled, how it is governed, and how success is measured.
 
 ## 4.1 Four sources of data
@@ -16,7 +14,7 @@ The models are the easy part to write down. The data engine that keeps improving
 ## 4.2 Catalogue
 
 - **Content:** every printing of every released set, including alt arts, overnumbered cards, promos and tokens. Localised printings are grouped under the same card.
-- **Source:** **Riot's public card gallery**, which carries names, types, domains, costs, text, orientation and 744 × 1039 images. It is a public JSON feed, the one behind the gallery on playriftbound.com: 6 pages of 200, no key. RiftEye does not use the Riot API ([D-015](../decisions.md#d-015-no-riot-api-no-riot-assets-distributed)).
+- **Source:** **Riot's public card gallery**, which carries names, types, domains, costs, text, orientation and 744 × 1039 images. It is a public JSON feed, the one behind the gallery on playriftbound.com: 6 pages of 200, no key. Wardeye does not use the Riot API ([D-015](../decisions.md#d-015-no-riot-api-no-riot-assets-distributed)).
 - **Languages:** the feed takes a `locale`. On 2026-09-26 it served its own images for Origins only: Simplified Chinese (`zh_CN`, 371 printings), Traditional Chinese (`zh_TW`, 352) and Korean (`ko_KR`, 375). French, Japanese, German, Spanish and Italian returned the English images. A localised printing has the same art and frame as the English one; only the text changes. Localised rows take their gameplay identity from the English printing with the same collector code.
 - **Who fetches it, and when:**
   - The Maintainer's build machine fetches it to train models and build the vector index. The images stay on that machine.

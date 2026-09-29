@@ -1,29 +1,155 @@
-# Gradeon's look
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="logo/lockup.svg">
+    <img src="logo/lockup-light.svg" alt="Wardeye" width="260">
+  </picture>
+</p>
 
-Wardeye wears the look of [Gradeon](https://gradeon.ai), the AI card pre-grading app by the same maintainer ([D-020](../../docs/decisions.md#d-020-the-product-is-called-wardeye)): near-black and precise, with Gradeon's purple and Space Mono. The pages and the extension's overlay use these tokens. Nothing here imitates Riot's or Riftbound's design, and no Riot logo appears anywhere.
+# Wardeye brand book
+
+**Place the ward. See the table.** This is the reference for anything that shows Wardeye: the extension, the tools' pages, the README, the web page and social posts. Alpha, September 2026. A community project by Federico Vietti ([D-024](../../docs/decisions.md#d-024-wardeye-has-its-own-brand-book)).
+
+## 1. What Wardeye is
+
+In MOBAs, a ward is what you place to gain vision. Wardeye brings that idea to Riftbound streams: turn it on for a broadcast and it gives you sight of every card on the table (art, name, text) and a timeline of the match. Free, open-source and local. Nothing leaves the viewer's machine.
+
+**Mission.** Place the ward on any Riftbound stream. See the table clearly, without pausing, searching or sending video anywhere.
+
+**What it will do**
+- **Hover to inspect:** point at a card on the table and see its art, name and text.
+- **Match timeline:** cards played, spells cast, units moved, turns and score. Click any event to jump there.
+- **Match at a glance:** each player's legend, battlefields and every card seen so far.
+
+## 2. The five non-negotiables
+
+1. **Public information only.** Hand cams, face-down cards and deck contents are never processed. Wardeye sees only what the broadcast already shows.
+2. **Local first.** Inference runs in the viewer's browser, with WebGPU and a WASM fallback. No video leaves the machine.
+3. **Measured, not claimed.** Every model ships with results on real broadcasts it was not trained on. Accuracy is reported, not marketed.
+4. **Open and clean.** AGPL code. Permissively licensed dependencies and base models only. No hidden telemetry. The trained weights ship inside the extension but are not published ([D-022](../../docs/decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)).
+5. **No footage, art or card text in Wardeye.** Card data comes from Riot's public card gallery, in the browser. Broadcasts belong to their organisers.
+
+## 3. Logo
+
+The mark is a ward: a stake topped with a vision orb. You place it (turn the extension on) and it gives sight of the table. It is abstract and original, not a copy of any game's ward. It pairs with the wordmark, set in Space Grotesk Bold.
+
+| File | Use |
+|---|---|
+| [`logo/lockup.svg`](logo/lockup.svg) | Primary lockup, mark and wordmark, on dark backgrounds |
+| [`logo/lockup-light.svg`](logo/lockup-light.svg) | The lockup on light backgrounds (the dark mark) |
+| [`logo/mark.svg`](logo/mark.svg) | The mark alone, full colour |
+| [`logo/mark-white.svg`](logo/mark-white.svg), [`mark-muted.svg`](logo/mark-muted.svg) | On dark backgrounds, where colour would compete |
+| [`logo/mark-black.svg`](logo/mark-black.svg) | On light backgrounds |
+| [`logo/wordmark.svg`](logo/wordmark.svg), [`wordmark-dark.svg`](logo/wordmark-dark.svg) | The wordmark alone, for dark and light backgrounds |
+
+- **Clear space:** around the lockup, the height of the mark.
+- **Minimum size:** the mark 24 px tall; the full lockup 120 px wide. The browser's 16 px toolbar icon is the one exception.
+- **Never** stretch, recolour or add effects to the mark.
+
+The SVGs are drawn from the brand book's own vectors, and the wordmark's letters are outlines, so no font is needed to show them. The name and the logo are trademarks ([TRADEMARKS.md](../../TRADEMARKS.md)); they are not under the AGPL.
+
+## 4. Colour
+
+Wardeye inherits Gradeon's dark-first system. Near-black surfaces, high-contrast text and a single violet primary keep the UI calm, so the card previews and the timeline stay the focus. The tokens live in [`tokens.css`](tokens.css).
 
 | Token | Value | Use |
 |---|---|---|
-| `--bg` | `#0a0a0a` | The page |
-| `--panel` | `#111111` | Panels, the hover card |
-| `--raised` | `#1a1a1a` | Buttons |
-| `--rule` | `#1a1a1a` | Rules between regions |
-| `--line` | `#333333` | Borders of controls |
-| `--text` | `#ffffff` | Text |
-| `--muted` | `#999999` | Secondary text |
-| `--faint` | `#666666` | Faint marks, such as face-down cards |
-| `--accent` | `#6153cc` | Gradeon's purple: primary buttons, selection |
-| `--accent-2` | `#7b6fd4` | Its light tint: card outlines, times |
-| `--good`, `--warn`, `--bad` | `#00ff88`, `#ff6600`, `#ff0044` | Sure, unsure, error: Gradeon's grade colours |
+| `--wd-primary` | `#8B7CF6` | Actions, links, focus, recognised cards |
+| `--wd-primary-light` | `#A99BFF` | Hover, highlights |
+| `--wd-primary-dark` | `#6D5BD0` | Pressed, active |
+| `--wd-accent` | `#C4B5FD` | Soft emphasis |
+| `--wd-bg` | `#0A0A0B` | Background |
+| `--wd-surface` | `#121214` | Surface: panels |
+| `--wd-surface-2` | `#1A1A1E` | Surface 2: raised panels, controls |
+| `--wd-border` | `#2A2A30` | Borders, rules |
+| `--wd-text` | `#F4F4F5` | Text |
+| `--wd-muted` | `#A1A1AA` | Secondary text |
+| `--wd-dim` | `#71717A` | Faint text and marks |
+| `--wd-success` | `#34D399` | Measured results, on target, a sure read |
+| `--wd-warning` | `#FBBF24` | Alpha status, caution, an unsure read |
+| `--wd-error` | `#F87171` | A detection miss, a failure |
 
-- **Type:** Space Mono for headings, labels, buttons, numbers and times. The system sans-serif for running text.
-- **Corners:** 2 px for controls, badges and thumbnails; 4 px for panels and the player.
+**Accessibility.** Primary on the background meets WCAG AA for large text; text on the background exceeds AAA. Never put body text on primary: use primary for interactive elements and short labels only.
 
-## Files
+## 5. Type
 
-- `SpaceMono-Regular.ttf` and `SpaceMono-Bold.ttf`: Space Mono, unmodified, from [Google Fonts](https://github.com/google/fonts/tree/main/ofl/spacemono). Copyright 2016 The Space Mono Project Authors. They are under the SIL Open Font License 1.1 ([OFL.txt](OFL.txt)), not the AGPL.
-  - sha256 `95837e182baeeada83368f7748db28357f0a1b75c6b84ff7065b5edf933c8e18` (Regular)
-  - sha256 `405e73d41afb7e5906efce206a326af5c956f38e255f35421c260e861e599c59` (Bold)
-- `brand.mjs`: the builds' helper. It inlines the fonts into a page's stylesheet, so the page works from `file://` too.
+| Typeface | For | Weights |
+|---|---|---|
+| **Space Grotesk** | Display and brand moments: page titles, section heads, the wordmark | 500, 600, 700 |
+| **Inter** | UI and body: everything read at small sizes | 400, 500, 600 |
+| **JetBrains Mono** | Code, metrics and ids: timings, scores, printing ids | 400, 500 |
 
-The live runner's page (`ml/rifteye_ml/live/static/`) has the same tokens. The Python package carries no fonts, so that page falls back to the system's monospace.
+| Step | Size / weight | Use |
+|---|---|---|
+| Display | 28–36 / Bold | Hero, page titles |
+| H1 | 22 / SemiBold | Section heads |
+| H2 | 16 / Medium | Card titles, panels |
+| Body | 13–14 / Regular | Paragraphs, descriptions |
+| Caption | 11 / Regular | Labels, metadata |
+| Micro | 9–10 / Medium | Badges, timestamps |
+
+Section labels (eyebrows) are Inter SemiBold, 11 px, in capitals and primary, as in "01 · BRAND OVERVIEW". The fonts in [`fonts/`](fonts/) are Latin subsets of the variable fonts, under the SIL Open Font License 1.1 (the `OFL-*.txt` files there), not the AGPL.
+
+## 6. Voice
+
+For players and viewers who already care about the game: precise, calm, a little technical. Never hype, never corporate, never vague.
+
+- **Precise.** Name the thing: "card detector", not "AI magic". Numbers over adjectives.
+- **Calm.** No urgency, no fear of missing out. The product is free and local; the copy can afford to be quiet.
+- **Technical when useful.** Report accuracy on held-out broadcasts, WebGPU, frame rates. Assume the reader can handle it.
+- **Honest about status.** Alpha is alpha. Say what works, what doesn't, and what the next milestone is.
+- **Respectful of rights.** Broadcasts and card art belong to others. Credit organisers; load art from Riot's gallery.
+
+| Write | Don't write |
+|---|---|
+| Place the ward. Hover a card and see its art, name and text. | Revolutionary AI that transforms how you watch! |
+| Trained and tested on real broadcasts. Results published. | The smartest card recognition on the internet. |
+| Inference stays in your browser. No video leaves the machine. | |
+
+## 7. Messages
+
+- **Elevator pitch:** Wardeye is the ward you place on a Riftbound stream. Hover any card to inspect it, follow the match as a timeline, and see the whole board at a glance: open-source, in your browser, from the video alone.
+- **One-liner:** Place the ward. See the table.
+- **For viewers:** Place the ward once. Hover any card, jump to any play, stay in the stream.
+- **For the community:** Free, AGPL, local-first. Built in the open, measured on real broadcasts.
+- **For organisers:** No footage is stored or uploaded. Card art is loaded from Riot's public gallery.
+- **For developers:** The models come with results on broadcasts they never saw in training. The code is AGPL; every dependency is permissive.
+
+**Naming.** Wardeye was called RiftEye until September 2026 ([D-020](../../docs/decisions.md#d-020-the-product-is-called-wardeye)). Internal code names may still say `rifteye`. Public copy always says Wardeye.
+
+## 8. Visual language
+
+The product lives on top of the Twitch and YouTube players, so it stays minimal and the stream remains the hero.
+
+- **Overlays are translucent, borders are hairline**, and colour is kept for recognition confidence and interactive states.
+- **Card preview**, on hover: a surface panel with a 1.5 px primary border and 8 px corners. The official art (from Riot's gallery) on top, then the name (Inter SemiBold), the type and domains (muted), and the confidence (primary, small) when it helps.
+- **Timeline:** primary dots on a hairline, with short labels (Turn 3, Unit, Spell, Score).
+- **Icons** are simple and geometric, with a 1.5 px stroke, like Lucide's open icons.
+- **Motion** is restrained: 150–250 ms ease-out for hover and panel open. Nothing moves continuously, except a subtle confidence pulse on a new detection.
+
+## 9. Where it appears
+
+- **The extension**, the main surface: the mark in the toolbar and on the player control; the card previews and the timeline in the full colour system; the overlay in the dark theme only.
+- **Documentation and the README:** Markdown first, the lockup in the header, Space Grotesk for titles and Inter for body where HTML allows. Link to this book and the principles.
+- **GitHub:** the repository is `wardeye` (older `rifteye` paths may remain). The description is the one-liner. The social preview: the dark background, the lockup and the one-liner.
+- **The web page:** Gradeon's dark layout: a near-black background, violet calls to action, generous space, short sentences, an alpha badge.
+- **Social:** the avatar is the mark on dark or on primary; banners carry the mark, the wordmark and the one-liner.
+
+**Gradeon.** Wardeye wears Gradeon's look: the same dark base, the same violet family, the same calm technical voice. It is a separate community project by the same maker. Say so ("by Federico Vietti, who also makes Gradeon"); never present Wardeye as a Gradeon product.
+
+## 10. Do and don't
+
+| Do | Don't |
+|---|---|
+| Use the full lockup on dark backgrounds | Stretch, recolour or add effects to the mark |
+| Report model results measured on held-out broadcasts | Claim accuracy without published numbers |
+| Keep overlays translucent; let the stream lead | Process hand cams, face-down cards or private deck data |
+| Say "alpha" and name the current milestone | Upload or store broadcast video |
+| Load card art only from Riot's public gallery | Reintroduce the name RiftEye in public copy |
+| Credit organisers and streamers when showing footage | Use Gradeon's name as if Wardeye were a Gradeon product |
+
+## 11. Files
+
+- `logo/`: the SVGs above.
+- `tokens.css`: the colour, type, shape and motion tokens.
+- `fonts/`: Space Grotesk, Inter and JetBrains Mono (WOFF2, Latin), with their licences.
+- `brand.mjs`: the builds' helper. It puts the fonts (inlined) and the tokens in front of a page's stylesheet, so pages work from `file://` too; the extension points it at its own copies of the fonts.

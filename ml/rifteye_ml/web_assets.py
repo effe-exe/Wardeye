@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """The standalone extension's data (M2): what the live runner works out when it starts, written once for the browser.
 
     python -m rifteye_ml.web_assets OUT_DIR --models $RIFTEYE_DATA/models/onnx

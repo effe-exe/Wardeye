@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The detector's and the embedder's port against Python on real frames: what test/gen/vision_parity.py recorded
 // of Detector.detect (21 LA frames, 10 Barcelona ones), detector_boxes, and 40 crops of those boxes. It needs the

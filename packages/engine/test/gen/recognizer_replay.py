@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """The Python reference for the recognizer's replay tests (recognizer.replay.test.ts, e2e/recognizer.spec.ts).
 
 live/pipeline.py's Recognizer is run over the 240 shared JPEG frames of the LA final, read with Pillow in order,

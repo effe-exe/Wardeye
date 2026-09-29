@@ -1,6 +1,6 @@
 # @rifteye/engine (M2, in progress)
 
-RiftEye's recognition pipeline in TypeScript, so the extension can run it in the browser without the live runner. It is a port of `ml/rifteye_ml`. Every part is checked against its Python original on the same input, down to the pixel where Pillow does the work.
+Wardeye's recognition pipeline in TypeScript, so the extension can run it in the browser without the live runner. It is a port of `ml/rifteye_ml`. Every part is checked against its Python original on the same input, down to the pixel where Pillow does the work.
 
 | Module | Ported from | What it does |
 |---|---|---|

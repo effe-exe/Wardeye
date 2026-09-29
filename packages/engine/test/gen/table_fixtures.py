@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """The Python reference for the table modules on real footage: what ml/rifteye_ml computes on the LA final's frames.
 
     . ml/.venv/bin/activate

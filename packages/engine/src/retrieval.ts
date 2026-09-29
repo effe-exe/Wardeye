@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // Gallery search, ported from ml/rifteye_ml/retrieval.py: the gallery pyramid (embeddings of the clean art at a few
 // on-screen sizes, and which level a crop of a given size is searched against), the top-k search and the

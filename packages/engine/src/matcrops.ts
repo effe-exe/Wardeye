@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The mat and card tests, ported from ml/rifteye_ml/matcrops.py: the mat's colour, which pixels are not mat, which
 // look like a dark card border, and how much detail a crop has (a face has art and text, a card back is one

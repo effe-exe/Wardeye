@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The change gate over the LA final's 240 frames and the layout finder on its first seconds, in Chromium: the JPEGs are
 // decoded as the extension decodes them (createImageBitmap, a 2D canvas, getImageData), turned into the gate's view with

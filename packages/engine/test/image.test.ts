@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // src/image.ts against Pillow 12.3.0, byte for byte. The vectors (test/vectors/image.json, from test/gen/image.py)
 // name synthetic pictures both sides build from one seeded xorshift, the steps done to them, and the SHA-256 of

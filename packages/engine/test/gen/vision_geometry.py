@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """The Python reference for vision-geometry.test.ts: detect/geometry.py and the float rules the detector's port
 needs (np.linalg.norm, math.dist, round() on a numpy scalar, a fused multiply-add), on seeded synthetic inputs.
 

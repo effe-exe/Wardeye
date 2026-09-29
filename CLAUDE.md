@@ -13,7 +13,7 @@ Checks: `npm run check` (typecheck + vitest + guards), `npm run test:e2e` (Playw
 - **Riot IP (decision D-015).** Wardeye does not use the Riot API. Never bundle, commit, re-host or cache on a server any card image or card text. The extension reads them from Riot's public card gallery in the viewer's browser, and releases ship only models plus a vector index keyed by collector code. No Riot logos. Keep both Riot notices in `NOTICE` and the README. Wardeye stays free and non-commercial for Riftbound.
 - **No cross-match statistics** (D-012). Never compute, store or publish play rates, win rates or matchup stats. Per-match timelines only.
 - **No GPL surfaces.** No native OBS plugin (OBS is GPL); the broadcaster kit talks to obs-websocket (D-014).
-- **Name and look (D-020).** The product is Wardeye; it was called RiftEye. Everything a user reads says Wardeye. The code's internal names (`rifteye_ml`, `@rifteye/*`, `RIFTEYE_*`) change in one planned pass, not piecemeal. Every page and the overlay use Gradeon's look: the tokens and Space Mono in `assets/brand/`. No Riot logos, and nothing that imitates Riot's or Riftbound's design.
+- **Name and brand (D-020, D-024).** The product is Wardeye; it was called RiftEye, and public copy never says RiftEye again. The code's internal names (`rifteye_ml`, `@rifteye/*`, `RIFTEYE_*`) change in one planned pass, not piecemeal. Every page and the overlay follow the brand book in `assets/brand/` (its `--wd-*` tokens, fonts and logo, through `brand.mjs`). Wardeye is the Maintainer's community project, credited as "by Federico Vietti, who also makes Gradeon", never presented as a Gradeon product. No Riot logos, and nothing that imitates Riot's or Riftbound's design.
 
 ## Engineering conventions
 

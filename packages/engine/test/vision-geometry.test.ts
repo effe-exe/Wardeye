@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // geometry.ts against detect/geometry.py and the float rules it reproduces, on the seeded synthetic vectors of
 // test/gen/vision_geometry.py. The areas, overlaps, tiles and rounding are asked for bit for bit.

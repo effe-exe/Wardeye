@@ -7,7 +7,8 @@ Wardeye is licensed under the **GNU Affero General Public License v3.0 only** (`
 | Everything, unless listed below | AGPL-3.0-only | The core project |
 | `packages/schema/` | Apache-2.0 | Data formats (timeline, catalogue, layout) that other tools should be able to read and write freely |
 | `layouts/` (when created) | CC0-1.0 | Community layout presets are plain coordinates. Anyone may reuse them |
-| `assets/brand/SpaceMono-*.ttf` | OFL-1.1 | Space Mono, Gradeon's typeface, unmodified from Google Fonts ([OFL.txt](assets/brand/OFL.txt)) |
+| `assets/brand/fonts/` | OFL-1.1 | Space Grotesk, Inter and JetBrains Mono: Latin subsets of the Google Fonts releases ([OFL-*.txt](assets/brand/fonts)) |
+| `assets/brand/logo/` | Not licensed | The Wardeye logo is a trademark: see [TRADEMARKS.md](TRADEMARKS.md) |
 | Trained model weights | Not published and not open source: the Maintainer's own, trained on Riot's card art. They ship only inside the extension | See [D-022](docs/decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon) |
 | Datasets | Not distributed | See [04 §4.9](docs/research/04-data-and-evaluation.md#49-dataset-governance-rules) |
 

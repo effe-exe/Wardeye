@@ -32,7 +32,7 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 
 - **Date:** 2026-09-26. **Status:** accepted.
 - **Decision:** Hand cams, face-down cards and all other hidden information are masked out and never processed.
-- **Why:** tournament integrity and organiser trust. RiftEye must not become a stream-sniping aid.
+- **Why:** tournament integrity and organiser trust. Wardeye must not become a stream-sniping aid.
 
 ### D-006: No third-party media in git
 
@@ -73,7 +73,7 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 ### D-012: No cross-match statistics
 
 - **Date:** 2026-09-26. **Status:** accepted.
-- **Decision:** RiftEye publishes per-match timelines only. It does not compute, publish or retain play rates, win rates or matchup statistics of cards or decks.
+- **Decision:** Wardeye publishes per-match timelines only. It does not compute, publish or retain play rates, win rates or matchup statistics of cards or decks.
 - **Why:** Riot will not approve apps that "publish or retain metagame-defining data". Revisit only with Riot's written confirmation.
 
 ### D-013: Browser detector is a small CNN or OBB model; RF-DETR runs on the server
@@ -91,12 +91,12 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 ### D-015: No Riot API; no Riot assets distributed
 
 - **Date:** 2026-09-26. **Status:** accepted. Supersedes D-011.
-- **Decision:** RiftEye does not use the Riot API.
-  - **What RiftEye distributes:** its own code and models, plus an embedding index of vectors keyed by public collector codes (`OGN-001`, …).
+- **Decision:** Wardeye does not use the Riot API.
+  - **What Wardeye distributes:** its own code and models, plus an embedding index of vectors keyed by public collector codes (`OGN-001`, …).
   - **What it never distributes:** card images or card text.
   - **At display time:** the extension reads card names, text and images from Riot's public card gallery, in the viewer's browser.
   - **For Riftbound:** the project stays free and non-commercial, carries the Legal Jibber Jabber notice, and will act on any request from Riot.
-- **Why:** the Maintainer's decision. Keeping every Riot asset out of RiftEye's distribution also keeps Riot's official gallery the single source of card data, which means official text and new sets on release day.
+- **Why:** the Maintainer's decision. Keeping every Riot asset out of Wardeye's distribution also keeps Riot's official gallery the single source of card data, which means official text and new sets on release day.
 
 ### D-016: A change gate decides when and where the heavy stages run
 
@@ -114,7 +114,7 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 
 - **Date:** 2026-09-26. **Status:** accepted. Tools: `apps/reviewer` and `ml/rifteye_ml/reviewpack.py`.
 - **Decision:** Identity and event labels are made by a person answering correct or wrong to the model's guess, with the next guesses and a catalogue name search for corrections. Nobody labels from scratch. Items are tracks of one physical card, so one answer labels many crops. Each pack puts the least confident items first and mixes in a random 10% audit of the confident rest. Bulk training data stays synthetic ([04 §4.3](research/04-data-and-evaluation.md#43-synthetic-board-generator-mlsynth)). Reviewed real labels are for evaluation, calibration and a small real share in fine-tuning.
-- **Why:** Proposed by the Maintainer, who asked for thousands of labels without labelling thousands of crops. Confirming a guess takes about two seconds. On the M0 reference VOD the colour-grid matcher is right on 97.5% of already-labelled tracks, so most answers are a single key. The audit measures the accuracy of the guesses nobody checks, which is what allows skipping review for confident items later. Jev (closed, hosted) and Laya Vision (non-commercial weights) cannot be the proposer ([03 §3.9](research/03-models-and-licensing.md#39-evaluated-typed-decision-models-laya)). The proposer is RiftEye's own pipeline, and it improves as the answers come back.
+- **Why:** Proposed by the Maintainer, who asked for thousands of labels without labelling thousands of crops. Confirming a guess takes about two seconds. On the M0 reference VOD the colour-grid matcher is right on 97.5% of already-labelled tracks, so most answers are a single key. The audit measures the accuracy of the guesses nobody checks, which is what allows skipping review for confident items later. Jev (closed, hosted) and Laya Vision (non-commercial weights) cannot be the proposer ([03 §3.9](research/03-models-and-licensing.md#39-evaluated-typed-decision-models-laya)). The proposer is Wardeye's own pipeline, and it improves as the answers come back.
 
 
 ### D-019: The first identifier scores colour and structure together
@@ -125,7 +125,7 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 
 ### D-020: The product is called Wardeye
 
-- **Date:** 2026-09-29. **Status:** accepted; the Maintainer chose it. A trademark search must clear it before the public launch. Supersedes the working name of [D-010](#d-010-rifteye-is-a-working-name).
+- **Date:** 2026-09-29. **Status:** accepted; the Maintainer chose it. A trademark search must clear it before the public launch. Supersedes the working name of [D-010](#d-010-rifteye-is-a-working-name). Its look (Gradeon's tokens and Space Mono) is superseded by [D-024](#d-024-wardeye-has-its-own-brand-book).
 - **Decision:** "Wardeye" replaces "RiftEye" in everything a user sees: the extension, the README and the store listing.
   - The code's internal names (`rifteye_ml`, `@rifteye/*`, `RIFTEYE_*`) change in one mechanical pass before the repository goes public.
   - The extension takes Gradeon's look: the near-black palette, the brand purple `#6153CC` and Space Mono (SIL Open Font License).
@@ -137,7 +137,7 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 
 ### D-021: Apply to Riot for a Riftbound app key
 
-- **Date:** 2026-09-29. **Status:** proposed. The application is drafted in [riot-application.md](riot-application.md).
+- **Date:** 2026-09-29. **Status:** proposed. The application is drafted in [riot-application.md](riot-application.md). Amended by [D-024](#d-024-wardeye-has-its-own-brand-book): Wardeye is never presented as Gradeon's, key or no key.
 - **Decision:** Apply as a free spectator companion. Once a key is approved:
   - it supersedes [D-015](#d-015-no-riot-api-no-riot-assets-distributed): card data and art come from the Riot API, through a small server that holds the key (as [D-011](#d-011-card-data-and-art-come-only-from-the-riot-api) had it);
   - the extension may be presented as Gradeon's.
@@ -146,7 +146,7 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 
 ### D-022: Free for everyone, closed weights, a showcase for Gradeon
 
-- **Date:** 2026-09-29. **Status:** accepted. Supersedes the commercial part of [D-001](#d-001-agpl-30-only-plus-a-cla) and the sustainability model in [07 §7.7](research/07-licensing-and-governance.md#77-sustainability-model).
+- **Date:** 2026-09-29. **Status:** accepted. Supersedes the commercial part of [D-001](#d-001-agpl-30-only-plus-a-cla) and the sustainability model in [07 §7.7](research/07-licensing-and-governance.md#77-sustainability-model). How it credits Gradeon is amended by [D-024](#d-024-wardeye-has-its-own-brand-book).
 - **Decision:**
   - The project is free for everyone. It offers no commercial licences, no paid tiers and no paid services.
   - The code stays AGPL-3.0-only, and contributors still sign the CLA, which keeps the licensing in one hand. [D-002](#d-002-permissive-dependencies-only)'s permissive-only rule stays for the same reason.
@@ -159,3 +159,12 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 - **Date:** 2026-09-29. **Status:** accepted.
 - **Decision:** On WebGPU the extension runs the detector's float32 file, always, and the embedder's float16 file when the GPU has `shader-f16` (else float32, else WASM). The private package carries only those two files.
 - **Why:** on an Apple-silicon Mac (Chrome 154, native WebGPU), the float16 detector decoded 34 of the check tile's 35 cards, with extra ones: its outputs drift enough to move cards. The float32 detector and the float16 embedder both match PyTorch (embedder cosine 0.99984). The float16 detector would have been faster (44.5 ms a 576 px tile); correct cards come first. The older WebGPU runtime (JSEP) is not used: its GridSample fails in float16.
+
+### D-024: Wardeye has its own brand book
+
+- **Date:** 2026-09-29. **Status:** accepted; the Maintainer's brand book (alpha, September 2026), kept as [assets/brand/README.md](../assets/brand/README.md). Supersedes the look in [D-020](#d-020-the-product-is-called-wardeye), and how [D-021](#d-021-apply-to-riot-for-a-riftbound-app-key) and [D-022](#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon) present Gradeon.
+- **Decision:**
+  - Wardeye has its own identity: the ward mark with a Space Grotesk wordmark; a violet primary (`#8B7CF6`) on near-black (`#0A0A0B`); Space Grotesk, Inter and JetBrains Mono; soft corners, hairline borders, restrained motion; a precise, calm voice. The one-liner is "Place the ward. See the table."
+  - It inherits Gradeon's dark-first system, but it is a separate community project by the same maker, credited as "by Federico Vietti, who also makes Gradeon". It is never presented as a Gradeon product.
+  - Where the brand book's draft and the facts differ, the repository keeps the facts: the weights are not published (D-022), so no copy says "no closed models"; and public copy says "in MOBAs" where the book names League of Legends, which keeps Riot's names out of the brand.
+- **Why:** one look across the extension, the tools, the README and the web page. And a community project by a person, not a company, fits Riot's Legal Jibber Jabber, which counts any project that involves a business as commercial.

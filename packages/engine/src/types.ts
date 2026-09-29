@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The types the engine's parts share. Each mirrors the Python it is ported from (ml/rifteye_ml), so a port reads
 // like its original and a fixture written by Python loads as it is.

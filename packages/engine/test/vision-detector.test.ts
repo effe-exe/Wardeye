@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // detector.ts against detect/model.py, RF-DETR's PostProcess and live/pipeline.py on the seeded synthetic vectors
 // of test/gen/vision_detector.py, and the detector's plumbing (tiles, batches, the finder) on made-up pictures.

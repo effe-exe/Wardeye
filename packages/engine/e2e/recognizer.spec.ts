@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The recognizer in Chromium against its Python reference, all 240 steps of the LA final (2 min at 2 fps): the JPEG
 // frames decoded as the extension decodes them, the finder's boxes and the encoder's rows as

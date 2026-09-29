@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // Broadcast layouts, ported from ml/rifteye_ml/live/layouts.py: where the table is on screen and how big a card
 // is there. The Layout type is in types.ts; a layout is plain data, so its methods here take it first.

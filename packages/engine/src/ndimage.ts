@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The scipy.ndimage operations the change gate and the layout finder use, on boolean pictures (one byte a pixel,
 // 0 or 1, rows top to bottom). They give the results of SciPy 1.17.1's scipy/ndimage/_morphology.py (binary_dilation,

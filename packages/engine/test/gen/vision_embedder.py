@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """The Python reference for vision-embedder.test.ts: encoders.letterbox and l2n, embed/onnx.batch_of and the Onnx
 encoder's name, on seeded synthetic pictures and rows.
 

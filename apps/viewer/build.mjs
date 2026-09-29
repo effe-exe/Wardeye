@@ -1,7 +1,7 @@
 // Bundles the viewer into dist/: a static page that works from file:// or any static host.
 import { build } from 'esbuild';
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { withSpaceMono } from '../../assets/brand/brand.mjs';
+import { withBrand } from '../../assets/brand/brand.mjs';
 
 const here = (p) => new URL(p, import.meta.url).pathname;
 mkdirSync(here('./dist'), { recursive: true });
@@ -15,5 +15,5 @@ await build({
   legalComments: 'inline',
 });
 copyFileSync(here('./src/index.html'), here('./dist/index.html'));
-writeFileSync(here('./dist/style.css'), withSpaceMono(readFileSync(here('./src/style.css'), 'utf8'))); // Gradeon's look
+writeFileSync(here('./dist/style.css'), withBrand(readFileSync(here('./src/style.css'), 'utf8'))); // Wardeye's brand
 console.log('viewer built -> apps/viewer/dist/');

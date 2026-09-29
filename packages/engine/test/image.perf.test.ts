@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // How fast the hot picture operations run in Node, against the budgets the live frame rate leaves them. Timings
 // mean little on a shared machine, so this is opt-in:

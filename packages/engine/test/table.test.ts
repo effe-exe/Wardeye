@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The table modules against their Python originals on the seeded synthetic vectors of test/gen/table.py: SciPy's
 // linear_sum_assignment, the scipy.ndimage operations, matcrops, the change gate, the gallery pyramid and search, the

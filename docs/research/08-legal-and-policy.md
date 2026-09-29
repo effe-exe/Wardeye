@@ -1,15 +1,13 @@
 # 08: Legal and policy constraints
 
-> Written when the project was called RiftEye. It is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)).
-
 > **Risk analysis, not legal advice.** Riot's developer pages were read through verbatim third-party copies because the official pages were unreachable from the research environment. **Re-read the live pages** (developer.riotgames.com/docs/riftbound, developer.riotgames.com/policies/riftbound, riotgames.com/en/legal) before relying on any quote. State as of September 2026.
 
 ## 8.1 Summary
 
-| Area | Constraint | RiftEye's response |
+| Area | Constraint | Wardeye's response |
 |---|---|---|
-| **Riot: registration and key** | Apps need a written licence **or** an approved, app-specific Riot API key. Products that serve players must register "regardless of whether or not your product uses official documented APIs" RiftEye does **not** use the Riot API ([D-015](../decisions.md#d-015-no-riot-api-no-riot-assets-distributed)). It stays free and non-commercial for Riftbound, carries the notice, and acts on any request from Riot |
-| **Riot: assets** | "Your App may only use Riftbound assets (including cards) provided by the Riot API. No external or unofficial materials." RiftEye **distributes no card images or text**. The extension loads them from Riot's public card gallery in the viewer's browser; releases carry only models and a vector index keyed by collector code |
+| **Riot: registration and key** | Apps need a written licence **or** an approved, app-specific Riot API key. Products that serve players must register "regardless of whether or not your product uses official documented APIs" Wardeye does **not** use the Riot API ([D-015](../decisions.md#d-015-no-riot-api-no-riot-assets-distributed)). It stays free and non-commercial for Riftbound, carries the notice, and acts on any request from Riot |
+| **Riot: assets** | "Your App may only use Riftbound assets (including cards) provided by the Riot API. No external or unofficial materials." Wardeye **distributes no card images or text**. The extension loads them from Riot's public card gallery in the viewer's browser; releases carry only models and a vector index keyed by collector code |
 | **Riot: metagame data** | Apps that "publish or retain metagame-defining data" will not be approved: play rates and win rates of decks or cards, matchup differentials | **No cross-match statistics.** Per-match timelines only. Ask Riot before any aggregate feature |
 | **Riot: monetisation** | Needs an Approved key, a free tier, and transformative paid content. Subscriptions, donations and crowdfunding are accepted; no "middle-man" resale of API data to third parties **No paid Riftbound features.** Any commercial Riftbound use, including tools for organisers, needs a written licence from Riot first |
 | **Riot: integrity and brand** | No unfair advantage to players; no implied endorsement; the LJJ §6 notice; no Riot logos; no Riot trademarks, trade names or character names in domains or social handles | Public-information-only rule; notices in [NOTICE](../../NOTICE); name review (§8.2) |
@@ -32,9 +30,9 @@ Three documents apply together: the **Legal Jibber Jabber** (LJJ, Riot's fan-con
 
 - An app needs "either a written license from us or a valid App-specific API key".
 - The Riot API gives "authorized access to select Riftbound assets—including card art, rulesets, and other materials".
-- The approved examples are **deckbuilders and card libraries**. RiftEye is a new category, a spectator companion, so approval is not guaranteed and the application must explain it well.
+- The approved examples are **deckbuilders and card libraries**. Wardeye is a new category, a spectator companion, so approval is not guaranteed and the application must explain it well.
 - Riot is "not looking to approve Apps that enable automated rules enforcement". It wants tabletop play "without the assistance of digital trackers and interactions".
-  - **RiftEye is not a play aid.** It is for spectators of broadcast games, many of them time-shifted. Keep that framing, and keep the public-information-only rule, in the application.
+  - **Wardeye is not a play aid.** It is for spectators of broadcast games, many of them time-shifted. Keep that framing, and keep the public-information-only rule, in the application.
 
 **Monetisation** requires all of the following:
 
@@ -65,7 +63,7 @@ Three documents apply together: the **Legal Jibber Jabber** (LJJ, Riot's fan-con
 
 **Riot's licence to your project** (LJJ §7): Riot "may use, copy, modify, distribute, and make derivative works of your Project in any form, on a royalty-free, non-exclusive, irrevocable, transferable, sub-licensable, worldwide basis, for any purpose". That sits alongside, and outside, the AGPL ([07 §7.6](07-licensing-and-governance.md#76-riots-policies-sit-above-all-of-this)).
 
-**Content reuse** (LJJ §4): "Don't just rip off or add some light commentary to existing content (e.g., esports matches, other players' vods)." RiftEye never re-hosts VODs; it adds a transformative layer next to the official players.
+**Content reuse** (LJJ §4): "Don't just rip off or add some light commentary to existing content (e.g., esports matches, other players' vods)." Wardeye never re-hosts VODs; it adds a transformative layer next to the official players.
 
 **Names and marks** (LJJ §5):
 
@@ -73,11 +71,11 @@ Three documents apply together: the **Legal Jibber Jabber** (LJJ, Riot's fan-con
 - No domains or social accounts using Riot's "trademarks, trade names, character names, etc."
 - No Riot IP names as "keywords or internet search tags". Mind the store-listing keywords.
 
-**The name "RiftEye"** is not a Riot mark, but it leans on "Rift" (Riftbound, Summoner's Rift, Wild Rift). It also sits close to the existing competitor **RiftSight**, a tool that does the same kind of thing, and an unrelated "RiftEye" mod already exists. **A neutral, game-agnostic name is safer**, and it fits the multi-game engine strategy ([07 §7.6](07-licensing-and-governance.md#76-riots-policies-sit-above-all-of-this)). "RiftEye" is a working name until then ([D-010](../decisions.md#d-010-rifteye-is-a-working-name)).
+**The name.** The working name, "RiftEye", was not a Riot mark, but it leaned on "Rift" (Riftbound, Summoner's Rift, Wild Rift). It also sat close to the existing competitor **RiftSight**, a tool that does the same kind of thing, and an unrelated "RiftEye" mod already exists. **A neutral, game-agnostic name is safer**, and it fits the multi-game engine strategy ([07 §7.6](07-licensing-and-governance.md#76-riots-policies-sit-above-all-of-this)). So the project is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)), which a trademark search must still clear.
 
 **Required notice** (LJJ §6, required by both Riftbound policies "in a place that's clear and easy to find"):
 
-> RiftEye was created under Riot Games' "Legal Jibber Jabber" policy using assets owned by Riot Games. Riot Games does not endorse or sponsor this project.
+> Wardeye was created under Riot Games' "Legal Jibber Jabber" policy using assets owned by Riot Games. Riot Games does not endorse or sponsor this project.
 
 ## 8.3 Broadcast footage and platform terms
 
@@ -105,7 +103,7 @@ Three documents apply together: the **Legal Jibber Jabber** (LJJ, Riot's fan-con
 
 ## 8.4 Text and data mining law
 
-| Jurisdiction | Rule | Fit for RiftEye |
+| Jurisdiction | Rule | Fit for Wardeye |
 |---|---|---|
 | **EU**, DSM Directive 2019/790 | **Art. 3:** research organisations and cultural-heritage institutions only. **Art. 4:** any purpose, including commercial, with lawful access, *unless* rights are reserved "in an appropriate manner, such as machine-readable means". The recitals count website terms as such a reservation. Art. 7(1) protects Arts. 3, 5 and 6 from contract override, not Art. 4 | A sole proprietorship is not a research organisation. Platform terms likely reserve rights, so **do not rely on Art. 4** for platform downloads |
 | **EU AI Act** | Recital 105 treats gathering AI training data as text and data mining under 2019/790 | Same conclusion |

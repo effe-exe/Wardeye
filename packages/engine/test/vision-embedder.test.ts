@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // embedder.ts against encoders.letterbox and l2n and embed/onnx.py (batch_of, the encoder's name), on the seeded
 // synthetic vectors of test/gen/vision_embedder.py, and the encoder's fixed batches on a stand-in net.

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // Python's and numpy's number rules, where the ports need them exactly: round() goes to the even neighbour on a
 // tie, % and // follow the divisor's sign, and np.median is the mean of the two middle values.

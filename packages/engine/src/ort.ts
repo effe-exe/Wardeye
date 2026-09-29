@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // ONNX Runtime Web sessions for the detector and the embedder, made the way the extension makes them. The GPU
 // path is onnxruntime-web 1.30's native WebGPU execution provider (its JSPI build, "onnxruntime-web/jspi", the

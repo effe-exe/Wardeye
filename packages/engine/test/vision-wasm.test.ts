@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The real models on onnxruntime-web's WASM build in Node, through ort.ts, against Python's ONNX Runtime CPU on the
 // same pixels: the detector on the three LA frames decoded to raw RGB, the embedder on the 40 crops of

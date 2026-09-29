@@ -1,10 +1,8 @@
 # 07: Licensing and governance
 
-> Written when the project was called RiftEye. It is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)).
-
 > **Superseded in part on 2026-09-29 by [D-022](../decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon):** the project is free for everyone. No commercial licences, paid tiers or paid services are planned, and the trained weights are not published. The CLA stays. The analysis below is kept as it was written.
 
-**The goal:** RiftEye should be genuinely open source and easy to contribute to. The Maintainer should keep the ability to offer commercial terms, run paid services, or sell the project later. And nobody should be able to take the code closed and sell it as their own.
+**The goal:** Wardeye should be genuinely open source and easy to contribute to. The Maintainer should keep the ability to offer commercial terms, run paid services, or sell the project later. And nobody should be able to take the code closed and sell it as their own.
 
 This chapter explains the setup that achieves that and the alternatives that were rejected. It also covers the one constraint that sits above any software licence: Riot Games' policies ([08](08-legal-and-policy.md)).
 
@@ -19,7 +17,7 @@ This chapter explains the setup that achieves that and the alternatives that wer
 | Name and logo | **Trademark policy** ([TRADEMARKS.md](../../TRADEMARKS.md)) | Forks get the code, not the name. AGPL §7(e) explicitly allows declining trademark rights. |
 | Model weights | Released per model, **AGPL-3.0-only unless a release says otherwise** | Community models ship in the extension. Larger hosted models are not distributed at all. |
 | Datasets | **Not distributed** | Footage belongs to broadcasters; only manifests are public ([04 §4.9](04-data-and-evaluation.md#49-dataset-governance-rules)) |
-| Embeddable pieces | **Apache-2.0** for the data schemas and any embed SDK, when they exist | Tournament sites and tools can read RiftEye timelines without AGPL questions. Grafana and Plausible use the same split for their SDKs. |
+| Embeddable pieces | **Apache-2.0** for the data schemas and any embed SDK, when they exist | Tournament sites and tools can read Wardeye timelines without AGPL questions. Grafana and Plausible use the same split for their SDKs. |
 
 [LICENSING.md](../../LICENSING.md) maps directories to licences, and each file will carry an SPDX header.
 
@@ -37,7 +35,7 @@ This chapter explains the setup that achieves that and the alternatives that wer
 
 **Why not source-available (FSL/BSL):** it is not open source. It would deter exactly the contributors the project wants, and recent history is not encouraging. HashiCorp's move to BSL produced OpenTofu; Redis and Elastic eventually went back to AGPL.
 
-**Why not MIT/Apache:** anyone could ship a closed, paid "RiftEye Pro" built on the community's work, and the project would have no answer.
+**Why not MIT/Apache:** anyone could ship a closed, paid "Wardeye Pro" built on the community's work, and the project would have no answer.
 
 **The lesson from 2026:** Cal.com, AGPL with a commercial folder, went closed-source in April 2026 and re-released its free code under MIT, and took visible criticism for it. Holding the rights makes a change possible. It does not make it free, in trust.
 
@@ -45,7 +43,7 @@ This chapter explains the setup that achieves that and the alternatives that wer
 
 Without a CLA, GitHub's terms make contributions "inbound = outbound": you receive them under the AGPL only. A DCO sign-off certifies origin but grants no extra rights. Either way, the Maintainer could not offer contributed code under commercial terms.
 
-RiftEye's CLA ([CLA.md](../../CLA.md)) is adapted from the **Harmony** individual agreement with **outbound option five**:
+Wardeye's CLA ([CLA.md](../../CLA.md)) is adapted from the **Harmony** individual agreement with **outbound option five**:
 
 - **It is a licence, not an assignment.** Contributors keep their copyright. Assignment clauses are also unenforceable in some EU countries, for example Germany.
 - **The grant** is perpetual, irrevocable, worldwide and sublicensable, and covers copyright (including database rights, which matter for labels and datasets) and patents.
@@ -72,7 +70,7 @@ Code, weights and data are licensed separately.
 
 **How dependencies constrain the licence choice.** This is why [decision D-002](../decisions.md) exists.
 
-| Dependency type | Effect on RiftEye's ability to offer commercial terms |
+| Dependency type | Effect on Wardeye's ability to offer commercial terms |
 |---|---|
 | Apache-2.0 / MIT / BSD code or weights | Fine. They can go into an AGPL work and into a commercial edition, as long as NOTICE files are kept. |
 | **AGPL library** (e.g. Ultralytics YOLO) | Blocks it: the Maintainer cannot license someone else's AGPL code commercially. A commercial edition would need a third-party enterprise licence. |
@@ -80,7 +78,7 @@ Code, weights and data are licensed separately.
 | **Platform-licensed weights** (e.g. RF-DETR XL/2XL under Roboflow's PML) | Incompatible with open distribution. RF-DETR N/S/M/L are Apache-2.0 and fine. |
 | Models trained with an AGPL framework (e.g. community YOLO11 card detectors) | Treat the weights as AGPL-encumbered. Use them as a reference, never as a shipped component. |
 
-**RiftEye's defaults:**
+**Wardeye's defaults:**
 
 - **Community models** (the ones in the extension) are released under AGPL-3.0-only with a model card, unless a release states otherwise.
 - **Hosted models** (larger server-side detectors and embedders, and teacher models) are not distributed, so no licence question arises.
@@ -92,7 +90,7 @@ No software licence or CLA overrides Riot's terms for using its IP. Three points
 
 1. **Riot gets a licence to the project.** Legal Jibber Jabber §7 lets Riot use, copy, modify and distribute fan projects "on a royalty-free, non-exclusive, irrevocable, transferable, sub-licensable, worldwide basis, for any purpose", and that applies regardless of the AGPL.
 2. **Monetising a Riftbound app requires an approved Riot API key or a written licence**, a free tier, and transformative paid content. Selling API data to third parties is a "middle-man" use Riot says it will not approve.
-3. **RiftEye does not use the Riot API** ([D-015](../decisions.md#d-015-no-riot-api-no-riot-assets-distributed)). So for Riftbound it stays **free and non-commercial**. Any paid Riftbound feature, including tools sold to organisers, would first need a written licence from Riot.
+3. **Wardeye does not use the Riot API** ([D-015](../decisions.md#d-015-no-riot-api-no-riot-assets-distributed)). So for Riftbound it stays **free and non-commercial**. Any paid Riftbound feature, including tools sold to organisers, would first need a written licence from Riot.
 
 **Structural consequence.** The durable, sellable asset is the **game-agnostic engine** plus the brand and the data engine ([D-008](../decisions.md)). Riftbound is its first game pack, operated within Riot's rules and ideally in partnership with Riot or its organisers.
 

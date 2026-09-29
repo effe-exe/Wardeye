@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The picture operations the engine shares, bit for bit as Pillow does them, so a port of ml/ sees exactly the
 // pixels its Python original sees. A port of Pillow 12.3.0:

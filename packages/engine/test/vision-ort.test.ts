@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // ort.ts: which runtime a browser gets (fake modules and GPUs), and sessions made with the real onnxruntime-web
 // (its Node build, WASM, one thread) on stand-in graphs written with the bench's tiny ONNX writer: the fixed batch,

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The page vision.spec.ts runs in Chromium: the detector and the embedder as the extension runs them, on
 // onnxruntime-web's WASM build (float32). Frames and crops are decoded the extension's way (createImageBitmap with

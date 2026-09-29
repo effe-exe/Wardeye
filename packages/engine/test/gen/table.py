@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """The Python reference for table.test.ts: what the table modules of ml/rifteye_ml compute on seeded synthetic inputs.
 
     . ml/.venv/bin/activate

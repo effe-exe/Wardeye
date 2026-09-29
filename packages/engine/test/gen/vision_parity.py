@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """The Python reference for the vision parity tests (test/vision-*.test.ts with RIFTEYE_M3, e2e/vision.spec.ts) and
 for the bench's decoded detector check.
 

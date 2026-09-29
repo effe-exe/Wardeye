@@ -1,7 +1,5 @@
 # 06: Prior art, competitors and starting point
 
-> Written when the project was called RiftEye. It is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)).
-
 ## 6.1 Riftbound tools that already exist (September 2026)
 
 | Tool | What it does | How | Relevance |
@@ -15,7 +13,7 @@
 | Phone scanners (Rift TCG Scanner and others) | Collection scanning | Single card, close-up | Different problem |
 | RiftAtlas, Pixelborn, Tabletop Simulator | Online play | Digital state, no vision | Out of scope, and Riot restricts simulators ([08](08-legal-and-policy.md)) |
 
-**Where RiftEye differs:**
+**Where Wardeye differs:**
 
 1. **The timeline.** Board state and events (played, cast, moved, turn, score), not just "what is this card". Nobody does this for physical play yet.
 2. **Measured accuracy** on a real, event-split test set with a public protocol ([04](04-data-and-evaluation.md)), instead of self-reported numbers.
@@ -42,15 +40,15 @@ The Riftbound community is small. Collaboration can beat competition here: share
 | hj3yoo/mtg_card_detector | Tiny YOLO on about 40k synthetic layouts (88% on generated validation data), later replaced by contours + pHash; about 50 ms per card against 10k+ cards | **Failed on overlapping cards.** Synthetic validation numbers flatter |
 | geaxgx/playing-card-detection | Synthetic playing-card dataset generator | Copy-paste recipe |
 | mtgscan | Cloud OCR plus fuzzy matching against the card database | OCR needs readable text: not at stream scale |
-| Pokémon and Yu-Gi-Oh scanners | Detection plus embedding plus similarity search | The same two-stage design RiftEye uses |
+| Pokémon and Yu-Gi-Oh scanners | Detection plus embedding plus similarity search | The same two-stage design Wardeye uses |
 
-The synthetic-data recipe comes from a small canon: *Cut, Paste and Learn* (arXiv:1708.01642), *Domain Randomization* (arXiv:1703.06907) and *Simple Copy-Paste* (arXiv:2012.07177). **No peer-reviewed work on TCG recognition in broadcast video was found.** RiftEye's evaluation protocol could become one.
+The synthetic-data recipe comes from a small canon: *Cut, Paste and Learn* (arXiv:1708.01642), *Domain Randomization* (arXiv:1703.06907) and *Simple Copy-Paste* (arXiv:2012.07177). **No peer-reviewed work on TCG recognition in broadcast video was found.** Wardeye's evaluation protocol could become one.
 
 ## 6.4 Starting point: the Maintainer's card-recognition work
 
-RiftEye does not start from zero. The Maintainer's TCG pre-grading app, [Gradeon](https://gradeon.ai), already recognises single cards in phone photos across several games, Riftbound included. From that work, RiftEye inherits, re-published here under the AGPL as each piece is ported ([ROADMAP](../ROADMAP.md)):
+Wardeye does not start from zero. The Maintainer's TCG pre-grading app, [Gradeon](https://gradeon.ai), already recognises single cards in phone photos across several games, Riftbound included. From that work, Wardeye inherits, re-published here under the AGPL as each piece is ported ([ROADMAP](../ROADMAP.md)):
 
-- **Catalogue tooling:** bulk sync, image caching and incremental refresh. For RiftEye the source is Riot's public card gallery, and nothing is redistributed ([D-015](../decisions.md#d-015-no-riot-api-no-riot-assets-distributed)).
+- **Catalogue tooling:** bulk sync, image caching and incremental refresh. For Wardeye the source is Riot's public card gallery, and nothing is redistributed ([D-015](../decisions.md#d-015-no-riot-api-no-riot-assets-distributed)).
 - **A metric-learning trainer** for card-specific embeddings: contrastive loss with a negatives queue, augmentations modelled on the real domain gap, and model selection on real data every epoch.
 - **A corner-heatmap rectifier** (soft-argmax) that exports to ONNX. It will be retrained from a permissive initialisation ([03 §3.3](03-models-and-licensing.md#33-rectification)).
 - **Detector-training wrappers** around permissively licensed real-time DETRs.

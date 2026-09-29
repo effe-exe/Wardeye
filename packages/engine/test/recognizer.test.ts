@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The recognizer's pure parts and its rules against live/pipeline.py, on the synthetic inputs of gen/recognizer.py
 // (vectors/recognizer.json): the boxes' corners, smoothing, the similarity fit, numpy's sums, the scene's float32
