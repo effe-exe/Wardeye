@@ -1,6 +1,6 @@
 # Releasing Wardeye
 
-Two milestones. The repository goes public first; the store release waits for Riot's answer ([D-021](decisions.md#d-021-apply-to-riot-for-a-riftbound-app-key)).
+Two milestones: the repository goes public, and the extension goes to the Chrome Web Store as a free alpha while Riot reviews the application ([D-025](decisions.md#d-025-release-on-the-chrome-web-store-now-and-apply-to-riot-in-parallel)).
 
 ## A. Making the repository public
 
@@ -22,10 +22,11 @@ Then, on GitHub:
 
 ## B. The Chrome Web Store release
 
-Waits for Riot's approval ([riot-application.md](riot-application.md)). It needs, in the product:
-- card data from Riot at display time, so no card image or card text ships in the package ([D-015](decisions.md#d-015-no-riot-api-no-riot-assets-distributed));
-- the public in-browser build, with the models inside the package ([D-022](decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)), lighter where the measurements allow;
-- this [privacy policy](PRIVACY.md) at a public URL, updated for the card images loaded from Riot.
+Now, while Riot reviews the application ([D-025](decisions.md#d-025-release-on-the-chrome-web-store-now-and-apply-to-riot-in-parallel)). The store build:
+- is standalone only: no companion mode and no access to `127.0.0.1`;
+- carries the models ([D-022](decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)) and the embedding index keyed by printing id, and no card image or card text ([D-015](decisions.md#d-015-no-riot-api-no-riot-assets-distributed)): names, types and images load from Riot's public card gallery as the viewer watches;
+- is one zip with the manifest at its root, as the store takes it;
+- links this [privacy policy](PRIVACY.md) at a public URL (the file on GitHub once the repository is public).
 
 ### The listing
 
@@ -40,7 +41,7 @@ Waits for Riot's approval ([riot-application.md](riot-application.md)). It needs
   > - Shows the card when you point at it, and what lies under it, such as gear on a unit.
   > - Works in theatre mode and fullscreen. Alt+R (Option+R on a Mac) hides it.
   >
-  > Private by design. The recognition runs on your computer, in your browser. No video leaves it, and Wardeye keeps no history. It reads only the table camera, never hand cams, face-down cards or the broadcast's hand lists. It is for watching, not playing: no player stats, no win rates.
+  > Private by design. The recognition runs on your computer, in your browser. No video leaves it, and Wardeye keeps no history. Card names and images load from Riot's public card gallery. It reads only the table camera, never hand cams, face-down cards or the broadcast's hand lists. It is for watching, not playing: no player stats, no win rates.
   >
   > Free for everyone: no ads, no paid features, no account. Open source (AGPL). Alpha: results are published with every model.
   >
@@ -50,7 +51,7 @@ Waits for Riot's approval ([riot-application.md](riot-application.md)). It needs
 - **Permission justifications:**
   - `www.twitch.tv`: reads the frames of the video being watched and draws the overlay on the player.
   - `offscreen`: runs the recognition engine in a hidden extension document, so it does not slow the page.
-  - `http://127.0.0.1`: talks to the optional live runner on the user's own computer (companion mode).
+  - `content.publishing.riotgames.com` and `cmsassets.rgpub.io`: load the card names, types and images from Riot's public card gallery; the extension ships none of them.
 - **Remote code:** none. Every script and WebAssembly file ships in the package; the models are data inside it.
 - **Data use:** does not collect or use user data.
 - **Images:**

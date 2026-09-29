@@ -7,21 +7,32 @@
 
 <h3 align="center">Place the ward. See the table.</h3>
 
-<p align="center">Open-source computer vision for Riftbound streams.<br><sub>Alpha · milestone M2 · AGPL-3.0 · a community project by Federico Vietti</sub></p>
+<p align="center">A free browser extension for Riftbound streams on Twitch.<br><sub>Alpha · AGPL-3.0 · a community project by Federico Vietti</sub></p>
 
-Wardeye is the ward you place on a Riftbound stream. Hover any card to inspect it, follow the match as a timeline, and see the whole board at a glance: open-source, in your browser, from the video alone.
+Wardeye is the ward you place on a Riftbound stream. Point at any card on the table to see its name and official image, as the video plays, live or on replay. It works from the video alone, in your browser: no video leaves your computer.
 
 It is made by Federico Vietti, who also makes [Gradeon](https://gradeon.ai), the AI card pre-grading app. Wardeye shares Gradeon's dark look; it is not a Gradeon product.
 
-> **Status: alpha, not released yet.** The card detector and the card identifier are trained and tested on real broadcasts. The extension boxes and names the cards on the Twitch player as the video plays, either in the browser itself (the private build) or through a runner on the same computer. The current milestone is M2, the extension alpha; next, the in-browser build loads card data from Riot's gallery as you watch, so it can be released ([roadmap](docs/ROADMAP.md)).
+## Install
 
-## What it will do
+**Chrome Web Store: coming soon.** Until then, watch this page.
 
-- **Hover to inspect.** Point at a card on the table and see its art, name and text.
-- **Match timeline.** Cards played, spells cast, units moved, turns and score. Click any event to jump to that moment.
-- **Match at a glance.** Each player's legend, the battlefields and every card seen so far.
+- Desktop Chrome or Edge, version 137 or newer.
+- A recent graphics chip (WebGPU) makes it fast. Without one it runs on the processor, much more slowly.
 
-It works from the video alone, on streams you already watch. The recognition runs on your computer, and no video leaves it.
+## Use it
+
+1. Open a Riftbound stream or replay on twitch.tv.
+2. The Wardeye badge on the player says what it is doing: finding the table, then how many cards it has named.
+3. Point at a card on the table. The hover card shows its name, its official image, how sure Wardeye is, and what lies under it, such as gear on a unit.
+
+It works in theatre mode and fullscreen. **Alt+R** (Option+R on a Mac) hides or shows the overlay.
+
+## Status: alpha
+
+What works today, on Twitch: the face-up cards on the table are outlined and named as they are played, with a hover card for each; cards stacked under others are remembered. The recognition runs in the browser, on WebGPU or, more slowly, on the processor.
+
+Not yet: the match timeline, YouTube, the game's own clues (the legend's domains, decklists) to narrow the candidates, and the side panel ([roadmap](docs/ROADMAP.md)).
 
 ## Measured, not claimed
 
@@ -31,6 +42,14 @@ It works from the video alone, on streams you already watch. The recognition run
 | Card identifier v1 | names 96.0% and 99.4% of the cards | two broadcasts held out of training: Barcelona and the Los Angeles grand final ([ml/README](ml/README.md#for-the-browser-m2-the-models-as-onnx)) |
 | In the browser | reads like the Python pipeline on 240 of 240 frames | the Los Angeles grand final, through the extension's own engine: the same cards, names and events |
 
+## Private by design
+
+- **It runs on your computer.** Recognition happens in your browser. No video leaves your machine, and Wardeye keeps no history and has no account, analytics or ads.
+- **Card data comes from Riot.** Names and images load from Riot's public card gallery as you watch; Wardeye ships none of them.
+- **Public information only.** It reads only the table camera: never hand cams, face-down cards or the hand lists a broadcast shows.
+
+Details: the [privacy policy](docs/PRIVACY.md).
+
 ## How it works
 
 ```mermaid
@@ -38,14 +57,14 @@ flowchart LR
   F[Video frame] --> R[Table window]
   R --> D[Card detector<br/>corners of each card]
   D --> E[Embed the art]
-  E --> M[Match against the catalogue<br/>+ game priors]
+  E --> M[Match against the catalogue]
   M --> T[Track]
   T --> V[Events]
   V --> H[Hover overlay]
   V --> L[Timeline]
 ```
 
-Cards are small on stream (roughly 70–140 px tall at 1080p) and their text is unreadable. So Wardeye identifies cards by **art**. From M3 it will also narrow the candidates with what the game itself reveals: the legend's two domains, published decklists, how many runes were just tapped, which way a card faces. Details in [ARCHITECTURE.md](docs/ARCHITECTURE.md) and the [research](docs/research/README.md).
+Cards are small on stream (roughly 70–140 px tall at 1080p) and their text is unreadable. So Wardeye identifies cards by **art**: a detector finds each card's corners, an embedder turns its picture into a fingerprint, and the fingerprint is matched against every printing of every card. Details in [ARCHITECTURE.md](docs/ARCHITECTURE.md) and the [research](docs/research/README.md).
 
 ## Principles
 
@@ -55,19 +74,15 @@ Cards are small on stream (roughly 70–140 px tall at 1080p) and their text is 
 4. **Open and clean.** AGPL code, permissively licensed dependencies and base models, no hidden telemetry. The trained weights ship inside the extension but are not published ([D-022](docs/decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)).
 5. **No footage, card art or card text in Wardeye.** Card data comes from Riot's public card gallery, in your browser. Broadcasts belong to their organisers.
 
-## Documents
+## For developers
 
-| | |
-|---|---|
-| [Brand book](assets/brand/README.md) | Logo, colour, type, voice and how the product looks |
-| [Research breakdown](docs/research/README.md) | Game model, vision pipeline, models and licences, data, delivery surfaces, prior art, licensing, legal, risks |
-| [Architecture](docs/ARCHITECTURE.md) | Components, data contracts, runtime topologies, sync, performance targets |
-| [Roadmap](docs/ROADMAP.md) | Milestones M0–M5 with measurable exit criteria |
-| [Decision log](docs/decisions.md) | What is settled and why |
-| [Privacy policy](docs/PRIVACY.md) | What the extension reads, and that it collects and sends nothing |
-| [Releasing](docs/releasing.md) | Making the repository public; the Chrome Web Store release |
+```bash
+npm install && npm run check          # typecheck, unit tests, guards
+npm run test:e2e                      # browser tests, with stand-in models
+cd ml && pip install -e '.[dev]' && pytest -q
+```
 
-## Repository layout
+The trained models are not in the repository ([D-022](docs/decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)): the store version carries them. A build from source has the whole extension but no models, and every test runs on stand-ins. The `ml/` tools include a companion runner used in development ([apps/extension](apps/extension/README.md)). See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```
 apps/extension     the Chrome and Edge extension: the overlay and the in-browser engine host
@@ -81,11 +96,23 @@ ml/                catalogue, stream simulator, training, evaluation and the liv
 assets/brand       the logo, colour tokens and fonts
 ```
 
-Later: a VOD library with synced timelines (`apps/web`), a broadcaster kit for organisers (`apps/broadcaster`) and community layout presets (`layouts/`). Wardeye was called RiftEye until September 2026 ([D-020](docs/decisions.md#d-020-the-product-is-called-wardeye)); internal code names such as `rifteye_ml` and `@rifteye/*` still say so.
+Wardeye was called RiftEye until September 2026 ([D-020](docs/decisions.md#d-020-the-product-is-called-wardeye)); internal code names such as `rifteye_ml` and `@rifteye/*` still say so.
+
+## Documents
+
+| | |
+|---|---|
+| [Brand book](assets/brand/README.md) | Logo, colour, type, voice and how the product looks |
+| [Privacy policy](docs/PRIVACY.md) | What the extension reads, and what it never collects |
+| [Research breakdown](docs/research/README.md) | Game model, vision pipeline, models and licences, data, delivery surfaces, prior art, licensing, legal, risks |
+| [Architecture](docs/ARCHITECTURE.md) | Components, data contracts, runtime topologies, sync, performance targets |
+| [Roadmap](docs/ROADMAP.md) | Milestones M0–M5 with measurable exit criteria |
+| [Decision log](docs/decisions.md) | What is settled and why |
+| [Releasing](docs/releasing.md) | Making the repository public; the Chrome Web Store release |
 
 ## Contributing
 
-Contributions are welcome: design critique, broadcast layout presets, prior art, labeling. See [CONTRIBUTING.md](CONTRIBUTING.md). Contributors sign a [CLA](CLA.md) on their first pull request and keep the copyright to what they contribute. The project is free for everyone ([D-022](docs/decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)).
+Contributions are welcome: bug reports with a timestamp on a public VOD, broadcast layout presets, design critique, prior art. See [CONTRIBUTING.md](CONTRIBUTING.md). Contributors sign a [CLA](CLA.md) on their first pull request and keep the copyright to what they contribute. The project is free for everyone ([D-022](docs/decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)).
 
 ## Licence
 

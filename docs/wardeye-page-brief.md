@@ -42,7 +42,7 @@ Use the copy as written, or shorten it. Don't add claims beyond it (see the rule
 - Sub: *Wardeye is the ward you place on a Riftbound stream. Hover any card to inspect it, follow the match as a timeline, and see the whole board at a glance, from the video alone.*
 - Buttons:
   - `Watch the demo` (primary) scrolls to the video.
-  - `Coming soon` is a disabled badge, not a download (see the rules).
+  - `Coming soon`, a disabled badge until the Chrome Web Store listing is live; then `Add to Chrome`, linking to the listing.
   - Optional: `Get notified`, only through an existing sign-up form with its privacy policy.
 
 **2. Demo video (60 to 90 s)**
@@ -98,7 +98,7 @@ These come from Riot's policies for fan projects and developers, and from the br
 - **Never say** "official", "partner", "approved by Riot", "endorsed" or "Riot-certified". The notice above is the only Riot statement.
 - **Riot's names only in running text.** "Riftbound" may describe what Wardeye is for, in the body text. Keep Riot's names (and champion names) out of the URL, the page title, headings, meta keywords, tags and social handles.
 - **Not a Gradeon product.** The page lives on gradeon.ai, but Wardeye is the maker's community project: no "by Gradeon", no Gradeon logo next to the Wardeye lockup, no "Gradeon" in the page title. The credit in section 8 is the only mention.
-- **No download yet.** The public release waits for Riot's approval, so the button says "Coming soon". Reviewers can be sent a build privately on request.
+- **The download is the Chrome Web Store listing.** No other download, no file on the page. Until the listing is live, the button says "Coming soon".
 - **Free means free.** No price, no premium tier, no paid features.
 - **Measured means published.** Only the numbers in section 5, which come from the repository's reports.
 - **Footage:** keep clips short and about the tool, not the match. Credit the broadcast in the caption.
@@ -128,7 +128,7 @@ Record at 1080p, with the laptop plugged in and nothing else heavy running. Crop
 
 - [ ] URL `gradeon.ai/wardeye`; title and meta as above; the mark as favicon
 - [ ] The brand book's tokens, fonts and logo files; dark page; soft corners; hairline borders
-- [ ] All ten sections; "Coming soon" instead of a download
+- [ ] All ten sections; "Coming soon" until the store listing is live, then "Add to Chrome"
 - [ ] The notice, verbatim, easy to find
 - [ ] No Riot logos or Riot-like design; none of the forbidden words; no Riot names in the URL, title, headings, keywords or tags
 - [ ] Not presented as a Gradeon product: the credit in section 8 only

@@ -137,7 +137,7 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 
 ### D-021: Apply to Riot for a Riftbound app key
 
-- **Date:** 2026-09-29. **Status:** proposed. The application is drafted in [riot-application.md](riot-application.md). Amended by [D-024](#d-024-wardeye-has-its-own-brand-book): Wardeye is never presented as Gradeon's, key or no key.
+- **Date:** 2026-09-29. **Status:** proposed. The application is drafted in [riot-application.md](riot-application.md). Amended by [D-024](#d-024-wardeye-has-its-own-brand-book): Wardeye is never presented as Gradeon's, key or no key. Amended by [D-025](#d-025-release-on-the-chrome-web-store-now-and-apply-to-riot-in-parallel): the release no longer waits for the answer.
 - **Decision:** Apply as a free spectator companion. Once a key is approved:
   - it supersedes [D-015](#d-015-no-riot-api-no-riot-assets-distributed): card data and art come from the Riot API, through a small server that holds the key (as [D-011](#d-011-card-data-and-art-come-only-from-the-riot-api) had it);
   - the extension may be presented as Gradeon's.
@@ -169,3 +169,13 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
   - The code's internal names (`rifteye_ml`, `@rifteye/*`, `RIFTEYE_*`, `~/rifteye-data`) may stay, as the book allows; the mechanical pass that [D-020](#d-020-the-product-is-called-wardeye) planned before going public is no longer required. Public copy never says RiftEye.
   - Where the brand book's draft and the facts differ, the repository keeps the facts: the weights are not published (D-022), so no copy says "no closed models"; and public copy says "in MOBAs" where the book names League of Legends, which keeps Riot's names out of the brand.
 - **Why:** one look across the extension, the tools, the README and the web page. And a community project by a person, not a company, fits Riot's Legal Jibber Jabber, which counts any project that involves a business as commercial.
+
+### D-025: Release on the Chrome Web Store now, and apply to Riot in parallel
+
+- **Date:** 2026-09-29. **Status:** accepted; the Maintainer's decision. Amends [D-021](#d-021-apply-to-riot-for-a-riftbound-app-key), whose release waited for Riot's answer.
+- **Decision:** Riot's review can take months, so the in-browser build goes to the Chrome Web Store as a free alpha while the application is reviewed. The store build:
+  - is standalone only: no companion mode and no access to `127.0.0.1`, which stays a developer tool built from the repository;
+  - carries the models and the embedding index keyed by printing id, and no card image or card text ([D-015](#d-015-no-riot-api-no-riot-assets-distributed)): names, types and images come from Riot's public card gallery in the viewer's browser, as it watches;
+  - keeps everything that makes it a fan project under the Legal Jibber Jabber: free for everyone, a community project by a person, no Riot logos, the notice, public information only.
+  The application tells Riot the extension is live, and why.
+- **Why:** a working release shows what Wardeye is better than a mock-up, and it can be withdrawn or changed if Riot asks. The risk, taken knowingly: Riot's Riftbound policy asks products that serve players to register, so launching first may bring a takedown request or a harder review ([08 §8.2](research/08-legal-and-policy.md#82-riot-games-policies)).
