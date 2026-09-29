@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // What the browser tests of the standalone mode share: the extension loaded with a stand-in package (or none, the public
 // build), and the stand-in Twitch.

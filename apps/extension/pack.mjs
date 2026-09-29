@@ -43,7 +43,13 @@ import { fileURLToPath } from 'node:url';
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
 const TOP = 'rifteye-standalone';
-const DIST_FILES = ['manifest.json', 'content.js', 'overlay.css', 'worker.js', 'offscreen.html', 'offscreen.js', 'engine-webgpu.js', 'engine-wasm.js'];
+const DIST_FILES = [
+  'manifest.json', 'content.js', 'overlay.css', 'worker.js', 'offscreen.html', 'offscreen.js', 'engine-webgpu.js', 'engine-wasm.js',
+  // what the manifest names besides: the toolbar icons, and the overlay's typefaces with their licences (SIL OFL 1.1)
+  'icons/icon-16.png', 'icons/icon-32.png', 'icons/icon-48.png', 'icons/icon-128.png',
+  'fonts/SpaceGrotesk-latin.woff2', 'fonts/Inter-latin.woff2', 'fonts/JetBrainsMono-latin.woff2',
+  'fonts/OFL-SpaceGrotesk.txt', 'fonts/OFL-Inter.txt', 'fonts/OFL-JetBrainsMono.txt',
+];
 // onnxruntime-web's runtime: the native WebGPU build (JSPI) and the plain WASM build; not JSEP (broken for GridSample in fp16)
 const ORT_FILES = ['ort-wasm-simd-threaded.jspi.mjs', 'ort-wasm-simd-threaded.jspi.wasm', 'ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm'];
 const PORTABLE = /^[A-Za-z0-9._-]+$/; // a file name that every system unzips
@@ -194,15 +200,15 @@ function standaloneJson(o, models) {
   }, null, 2)}\n`;
 }
 
-const INSTALL = `RiftEye, standalone build (private)
+const INSTALL = `Wardeye, standalone build (private)
 
 1. Unzip this file. You get one folder, rifteye-standalone.
 2. In Chrome (137 or newer), open chrome://extensions and turn on Developer mode.
 3. Click "Load unpacked" and pick the rifteye-standalone folder.
-4. Play a Riftbound replay or stream on twitch.tv. The badge on the player says what RiftEye is doing.
+4. Play a Riftbound replay or stream on twitch.tv. The badge on the player says what Wardeye is doing.
 
 The models and data in this folder are made from Riot's card art: keep them to yourself (decision D-006).
-Nothing leaves your computer. If your browser has no WebGPU, RiftEye uses the live runner on this machine instead.
+Nothing leaves your computer. If your browser has no WebGPU, Wardeye uses the live runner on this machine instead.
 `;
 
 /** Runs zip in `cwd` and streams its output through `tap` into `sink` (a Writable). */

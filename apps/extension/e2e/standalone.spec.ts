@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { loadedFonts, rgb, styleOf } from './brand';
 import { documentIds, load, offscreenDocuments, twitch, unload, type Loaded } from './harness';
 import { routeTwitch } from './twitch';
 
@@ -14,15 +15,20 @@ test('the engine in the extension reads the player: an offscreen document, WebGP
     // a tab connecting makes the engine's document, and the first frames say what it is doing
     await expect.poll(() => offscreenDocuments(context), { timeout: 20_000 }).toBe(1);
     const badge = page.locator('.rifteye-badge-main');
-    await expect(badge).toContainText(/RiftEye: (starting the engine|loading the models|reading the gallery|finding the table)/, { timeout: 30_000 });
+    await expect(badge).toContainText(/Wardeye: (starting the engine|loading the models|reading the gallery|finding the table)/, { timeout: 30_000 });
 
     // ... and then the board: the layout was found from the first seconds of the video, and both blocks are boxed
     const boxes = page.locator('polygon.rifteye-box');
     await expect(boxes).toHaveCount(2, { timeout: 90_000 });
     await expect(page.locator('text.rifteye-label', { hasText: /\S/ })).toHaveText(['Test Unit']); // the other is unsure: no label
-    await expect(page.locator('.rifteye-badge-main')).toHaveText(/^RiftEye · 1 card named · \d+\.\d reads\/s$/);
+    await expect(page.locator('.rifteye-badge-main')).toHaveText(/^Wardeye · 1 card named · \d+\.\d reads\/s$/);
     // it ran on WebGPU (SwiftShader has no shader-f16: both models in float32), and the badge's second line says where a frame's time goes
     await expect(page.locator('.rifteye-badge-detail')).toHaveText(/^WebGPU · detector fp32 · embedder fp32 · decode [\d.]+ · detect [\d.]+ · embed [\d.]+ · track [\d.]+ · total [\d.]+ ms · layout standin$/);
+    // the timings line is in JetBrains Mono at the micro size, dim; the name and status above it in Space Grotesk and Inter
+    const detail = await styleOf(page, '.rifteye-badge-detail', ['font-family', 'font-size', 'color']);
+    expect(detail).toMatchObject({ 'font-size': '10px', color: rgb('dim') });
+    expect(detail['font-family']).toMatch(/^"?JetBrains Mono"?,/);
+    await expect.poll(() => loadedFonts(page)).toEqual(expect.arrayContaining(['Inter', 'JetBrains Mono', 'Space Grotesk']));
 
     // the overlay sits on the picture: the gold block, centred at (130, 142) of 640 x 360, is at (195, 213) of the 960 x 540 player
     const b = (await boxes.first().boundingBox())!;
@@ -33,7 +39,7 @@ test('the engine in the extension reads the player: an offscreen document, WebGP
     await boxes.first().hover();
     const card = page.locator('.rifteye-card');
     await expect(card).toContainText('Test Unit');
-    await expect(card).toContainText(/RiftEye is \d+% sure/);
+    await expect(card).toContainText(/Confidence [01]\.\d\d/);
     const painted = () =>
       page.evaluate(() => {
         const c = document.querySelector('.rifteye-card canvas') as HTMLCanvasElement | null;
@@ -130,7 +136,7 @@ test('a browser with no WebGPU adapter leaves the frames to the live runner, and
     const { context } = loaded;
     const said: string[] = [];
     context.on('console', (m) => {
-      if (m.text().includes('RiftEye: no engine')) said.push(m.text());
+      if (m.text().includes('Wardeye: no engine')) said.push(m.text());
     });
     const page = await context.newPage();
     await routeTwitch(context, null); // a Twitch page with no video: no frame is sent anywhere

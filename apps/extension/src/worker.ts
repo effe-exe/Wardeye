@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The extension's background worker. The overlay hands it each frame over a port. In the private build, with a
 // browser that can run the engine, the frame goes to the engine document (an offscreen page that reads it with
@@ -75,7 +75,7 @@ chrome.runtime.onConnect.addListener((port) => {
       }
     } catch (e) {
       // whatever went wrong, the overlay is answered: it waits for an answer before it sends another frame
-      console.warn(`RiftEye: ${e instanceof Error ? e.message : String(e)}`);
+      console.warn(`Wardeye: ${e instanceof Error ? e.message : String(e)}`);
       send(msg.kind === 'frame' ? { kind: 'state', online: true, state: null } : { kind: 'art', printing_id: msg.printing_id, jpeg: null });
     }
   });

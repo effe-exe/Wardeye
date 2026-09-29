@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The presets as a fallback: when the layout cannot be found from the footage, a broadcast the presets know shows
 // itself by its mat: the share of its table window within the layout's tolerance of the mat's colour (as the

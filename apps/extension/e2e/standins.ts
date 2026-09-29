@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The private build's package with stand-ins for what is private, made at test time (nothing here is committed as a
 // file): two tiny ONNX models, a gallery of three "cards" and their catalogue, hover pictures and standalone.json.

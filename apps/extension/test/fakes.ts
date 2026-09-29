@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // Stand-ins for the engine's parts, for the host's unit tests: a picture, a board that says what it was given, and
 // parts that record what they are asked.

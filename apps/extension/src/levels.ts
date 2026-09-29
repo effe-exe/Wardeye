@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // Which gallery levels a table reads against. The live runner (ml/rifteye_ml/live/__main__.py) builds, for cards
 // `px` long at 1080p, the levels round(px * f / 10) * 10 for f in 0.8, 0.9 and 1.0; the package holds every level

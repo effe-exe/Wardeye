@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // Stand-in parts for the browser test (built in place of src/parts-engine.ts): the real host, on stand-in models
 // (tiny ONNX graphs made at test time) and a stand-in recogniser. It finds the test video's coloured blocks, embeds

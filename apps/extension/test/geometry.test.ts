@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { badge, badgeDetail, boxClass, captureSize, contentRect, frameInterval, hoverCard, label, labelAnchor, type State, type Track } from '../src/geometry';
+import { badge, badgeDetail, badgeParts, becameNamed, boxClass, captureSize, contentRect, frameInterval, hoverCard, label, labelAnchor, type State, type Track } from '../src/geometry';
 
 const track = (over: Partial<Track> = {}): Track => ({
   id: 't1',
@@ -37,11 +37,23 @@ describe('the picture inside the player', () => {
 });
 
 describe('what a card shows', () => {
-  it('is named and boxed solid when RiftEye is sure, and says how sure', () => {
+  it('is named and boxed solid when Wardeye is sure, and says how sure', () => {
     expect(boxClass(track())).toBe('rifteye-box rifteye-named');
     expect(label(track())).toBe('Blade Dancer');
     expect(labelAnchor(track().quad)).toEqual([130, 200]);
-    expect(hoverCard(track())).toEqual({ kind: 'named', printing_id: 'SFD-195a', name: 'Blade Dancer', sure: 'RiftEye is 91% sure', under: '' });
+    expect(hoverCard(track())).toEqual({ kind: 'named', printing_id: 'SFD-195a', name: 'Blade Dancer', meta: 'Legend', sure: 'Confidence 0.91', under: '' });
+  });
+
+  it('gives its confidence to two decimals, as the card preview does', () => {
+    expect(hoverCard(track({ confidence: 0.9 }))).toMatchObject({ sure: 'Confidence 0.90' });
+    expect(hoverCard(track({ confidence: 1 }))).toMatchObject({ sure: 'Confidence 1.00' });
+    expect(hoverCard(track({ confidence: 0.854 }))).toMatchObject({ sure: 'Confidence 0.85' });
+  });
+
+  it('has a meta line only for a type the state carries: a legend and a battlefield say so, any other card does not (the state has no domains)', () => {
+    expect(hoverCard(track({ kind: 'legend' }))).toMatchObject({ meta: 'Legend' });
+    expect(hoverCard(track({ kind: 'battlefield' }))).toMatchObject({ meta: 'Battlefield' });
+    expect(hoverCard(track({ kind: 'card' }))).toMatchObject({ meta: '' });
   });
 
   it('shows its best guesses while unsure, and what lies under it', () => {
@@ -68,12 +80,56 @@ describe('what a card shows', () => {
 describe('the badge', () => {
   const state = (over: Partial<State> = {}): State => ({ t: 1, status: 'live', message: '', frame: { width: 1920, height: 1080 }, tracks: [], ...over });
   it('tells what the runner is doing', () => {
-    expect(badge(false, null)).toContain('start the runner');
+    expect(badge(false, null)).toBe('Wardeye: start the live runner on this computer');
     expect(badge(true, state({ status: 'starting', message: 'finding the table and the size of a card' }))).toBe(
-      'RiftEye: finding the table and the size of a card',
+      'Wardeye: finding the table and the size of a card',
     );
-    expect(badge(true, state({ status: 'away' }))).toBe('RiftEye: waiting for the table camera');
-    expect(badge(true, state({ tracks: [track(), track({ id: 't2', kind: 'rune' }), track({ id: 't3', hidden: true })] }))).toBe('RiftEye · 1 card named');
+    expect(badge(true, state({ status: 'away' }))).toBe('Wardeye: waiting for the table camera');
+    expect(badge(true, state({ tracks: [track(), track({ id: 't2', kind: 'rune' }), track({ id: 't3', hidden: true })] }))).toBe('Wardeye · 1 card named');
+  });
+
+  it('says Wardeye in every state, and only the name of the product', () => {
+    const says = [
+      badge(false, null),
+      badge(true, null),
+      badge(true, state({ status: 'starting' })),
+      badge(true, state({ status: 'starting', message: 'loading the models' })),
+      badge(true, state({ status: 'away' })),
+      badge(true, state({ status: 'error', message: 'the runner stopped' })),
+      badge(true, state({ tracks: [track(), track({ id: 't2' })] })),
+    ];
+    expect(says.every((s) => s.startsWith('Wardeye'))).toBe(true);
+    expect(says.some((s) => /rifteye/i.test(s))).toBe(false); // the old name never shows
+    expect(badge(true, state({ tracks: [track(), track({ id: 't2' })] }))).toBe('Wardeye · 2 cards named');
+  });
+
+  it('is split in two for its two typefaces: the name, and the status after it, which together are the text again', () => {
+    expect(badgeParts('Wardeye · 1 card named')).toEqual({ name: 'Wardeye', status: ' · 1 card named' });
+    expect(badgeParts('Wardeye: waiting for the table camera')).toEqual({ name: 'Wardeye', status: ': waiting for the table camera' });
+    expect(badgeParts('Wardeye')).toEqual({ name: 'Wardeye', status: '' });
+    expect(badgeParts('something else')).toEqual({ name: '', status: 'something else' });
+    for (const text of [badge(false, null), badge(true, state({ status: 'away' })), badge(true, state({ tracks: [track()] }))]) {
+      const { name, status } = badgeParts(text);
+      expect(name + status).toBe(text);
+    }
+  });
+});
+
+describe('a card that has just been named', () => {
+  it('is one that is named now and was not before, or was not drawn before', () => {
+    expect(becameNamed(undefined, track())).toBe(true); // new on the player, and named
+    expect(becameNamed(track({ state: 'unsure' }), track())).toBe(true);
+    expect(becameNamed(track({ state: 'new' }), track())).toBe(true);
+    expect(becameNamed(track({ state: 'facedown' }), track())).toBe(true);
+  });
+
+  it('is not one that stays named, one that is not named, or a rune', () => {
+    expect(becameNamed(track(), track())).toBe(false);
+    expect(becameNamed(track(), track({ name: 'Another Card' }))).toBe(false); // the same box, still named
+    expect(becameNamed(undefined, track({ state: 'unsure' }))).toBe(false);
+    expect(becameNamed(track(), track({ state: 'unsure' }))).toBe(false);
+    expect(becameNamed(undefined, track({ kind: 'rune' }))).toBe(false); // runes are never announced
+    expect(becameNamed(track({ kind: 'rune', state: 'unsure' }), track({ kind: 'rune' }))).toBe(false);
   });
 });
 
@@ -82,8 +138,8 @@ describe('the badge of the engine inside the extension', () => {
   const state = (over: Partial<State> = {}): State => ({ t: 1, status: 'live', message: '', frame: { width: 1920, height: 1080 }, tracks: [], engine, ...over });
 
   it('says the reads a second beside the cards named', () => {
-    expect(badge(true, state({ tracks: [track()] }))).toBe('RiftEye · 1 card named · 11.9 reads/s');
-    expect(badge(true, state({ status: 'starting', message: 'loading the models (webgpu, fp16)' }))).toBe('RiftEye: loading the models (webgpu, fp16)');
+    expect(badge(true, state({ tracks: [track()] }))).toBe('Wardeye · 1 card named · 11.9 reads/s');
+    expect(badge(true, state({ status: 'starting', message: 'loading the models (webgpu, fp16)' }))).toBe('Wardeye: loading the models (webgpu, fp16)');
   });
 
   it('says how it runs and where a frame\'s time goes on a second line, and nothing without the engine', () => {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The engine host: a frame in (a tab's JPEG and the video's time), the overlay's state out. Each tab has its own
 // board (its layout, its tracks) on the one set of models; the host adds what the live runner adds to its state

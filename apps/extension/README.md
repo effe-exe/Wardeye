@@ -1,6 +1,6 @@
-# RiftEye extension (alpha)
+# Wardeye extension (alpha)
 
-RiftEye on the Twitch player itself: watch any Riftbound replay or live stream on twitch.tv, and the cards on the table are boxed and named on the video as it plays. Point at a card to see it ([ARCHITECTURE §5.1](../../docs/ARCHITECTURE.md#51-browser-extension-first-public-surface)).
+Wardeye on the Twitch player itself: watch any Riftbound replay or live stream on twitch.tv, and the cards on the table are boxed and named on the video as it plays. Point at a card to see it ([ARCHITECTURE §5.1](../../docs/ARCHITECTURE.md#51-browser-extension-first-public-surface)).
 
 The frames are read one of two ways, and the overlay is the same for both:
 
@@ -63,6 +63,8 @@ Unzip, then **Load unpacked** on the `rifteye-standalone` folder. The zip holds 
 ## Files
 
 - `src/content.ts`: on twitch.tv, finds the player, grabs frames, draws the overlay (boxes keyed by track id, so a card keeps its box and hover across updates) and the hover card (card pictures are drawn on canvases, so a page that forbids outside images still shows them).
+- `src/overlay.css`, `src/mark.ts`: the overlay's rules, in Wardeye's look ([brand book §8](../../assets/brand/README.md#8-visual-language)), and the brand mark's shapes for the badge (a test holds them to `assets/brand/logo/mark.svg`). The build writes `dist/overlay.css` as the brand's tokens (`assets/brand/tokens.css`, on `.rifteye-root` alone, so nothing reaches Twitch's own styles), the three typefaces and then these rules. The rules use the tokens and no colour of their own; the dark theme is the only one. The typefaces are copied to `dist/fonts/` (with their licences) and are web-accessible to `https://www.twitch.tv/*` only. Motion is a 150 ms fade, with a slight rise, of the hover card and one 500 ms pulse of a box that has just been named (never looping), both off under `prefers-reduced-motion`.
+- `icons/`: the toolbar icons (16, 32, 48 and 128 px), rendered from the brand mark by `scripts/brand-icons.mjs`; the build copies them to `dist/icons/`, and `pack.mjs` puts them in the zip.
 - `src/worker.ts`, `src/standalone.ts`, `src/companion.ts`: the worker, which way it reads (the engine, or the runner), and the runner's client.
 - `src/offscreen.ts`, `src/offscreen.html`, `src/controller.ts`, `src/router.ts`, `src/engine-client.ts`: the engine document, its logic (what can run, starting and restarting the engine, the frame queue) and its link to the engine worker.
 - `src/engine-worker.ts`, `src/engine-webgpu.ts`, `src/engine-wasm.ts`, `src/engine-host.ts`, `src/session.ts`: the engine worker for each build of onnxruntime-web, the host (a board for each tab, what it adds to the state) and one tab's video (layout, jumps, videos).
@@ -74,7 +76,7 @@ Unzip, then **Load unpacked** on the `rifteye-standalone` folder. The zip holds 
 ## Tests
 
 ```bash
-npx vitest run apps/extension                    # the host's logic, the overlay, pack.mjs
+npx vitest run apps/extension                    # the host's logic, the overlay, the build, pack.mjs
 npm run build && npx playwright test apps/extension
 ```
 

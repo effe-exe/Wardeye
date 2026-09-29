@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The engine document's brain: what can run here (the package's models, the browser's WebGPU), starting the engine
 // worker (the best way first, the next when one will not start), answering the extension worker's requests, and

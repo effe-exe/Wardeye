@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // Companion mode: the live runner on this machine (python -m rifteye_ml.live --source browser). A page script may
 // not reach 127.0.0.1 itself, so the worker posts each frame to the runner and hands back the newest state, and

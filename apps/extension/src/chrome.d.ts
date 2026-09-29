@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
-// The few extension APIs RiftEye uses, typed here so the repository needs no @types/chrome.
+// The few extension APIs Wardeye uses, typed here so the repository needs no @types/chrome.
 
 declare namespace chrome.runtime {
   interface MessageSender {

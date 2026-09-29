@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The private build's files, read and checked: standalone.json (what the package holds), the gallery (an index and
 // one float16 .bin a level) and the catalogue, all made by ml/rifteye_ml/web_assets.py. Pure: the bytes come in

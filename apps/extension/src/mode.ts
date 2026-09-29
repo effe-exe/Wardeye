@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // Standalone or companion: what the browser and the package allow. The engine runs on WebGPU (native, JSPI) or on
 // plain WASM, each model in the precision that works: the detector in float32 (its float16 file fails on native

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The engine worker's loop, for one onnxruntime-web build (engine-webgpu.ts, engine-wasm.ts): the document sends
 // `init` (which models, which way), then a frame at a time; the worker answers with the board. It runs in a worker

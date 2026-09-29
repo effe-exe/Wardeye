@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The engine worker on the plain WASM (CPU) build of onnxruntime-web, with no GPU code in it. Its runtime files are
 // ort/ort-wasm-simd-threaded.*.

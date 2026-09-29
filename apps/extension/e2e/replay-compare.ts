@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // How the engine's run on the LA final's frames (the browser replay) is compared with the Python reference
 // (fixtures/recognizer/steps.jsonl, from packages/engine/test/gen/recognizer_replay.py): each step's state and

@@ -54,6 +54,12 @@ describe.skipIf(!haveTools)('pack.mjs', () => {
     [dist, ort, models, assets, stage, out] = ['dist', 'ort', 'models', 'assets', 'stage', 'out'].map((d) => join(root, d)) as [string, string, string, string, string, string];
     for (const d of [dist, ort, models, join(assets, 'gallery'), join(assets, 'thumbs'), stage, out]) mkdirSync(d, { recursive: true });
     for (const f of ['manifest.json', 'content.js', 'overlay.css', 'worker.js', 'offscreen.html', 'offscreen.js', 'engine-webgpu.js', 'engine-wasm.js']) writeFileSync(join(dist, f), `dist ${f}`);
+    // what the manifest names besides: the toolbar icons, and the overlay's typefaces with their licences
+    for (const d of ['icons', 'fonts']) mkdirSync(join(dist, d), { recursive: true });
+    for (const f of [
+      'icons/icon-16.png', 'icons/icon-32.png', 'icons/icon-48.png', 'icons/icon-128.png', 'fonts/SpaceGrotesk-latin.woff2', 'fonts/Inter-latin.woff2',
+      'fonts/JetBrainsMono-latin.woff2', 'fonts/OFL-SpaceGrotesk.txt', 'fonts/OFL-Inter.txt', 'fonts/OFL-JetBrainsMono.txt',
+    ]) writeFileSync(join(dist, f), `dist ${f}`);
     for (const f of ['ort-wasm-simd-threaded.jspi.mjs', 'ort-wasm-simd-threaded.jspi.wasm', 'ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm', 'ort-wasm-simd-threaded.jsep.wasm']) writeFileSync(join(ort, f), `ort ${f}`);
     // models: made-up bytes, and the gallery says which embedder it was made with
     const body = (f: string) => `${f} ${'x'.repeat(3000)}`;
@@ -88,7 +94,9 @@ describe.skipIf(!haveTools)('pack.mjs', () => {
     expect([...files.keys()].filter((n) => !n.endsWith('/')).sort()).toEqual(
       [
         'INSTALL.txt', 'LICENSE', 'NOTICE', 'content.js', 'data/catalog.json', 'data/gallery/L80.bin', 'data/gallery/L90.bin', 'data/gallery/index.json',
-        'data/thumbs/TST-001.jpg', 'data/thumbs/TST-002_2a.jpg', 'data/thumbs/TST-003.jpg', 'engine-wasm.js', 'engine-webgpu.js', 'manifest.json',
+        'data/thumbs/TST-001.jpg', 'data/thumbs/TST-002_2a.jpg', 'data/thumbs/TST-003.jpg', 'engine-wasm.js', 'engine-webgpu.js',
+        'fonts/Inter-latin.woff2', 'fonts/JetBrainsMono-latin.woff2', 'fonts/OFL-Inter.txt', 'fonts/OFL-JetBrainsMono.txt', 'fonts/OFL-SpaceGrotesk.txt',
+        'fonts/SpaceGrotesk-latin.woff2', 'icons/icon-128.png', 'icons/icon-16.png', 'icons/icon-32.png', 'icons/icon-48.png', 'manifest.json',
         'models/detector-v0.onnx', 'models/embedder-v1.fp16.onnx', 'offscreen.html', 'offscreen.js', 'ort/ort-wasm-simd-threaded.jspi.mjs',
         'ort/ort-wasm-simd-threaded.jspi.wasm', 'ort/ort-wasm-simd-threaded.mjs', 'ort/ort-wasm-simd-threaded.wasm', 'overlay.css', 'standalone.json', 'worker.js',
       ].map((n) => `rifteye-standalone/${n}`),
@@ -96,6 +104,12 @@ describe.skipIf(!haveTools)('pack.mjs', () => {
     // the files are the real ones, followed through their symlinks; JSEP is not in; the other precisions are left out
     expect(files.get('rifteye-standalone/models/embedder-v1.fp16.onnx')!.toString()).toContain('embedder-v1.fp16.onnx');
     expect(files.get('rifteye-standalone/ort/ort-wasm-simd-threaded.jspi.wasm')!.toString()).toBe('ort ort-wasm-simd-threaded.jspi.wasm');
+    expect(files.get('rifteye-standalone/icons/icon-16.png')!.toString()).toBe('dist icons/icon-16.png'); // the manifest's icons and typefaces are in, as themselves
+    expect(files.get('rifteye-standalone/fonts/Inter-latin.woff2')!.toString()).toBe('dist fonts/Inter-latin.woff2');
+    // what the person who unzips it reads says Wardeye; the folder's name is the one thing that still says rifteye
+    const install = files.get('rifteye-standalone/INSTALL.txt')!.toString();
+    expect(install).toContain('Wardeye, standalone build');
+    expect(install.replaceAll('rifteye-standalone', '')).not.toMatch(/rifteye/i);
     expect(JSON.parse(files.get('rifteye-standalone/standalone.json')!.toString())).toEqual({
       format: 1,
       runtime: 'auto',

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // One tab's board, run as ml/rifteye_ml/live/__main__.py runs its loop: the layout is found from the first frames of
 // the table camera (a look a second, over the last five; the presets take over when the footage will not give one),
@@ -92,7 +92,7 @@ export class Session {
       this.seen = [...this.seen, image].slice(-this.lookCount);
       if (this.seen.length === this.lookCount) {
         let found = await parts.findLayout(this.seen).catch((e: unknown) => {
-          if (!this.complained) console.warn(`RiftEye: looking for the table failed (${e instanceof Error ? e.message : String(e)}); the presets are tried in a while`);
+          if (!this.complained) console.warn(`Wardeye: looking for the table failed (${e instanceof Error ? e.message : String(e)}); the presets are tried in a while`);
           this.complained = true;
           return null; // a look that failed is a look that found nothing
         });

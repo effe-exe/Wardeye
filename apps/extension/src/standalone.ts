@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The worker's side of standalone mode: whether there is an engine here (the private build's package, an engine
 // document that can run), asking it for a tab's frame, and the card pictures from the package. When it cannot
@@ -55,7 +55,7 @@ export class Standalone {
       try {
         return parsePackage(JSON.parse(new TextDecoder().decode(bytes)));
       } catch (e) {
-        console.warn(`RiftEye: standalone.json cannot be used, the live runner is used instead: ${e instanceof Error ? e.message : String(e)}`);
+        console.warn(`Wardeye: standalone.json cannot be used, the live runner is used instead: ${e instanceof Error ? e.message : String(e)}`);
         return null;
       }
     })();
@@ -72,7 +72,7 @@ export class Standalone {
   private writeOff(reason: string): void {
     this.lastReason = reason;
     this.offUntil = this.env.now() + this.retryMs;
-    console.warn(`RiftEye: no engine in this browser (${reason}); the live runner is used, and the engine tried again in ${Math.round(this.retryMs / 60000)} min`);
+    console.warn(`Wardeye: no engine in this browser (${reason}); the live runner is used, and the engine tried again in ${Math.round(this.retryMs / 60000)} min`);
   }
 
   /** One request to the engine document, made again once if the document is gone or does not answer. */

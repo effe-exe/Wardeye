@@ -1,37 +1,94 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-/* Copyright (C) 2026 Federico Vietti and RiftEye contributors */
-/* The overlay on the player. Every class starts with rifteye- so the page's own styles never meet ours. */
+/* Copyright (C) 2026 Federico Vietti and Wardeye contributors */
+/* The overlay on the player, in Wardeye's look: the brand book's section 8 (assets/brand/README.md). The stream stays the hero:
+   translucent surfaces, hairline borders, and colour kept for how sure a read is and for hovering. build.mjs puts the brand's tokens
+   (on .rifteye-root alone, so none reaches Twitch's own styles) and the typefaces in front of these rules, which use the tokens
+   and no colour of their own, only transparency variants of them. Dark theme only. The only motion is the hover card's fade and
+   a named card's one pulse; both are off under prefers-reduced-motion. Every class starts with rifteye- so the page's own styles
+   never meet ours. */
 
-.rifteye-root { position: fixed; z-index: 2147483000; pointer-events: none; }
+.rifteye-root {
+  position: fixed; z-index: 2147483000; pointer-events: none;
+  font: var(--wd-type-body); color: var(--wd-text); letter-spacing: normal; text-transform: none; text-align: left;
+}
 .rifteye-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.rifteye-box { fill: transparent; stroke-width: 2px; vector-effect: non-scaling-stroke; pointer-events: all; cursor: help; }
-.rifteye-named { stroke: #8a7ff0; }
-.rifteye-unsure { stroke: #e0b04a; stroke-dasharray: 6 4; }
-.rifteye-facedown { stroke: #e6e8ec; stroke-dasharray: 2 4; }
-.rifteye-new { stroke: #8b93a1; stroke-dasharray: 2 6; }
+
+/* Boxes. Colour says how sure a read is: a named card is outlined in the primary, an unsure read is dashed in the warning colour, a
+   face-down card is dim and dotted. The box under the pointer takes the lighter primary, with a faint fill of it. */
+.rifteye-box {
+  fill: transparent; stroke: var(--wd-muted); stroke-width: 2px; stroke-linejoin: round; vector-effect: non-scaling-stroke;
+  pointer-events: all; cursor: help;
+}
+.rifteye-named { stroke: var(--wd-primary); }
+.rifteye-unsure { stroke: var(--wd-warning); stroke-dasharray: 6 4; }
+.rifteye-facedown { stroke: var(--wd-dim); stroke-dasharray: 0 6; stroke-linecap: round; }
+.rifteye-new { stroke: var(--wd-muted); stroke-dasharray: 0 10; stroke-linecap: round; }
 .rifteye-rune { stroke-opacity: 0.35; pointer-events: none; }
+.rifteye-box:hover { stroke: var(--wd-primary-light); fill: var(--wd-primary-light); fill-opacity: 0.14; }
+
+/* A name over its box: Inter SemiBold, with a dark halo so it reads on video. */
 .rifteye-label {
-  fill: #fff; font: 600 22px system-ui, -apple-system, sans-serif; text-anchor: middle;
-  paint-order: stroke; stroke: #000; stroke-width: 4px; stroke-linejoin: round; pointer-events: none;
+  fill: var(--wd-text); font: 600 22px var(--wd-font-ui); text-anchor: middle;
+  paint-order: stroke; stroke: var(--wd-bg); stroke-width: 4px; stroke-linejoin: round; pointer-events: none;
 }
+
+/* The badge: a translucent surface with a hairline border, the mark, the name in Space Grotesk and the status in Inter. The
+   engine's timings go under them in JetBrains Mono, at the micro size. */
 .rifteye-badge {
-  position: absolute; left: 8px; top: 8px; padding: 4px 8px; border-radius: 6px;
-  background: rgba(18, 20, 24, 0.82); border: 1px solid #6153cc; color: #e6e8ec;
-  font: 600 12px/1.3 system-ui, -apple-system, sans-serif;
+  position: absolute; left: 8px; top: 8px; box-sizing: border-box; max-width: min(440px, calc(100% - 16px)); padding: 6px 10px;
+  border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius);
+  background: var(--wd-surface);
+  background: color-mix(in srgb, var(--wd-surface) 85%, transparent);
+  backdrop-filter: blur(8px);
 }
-.rifteye-badge-detail { margin-top: 3px; color: #8b93a1; font: 500 11px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.rifteye-badge-main { display: flex; align-items: center; gap: 6px; }
+.rifteye-mark { flex: none; width: 8px; height: 14px; }
+.rifteye-mark-ward { fill: var(--wd-primary); }
+.rifteye-mark-ring { fill: none; stroke: var(--wd-bg); }
+.rifteye-mark-pupil { fill: var(--wd-bg); }
+.rifteye-mark-glint { fill: var(--wd-text); }
+.rifteye-badge-text { min-width: 0; overflow-wrap: anywhere; }
+.rifteye-badge-name { color: var(--wd-text); font: 600 13px/1.3 var(--wd-font-display); }
+.rifteye-badge-status { color: var(--wd-muted); font: 500 12px/1.3 var(--wd-font-ui); }
+.rifteye-badge-detail {
+  margin-top: 4px; color: var(--wd-dim); font: var(--wd-type-micro); font-family: var(--wd-font-mono); overflow-wrap: anywhere;
+}
 .rifteye-badge-detail[hidden] { display: none; }
+
+/* The hover card, as the brand book's card preview: a surface panel, a 1.5 px primary border, 8 px corners, the card's picture
+   on top, then its name, a muted meta line (its type, when the state has it), and the confidence in the primary, small. */
 .rifteye-card {
-  position: fixed; z-index: 2147483001; max-width: 360px; padding: 10px; border-radius: 10px;
-  background: #1b1e24; border: 1px solid #6153cc; color: #e6e8ec; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
-  font: 13px/1.35 system-ui, -apple-system, sans-serif; pointer-events: none;
+  position: fixed; z-index: 2147483001; box-sizing: border-box; max-width: 360px; padding: 8px;
+  background: var(--wd-surface); border: 1.5px solid var(--wd-primary); border-radius: var(--wd-radius);
+  color: var(--wd-text); font: var(--wd-type-caption);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--wd-bg) 60%, transparent);
+  pointer-events: none;
+  animation: rifteye-rise var(--wd-fast) var(--wd-ease) backwards;
 }
 .rifteye-card[hidden] { display: none; }
-.rifteye-art { display: block; border-radius: 8px; background: #2c313a; }
-.rifteye-name { font-weight: 600; font-size: 15px; margin-top: 6px; }
-.rifteye-sure { color: #3f9d6b; font-size: 12px; }
-.rifteye-note { color: #e0b04a; font-size: 12px; margin-bottom: 6px; }
-.rifteye-under { color: #8b93a1; font-size: 12px; margin-top: 6px; }
+.rifteye-art { display: block; border-radius: var(--wd-radius-sm); background: var(--wd-surface-2); }
+.rifteye-name { margin-top: 8px; font: 600 14px/1.3 var(--wd-font-ui); }
+.rifteye-meta { margin-top: 2px; color: var(--wd-muted); font: var(--wd-type-caption); }
+.rifteye-sure { margin-top: 4px; color: var(--wd-primary); font: var(--wd-type-caption); }
+.rifteye-note { margin-bottom: 8px; color: var(--wd-warning); font: 500 12px/1.3 var(--wd-font-ui); }
+.rifteye-plain { color: var(--wd-muted); font: var(--wd-type-caption); }
+.rifteye-under { margin-top: 6px; color: var(--wd-muted); font: var(--wd-type-caption); }
 .rifteye-guesses { display: flex; gap: 8px; }
 .rifteye-guesses figure { margin: 0; width: 104px; }
-.rifteye-guesses figcaption { font-size: 11px; margin-top: 4px; }
+.rifteye-guesses figcaption { margin-top: 4px; font: var(--wd-type-caption); }
+.rifteye-pct { font-family: var(--wd-font-mono); }
+
+/* Motion, and nothing else moves: the hover card fades in with a slight rise (150 ms), and a box that has just been named gets one
+   pulse of its outline (500 ms, once, never looping). */
+@keyframes rifteye-rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes rifteye-pulse {
+  0%, 100% { stroke-width: 2px; }
+  40% { stroke-width: 4px; stroke: var(--wd-primary-light); }
+}
+.rifteye-pulse { animation: rifteye-pulse calc(var(--wd-slow) * 2) var(--wd-ease) 1; }
+@media (prefers-reduced-motion: reduce) {
+  .rifteye-card, .rifteye-pulse { animation: none; }
+}

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // Where a card's hover picture is in the package: data/thumbs/<name>.jpg. The name is the printing id with what a
 // file name may not hold (the `*` of OGN-299*) written as `_` and the byte's two hex digits: the same as

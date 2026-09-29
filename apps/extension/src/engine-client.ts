@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // An engine worker as the engine document runs it: requests out with an id, answers matched back, and a worker
 // that dies or does not answer reported, not waited for.

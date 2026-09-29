@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The engine document (chrome.offscreen, reason WORKERS): the page the extension's worker keeps for the engine,
 // since a service worker cannot hold WebGPU models for long. It answers the worker's requests (controller.ts) and

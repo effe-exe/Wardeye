@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The page of the browser replay (replay.spec.ts): it plays the engine document's part. It starts the engine worker
 // as the extension does, sends it the frames of replay.json one after another as base64 JPEGs, and keeps what

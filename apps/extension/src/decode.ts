@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // A page's JPEG as RGB, decoded the way that gives Pillow's bytes: createImageBitmap with no colour conversion and
 // no premultiplying, drawn on an OffscreenCanvas, read back with getImageData (checked on the LA final's frames,

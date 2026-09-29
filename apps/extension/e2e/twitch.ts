@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // A stand-in Twitch for the browser tests: a page at https://www.twitch.tv/... (routed, never fetched) with one
 // video, recorded in the browser itself so that no media is in git.

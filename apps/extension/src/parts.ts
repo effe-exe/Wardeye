@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // What the engine host needs from the engine, behind a few small interfaces: reading a JPEG, finding a table's
 // layout, and a board (a Recognizer) for that table. The real parts are in parts-engine.ts (@rifteye/engine on
@@ -76,7 +76,7 @@ export interface Trace {
 export type LoadParts = (ctx: LoadContext) => Promise<Parts>;
 
 /** The state of a table not read yet: the live runner's own "starting" payload. */
-export function startingState(t: number, size: { width: number; height: number }, message: string, fps: number, title = 'RiftEye live'): BoardState {
+export function startingState(t: number, size: { width: number; height: number }, message: string, fps: number, title = 'Wardeye live'): BoardState {
   return {
     t,
     status: 'starting',

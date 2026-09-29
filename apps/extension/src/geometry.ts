@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The overlay's pure logic, no DOM: where the video's picture sits inside its element, and what each
 // of the live runner's tracks draws and says. The state is the live runner's (ml/rifteye_ml/live/pipeline.py),
@@ -89,7 +89,12 @@ export function boxClass(track: Track): string {
   return `rifteye-box rifteye-${state}${track.kind === 'rune' ? ' rifteye-rune' : ''}`;
 }
 
-/** The label over a box: the card's name when RiftEye is sure of it, else nothing. */
+/** A card that has just been named: named now, and not before (or not drawn before). It gets one pulse of its outline; runes never do. */
+export function becameNamed(before: Track | undefined, now: Track): boolean {
+  return now.state === 'named' && now.kind !== 'rune' && before?.state !== 'named';
+}
+
+/** The label over a box: the card's name when Wardeye is sure of it, else nothing. */
 export function label(track: Track): string {
   return track.state === 'named' && track.kind !== 'rune' ? track.name : '';
 }
@@ -102,30 +107,44 @@ export function labelAnchor(quad: [number, number][]): [number, number] {
 }
 
 export type HoverCard =
-  | { kind: 'named'; printing_id: string | null; name: string; sure: string; under: string }
+  | { kind: 'named'; printing_id: string | null; name: string; meta: string; sure: string; under: string }
   | { kind: 'unsure'; guesses: Guess[]; under: string }
   | { kind: 'text'; text: string };
 
-/** What pointing at a card shows. Runes show nothing; a face-down card is never identified (D-005). */
+/** The card types the state carries: it says a track's kind only for these (the runner's and the engine's KINDS). Any other
+ * card is a plain "card", and its type is not in the data the overlay has. */
+const TYPES: Readonly<Record<string, string>> = { legend: 'Legend', battlefield: 'Battlefield' };
+
+/** What pointing at a card shows. Runes show nothing; a face-down card is never identified (D-005). The meta line is the card's
+ * type, when the state has it; the state has no domains, so none are shown. */
 export function hoverCard(track: Track): HoverCard | null {
   if (track.kind === 'rune') return null;
   const under = track.under?.length ? `Under it: ${track.under.map((u) => u.name).join(', ')}` : '';
   if (track.state === 'named')
-    return { kind: 'named', printing_id: track.printing_id, name: track.name, sure: `RiftEye is ${Math.round(track.confidence * 100)}% sure`, under };
+    return { kind: 'named', printing_id: track.printing_id, name: track.name, meta: TYPES[track.kind] ?? '', sure: `Confidence ${track.confidence.toFixed(2)}`, under };
   if (track.state === 'unsure') return { kind: 'unsure', guesses: track.guesses.slice(0, 3), under };
   if (track.state === 'facedown') return { kind: 'text', text: 'Face-down card: never identified' };
   return { kind: 'text', text: 'New card, not identified yet' };
 }
 
+/** The name the badge starts with. */
+export const NAME = 'Wardeye';
+
 /** The status badge on the player. */
 export function badge(online: boolean, state: State | null): string {
-  if (!online) return 'RiftEye: start the runner on this computer (rifteye-overlay)';
-  if (!state || state.status === 'starting') return state?.message ? `RiftEye: ${state.message}` : 'RiftEye: starting';
-  if (state.status === 'away') return 'RiftEye: waiting for the table camera';
-  if (state.status === 'error') return `RiftEye: ${state.message}`;
+  if (!online) return `${NAME}: start the live runner on this computer`;
+  if (!state || state.status === 'starting') return state?.message ? `${NAME}: ${state.message}` : `${NAME}: starting`;
+  if (state.status === 'away') return `${NAME}: waiting for the table camera`;
+  if (state.status === 'error') return `${NAME}: ${state.message}`;
   const named = state.tracks.filter((t) => t.state === 'named' && t.kind !== 'rune' && !t.hidden).length;
-  const cards = `RiftEye · ${named} card${named === 1 ? '' : 's'} named`;
+  const cards = `${NAME} · ${named} card${named === 1 ? '' : 's'} named`;
   return state.engine ? `${cards} · ${state.engine.reads_per_s.toFixed(1)} reads/s` : cards;
+}
+
+/** The badge's text in two parts, for its two typefaces: the name (Space Grotesk) and the status after it (Inter). Put back
+ * together they are the text again, punctuation and all. */
+export function badgeParts(text: string): { name: string; status: string } {
+  return text.startsWith(NAME) ? { name: NAME, status: text.slice(NAME.length) } : { name: '', status: text };
 }
 
 /** The badge's second line, of the engine: how it runs and where a frame's time goes (ms). */
