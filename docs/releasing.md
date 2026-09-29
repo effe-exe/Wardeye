@@ -54,8 +54,48 @@ Now, while Riot reviews the application ([D-025](decisions.md#d-025-release-on-t
   - `content.publishing.riotgames.com` and `cmsassets.rgpub.io`: load the card names, types and images from Riot's public card gallery; the extension ships none of them.
 - **Remote code:** none. Every script and WebAssembly file ships in the package; the models are data inside it.
 - **Data use:** does not collect or use user data.
-- **Images:**
-  - the icon (`apps/extension/icons/icon-128.png`);
-  - at least one screenshot, 1280 × 800: the overlay on a table, a hover card open, the badge. Logos in the broadcast are cropped or blurred, and the broadcast is credited;
-  - a small promo tile, 440 × 280: the lockup on the background colour.
-- **Links:** the web page, the public repository, and the privacy policy.
+- **Images:** `node scripts/brand-social.mjs OUT` renders the store's own images. They are uploaded, not committed.
+  - `store-icon.png`, 128 × 128: the mark 96 px tall with 16 px of transparent padding, as the store asks.
+  - `store-promo-small.png`, 440 × 280: the lockup and the one-liner. Required; listings without it are shown after those with one.
+  - `store-marquee.png`, 1400 × 560: optional.
+  - Screenshots, 1 to 5, at 1280 × 800: the overlay on a table, a hover card open, the badge. Take them from the real extension on a real replay (see below). Crop or blur the broadcast's logos, and credit the broadcast in the description.
+- **Links:** the web page once it is live; until then, the public repository as the homepage and its issues page for support. The privacy policy is its own field (below).
+
+### Uploading, step by step
+
+**First, try the zip on your own computer.** The store installs exactly what is in it.
+1. Unzip `wardeye-VERSION.zip` into a folder.
+2. In Chrome, open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and choose that folder.
+3. Open a Riftbound replay on Twitch in theatre mode, for example the Los Angeles grand final at `https://www.twitch.tv/videos/2885620401?t=14h54m00s`. Twitch deletes old broadcasts, so check that it still plays.
+   - The badge on the player says it is finding the table, then how many cards it has named.
+   - Point at a card: the hover card shows its name and image.
+   - Alt+R (Option+R on a Mac) hides and shows the overlay.
+4. Take the screenshots now, at 1280 × 800.
+5. Remove the unpacked copy on `chrome://extensions` before you install the store version.
+
+**Then, in the [Developer Dashboard](https://chrome.google.com/webstore/devconsole):**
+1. **Add new item** → **Choose file** → the zip → **Upload**. The name, summary, version and icons come from the manifest.
+2. **Store listing:**
+   - Description: the one above.
+   - Category: Lifestyle → Entertainment. Language: English.
+   - Graphic assets: the store icon, the screenshots, the small promo tile, and the marquee if you like. No video until the demo exists.
+   - Homepage URL: the repository, later the web page. Support URL: the repository's issues page.
+   - Leave the official URL empty: it needs a domain verified in Google Search Console.
+   - Mature content: no.
+3. **Privacy:**
+   - Single purpose: the one above.
+   - A justification for each permission: `offscreen` and the host permissions (`www.twitch.tv`, `content.publishing.riotgames.com`, `cmsassets.rgpub.io`), as above.
+   - Remote code: **No**. Everything that runs ships in the zip.
+   - Data usage: tick no data type, and tick the certifications (no selling or transfer of user data, no use unrelated to the single purpose, no use for creditworthiness or lending).
+   - Privacy policy: `https://github.com/effe-exe/Wardeye/blob/main/docs/PRIVACY.md`.
+4. **Distribution:** free; all regions.
+   - Visibility **Public** lists it in the store.
+   - **Unlisted** is the quieter start: anyone with the link can install it, but it is not in search.
+   - **Private** is for named testers only.
+   - Every visibility goes through the same review.
+5. **Test instructions**, for the reviewer: *No account needed. Open a Riftbound replay on Twitch (for example the link above) and let it play for 20 seconds in theatre mode. The Wardeye badge on the player says it is finding the table, then outlines appear on the cards. Point at a card to see its name and image. Alt+R hides the overlay. It runs on WebGPU where the computer has it, otherwise on the processor, more slowly.*
+6. **Submit for review** and confirm.
+   - To choose the moment it goes live yourself, untick the option to publish automatically after the review. An approved item then waits up to 30 days for you to publish it.
+7. **The review** usually takes a few days and can take a few weeks. New developers get a closer look, and so do extensions with a lot of code. A rejection comes by email with the policy it cites, and a fixed version can be resubmitted.
+
+**After it is live:** put the listing's link in the README's Install section, and in the web page's `Add to Chrome` button ([brief](wardeye-page-brief.md)). Add it to the Riot application too.
