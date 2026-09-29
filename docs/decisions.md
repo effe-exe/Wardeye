@@ -182,7 +182,7 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 
 ### D-026: Legends and published decklists narrow the search, and never reveal anything
 
-- **Date:** 2026-09-29. **Status:** accepted; the Maintainer asked for the feature. Measured in the [decklist report](reports/m2-decklist-prior.md); not in the extension yet. Clarifies [D-005](#d-005-public-information-only).
+- **Date:** 2026-09-29. **Status:** accepted; the Maintainer asked for the feature. Measured in the [decklist report](reports/m2-decklist-prior.md). The legend rule is in the live runner and the engine, on by default, and ships with the extension's next update; decklist import is not built yet. Clarifies [D-005](#d-005-public-information-only).
 - **Decision:**
   - **The legend rule, on by default.** Once a player's legend is pinned, the cards on that player's half compete only with the printings that fit the legend's domains, runes included. Battlefields and tokens are always allowed.
   - **Decklists, opt-in.** The viewer may paste a player's published list: a deck code, or a deckbuilder's text, tourney or JSON export. Wardeye fetches no list from any site.

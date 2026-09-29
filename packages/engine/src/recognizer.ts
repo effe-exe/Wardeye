@@ -17,6 +17,10 @@
 // (a card put on a stack, a rune channelled), the region is read like a crop, and a confident read is a play even
 // though no track holds the card.
 //
+// The legend rule (D-026, priors.legendMask): once a side's legend is pinned, every crop read on that side competes
+// only with the printings that fit that legend's domains, runes included, and with every battlefield and token.
+// Until then, and with `legendRule: false`, a crop competes with the whole gallery.
+//
 // The port keeps pipeline.py's names (camelCase), its order and its arithmetic, so the two read side by side and,
 // fed the same frames, boxes and embeddings, give the same state and events. Where numpy computes in float32 (the
 // scene's thumbnails), so does this (Math.fround at each step). A few things can differ in their last bits: the
@@ -30,6 +34,7 @@ import * as image from './image';
 import { box as layoutBox, cardPx, side as layoutSide, sides as layoutSides } from './layouts';
 import { linearSumAssignment } from './lsap';
 import { FACE_DOWN_DETAIL, detail, findCards, matColour, notmatMask, type Mask } from './matcrops';
+import { legendMask, tokenRows } from './priors';
 import { pyMod, pyRound } from './pynum';
 import { ROTATIONS, argsortDescending, bestSimilarities, type Pyramid } from './retrieval';
 import type { CardBox, CatalogRow, Encoder, Finder, Layout, RgbImage } from './types';
@@ -546,6 +551,8 @@ export interface RecognizerOptions {
   finder?: Finder | null;
   /** Turns an encoder's scores into how sure a read is; fitted per encoder. */
   temperature?: number;
+  /** Hold each side's crops to its pinned legend (the legend rule, D-026); on by default. */
+  legendRule?: boolean;
 }
 
 /** Holds the gallery and the table's tracks; `step` takes one frame and returns the state and events. `finder(t,
@@ -588,6 +595,12 @@ export class Recognizer {
   // A legend never changes during a game (M0 section 5.4): once one is named on a side, that player keeps it.
   // ponytail: the first confident legend wins for the whole run; reset per game once games are detected
   legends = new Map<string, Legend>();
+  /** The legend rule: a side's crops compete only with the rows its pinned legend allows (`allowed`). */
+  legendRule: boolean;
+  /** Legend card_id -> the gallery rows its side's crops compete with (1 for each allowed row). */
+  masks = new Map<string, Uint8Array>();
+  /** priors.tokenRows, once a legend needs it. */
+  tokens: Uint8Array | null = null;
   /** Track id -> its box's extent, this frame. */
   boxesNow = new Map<string, Box4>();
   // Camera cuts: frames off the table camera are skipped and the board's clocks stop (`pause`). After a cut the view
@@ -608,7 +621,7 @@ export class Recognizer {
 
   constructor(layout: Layout, rows: readonly CatalogRow[], encoder: Encoder, gallery: Pyramid, opts: RecognizerOptions = {}) {
     const { title = '', minP = 0.5, sureP = 0.85, recheckS = 8.0, forgetS = 4.0, maxReads = 12, settleS = 3.0 } = opts;
-    const { gate = true, fps = 5.0, gateP = 0.7, finder = null, temperature = TEMPERATURE } = opts;
+    const { gate = true, fps = 5.0, gateP = 0.7, finder = null, temperature = TEMPERATURE, legendRule = true } = opts;
     this.layout = layout;
     this.rows = [...rows];
     this.enc = encoder;
@@ -631,6 +644,7 @@ export class Recognizer {
     this.finder = finder;
     this.scene = new Scene(layout);
     this.gateSettings = gate ? gateSettings({ fps, card_long_frac: layout.card_long_1080 / 1080 }) : null;
+    this.legendRule = legendRule;
   }
 
   // --- finding ------------------------------------------------------------------------------------------------------
@@ -820,9 +834,28 @@ export class Recognizer {
     return t - tr.lastRead > this.recheckS;
   }
 
+  /** The gallery rows a crop on `side` competes with: once the side's legend is pinned, those that fit it
+   * (priors.legendMask, runes held to its domains; every battlefield and token), one mask per legend. Null, the whole
+   * gallery, before that, on a side with no legend, or with the rule off. */
+  allowed(side: string): Uint8Array | null {
+    const lg = this.legendRule && side ? this.legends.get(side) : undefined;
+    const row = lg !== undefined ? this.rowOf.get(lg.printing_id) : undefined;
+    if (row === undefined) return null;
+    const card = row.card_id;
+    let mask = this.masks.get(card);
+    if (mask === undefined) {
+      this.tokens ??= tokenRows(this.rows).mask;
+      mask = legendMask(this.rows, [card], { tokens: this.tokens, runes: true }).mask;
+      this.masks.set(card, mask);
+    }
+    return mask;
+  }
+
   /** Per crop, its candidate cards as (card_id, probability, best score, best gallery row), best first. All four
-   * turns go in one batch: which way up a card lies is unknown (exhausted, opponent side). */
-  async identify(crops: readonly RgbImage[]): Promise<Candidate[][]> {
+   * turns go in one batch: which way up a card lies is unknown (exhausted, opponent side). `sides[n]` is where crop n
+   * lies: under the legend rule, the rows its side's legend rules out score -Infinity before the best 60 are taken,
+   * and the softmax runs over the cards left. */
+  async identify(crops: readonly RgbImage[], sides?: readonly string[]): Promise<Candidate[][]> {
     if (!crops.length) return [];
     const views: RgbImage[] = [];
     for (const c of crops) for (const r of ROTATIONS) views.push(r ? image.rotate(c, r, { expand: true }) : c);
@@ -833,10 +866,17 @@ export class Recognizer {
     crops.forEach((c, n) => {
       const level = { data: this.gallery.level(Math.max(c.width, c.height)), rows: this.gallery.rows, dim: this.gallery.dim };
       const sims = bestSimilarities({ data: emb.subarray(n * turns * dim, (n + 1) * turns * dim), rows: turns, dim }, level);
+      const allowed = sides !== undefined ? this.allowed(sides[n]!) : null;
+      if (allowed !== null) for (let g = 0; g < sims.length; g++) if (!allowed[g]) sims[g] = -Infinity;
       const scores = new Map<string, [number, number]>();
       for (const i of argsortDescending(sims).subarray(0, 60)) {
+        if (!Number.isFinite(sims[i]!)) continue; // a row the legend rules out
         const card = this.cards[i]!;
         if (!scores.has(card)) scores.set(card, [sims[i]!, i]);
+      }
+      if (!scores.size) {
+        out.push([]);
+        return;
       }
       const vals = [...scores.values()].map((v) => v[0]);
       const top = Math.max(...vals);
@@ -865,7 +905,7 @@ export class Recognizer {
       crops.push(c);
       owners.push(tr);
     }
-    const found = await this.identify(crops);
+    const found = await this.identify(crops, owners.map((tr) => tr.side));
     owners.forEach((tr, n) => {
       tr.reads += 1;
       for (const [card, pc, sc, i] of found[n]!) {
@@ -902,14 +942,15 @@ export class Recognizer {
       }
       if (region.width > region.height * 1.15) region = image.rotate(region, 90, { expand: true }); // cards stand portrait
       if (detail(region) < FACE_DOWN_DETAIL) continue; // a face-down card: never identified
-      // ponytail: the whole changed region is read as one card; the visible-band matcher (stacks.py) for cards put on stacks
-      const cands = (await this.identify([region]))[0]!;
-      const [card, p, , i] = cands[0]!;
       const cx = (box[0] + box[2]) / 2;
       const cy = (box[1] + box[3]) / 2;
+      const side = layoutSide(this.layout, cx, cy, w, h); // before the read: the side's legend rules its candidates
+      // ponytail: the whole changed region is read as one card; the visible-band matcher (stacks.py) for cards put on stacks
+      const cands = (await this.identify([region], [side]))[0]!;
+      if (!cands.length) continue;
+      const [card, p, , i] = cands[0]!;
       const r = this.rows[i]!;
       if (p < this.gateP || settled(r.type ?? '') || this.recentlyPlayed(t, card, cx, cy)) continue;
-      const side = layoutSide(this.layout, cx, cy, w, h);
       this.plays.push([t, card, cx, cy]);
       const q: [number, number][] = [
         [box[0], box[1]],

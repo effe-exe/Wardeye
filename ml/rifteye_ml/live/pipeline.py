@@ -15,6 +15,10 @@ A card named on the table becomes a "played" event; a named card gone for a whil
 only sees cards lying on their own, so the change gate watches the whole table too: when a region
 settles after a change (a card put on a stack, a rune channelled), the region is read like a crop, and
 a confident read is a play even though no track holds the card (as in `rifteye_ml.demo`).
+
+The legend rule (D-026, `priors.legend_mask`): once a side's legend is pinned, every crop read on that
+side competes only with the printings that fit that legend's domains, runes included, and with every
+battlefield and token. Until then, and with `legend_rule=False`, a crop competes with the whole gallery.
 """
 from __future__ import annotations
 
@@ -27,6 +31,7 @@ from typing import Sequence
 import numpy as np
 from PIL import Image
 
+from .. import priors
 from ..changegate import ChangeGate, GateSettings
 from ..detect.geometry import overlap_area
 from ..matcrops import FACE_DOWN_DETAIL, CardBox, detail, find_cards, mat_colour, notmat_mask
@@ -259,7 +264,7 @@ class Recognizer:
     def __init__(self, layout: Layout, rows: Sequence[dict], encoder, gallery: Pyramid, title: str = "",
                  min_p: float = 0.5, sure_p: float = 0.85, recheck_s: float = 8.0, forget_s: float = 4.0,
                  max_reads: int = 12, settle_s: float = 3.0, gate: bool = True, fps: float = 5.0, gate_p: float = 0.7,
-                 finder=None, temperature: float = TEMPERATURE):
+                 finder=None, temperature: float = TEMPERATURE, legend_rule: bool = True):
         self.layout, self.rows, self.enc, self.gallery = layout, list(rows), encoder, gallery
         self.temperature = temperature  # turns an encoder's scores into how sure a read is; fitted per encoder
         self.cards = np.array([r["card_id"] for r in self.rows])
@@ -289,6 +294,10 @@ class Recognizer:
         # A legend never changes during a game (M0 §5.4): once one is named on a side, that player keeps it.
         # ponytail: the first confident legend wins for the whole run; reset per game once games are detected
         self.legends: dict[str, dict] = {}
+        # The legend rule: a side's crops compete only with the rows its pinned legend allows (`allowed`).
+        self.legend_rule = legend_rule
+        self.masks: dict[str, np.ndarray] = {}   # legend card_id -> the gallery rows its side's crops compete with
+        self.tokens: np.ndarray | None = None    # priors.token_rows, once a legend needs it
         self.boxes_now: dict[str, tuple[float, float, float, float]] = {}  # track id -> its box's extent, this frame
         # Camera cuts: frames off the table camera are skipped and the board's clocks stop (`pause`). After a
         # cut the view may be framed differently, so tracks found again by name re-anchor the rest (`cut`).
@@ -454,9 +463,26 @@ class Recognizer:
             return True
         return t - tr.last_read > self.recheck_s
 
-    def identify(self, crops: Sequence[Image.Image]) -> list[list[tuple[str, float, float, int]]]:
+    def allowed(self, side: str) -> np.ndarray | None:
+        """The gallery rows a crop on `side` competes with: once the side's legend is pinned, those that fit it
+        (`priors.legend_mask`, runes held to its domains; every battlefield and token), one mask per legend. None,
+        the whole gallery, before that, on a side with no legend, or with the rule off."""
+        lg = self.legends.get(side) if self.legend_rule and side else None
+        row = self.row_of.get(lg["printing_id"]) if lg is not None else None
+        if row is None:
+            return None
+        card = row["card_id"]
+        if card not in self.masks:
+            if self.tokens is None:
+                self.tokens = priors.token_rows(self.rows)[0]
+            self.masks[card] = priors.legend_mask(self.rows, [card], self.tokens, runes=True)[0]
+        return self.masks[card]
+
+    def identify(self, crops: Sequence[Image.Image], sides: Sequence[str] | None = None) -> list[list[tuple[str, float, float, int]]]:
         """Per crop, its candidate cards as (card_id, probability, best score, best gallery row), best first.
-        All four turns go in one batch: which way up a card lies is unknown (exhausted, opponent side)."""
+        All four turns go in one batch: which way up a card lies is unknown (exhausted, opponent side).
+        `sides[n]` is where crop n lies: under the legend rule, the rows its side's legend rules out score -inf
+        before the best 60 are taken, and the softmax runs over the cards left."""
         if not crops:
             return []
         views = [c.rotate(r, expand=True) if r else c for c in crops for r in ROTATIONS]
@@ -465,11 +491,20 @@ class Recognizer:
         for n, c in enumerate(crops):
             level = self.gallery.levels[self.gallery.level_for(max(c.size))]
             sims = (emb[n] @ level.T).max(axis=0)
+            allowed = self.allowed(sides[n]) if sides is not None else None
+            if allowed is not None:
+                sims = np.where(allowed, sims, -np.inf)
             scores: dict[str, tuple[float, int]] = {}
-            for i in np.argsort(-sims)[:60]:
+            # stable: equal scores in gallery order, as the engine's argsortDescending takes them
+            for i in np.argsort(-sims, kind="stable")[:60]:
+                if not np.isfinite(sims[i]):
+                    continue  # a row the legend rules out
                 card = self.cards[i]
                 if card not in scores:
                     scores[card] = (float(sims[i]), int(i))
+            if not scores:
+                out.append([])
+                continue
             vals = np.array([v[0] for v in scores.values()])
             p = np.exp((vals - vals.max()) / self.temperature)
             p /= p.sum()
@@ -490,7 +525,7 @@ class Recognizer:
             tr.down = 0
             crops.append(c)
             owners.append(tr)
-        for tr, cands in zip(owners, self.identify(crops)):
+        for tr, cands in zip(owners, self.identify(crops, [tr.side for tr in owners])):
             tr.reads += 1
             for card, pc, sc, i in cands:
                 tr.prob[card] = tr.prob.get(card, 0.0) + pc
@@ -529,14 +564,16 @@ class Recognizer:
                 region = region.rotate(90, expand=True)  # cards stand portrait
             if detail(region) < FACE_DOWN_DETAIL:
                 continue  # a face-down card: never identified
-            # ponytail: the whole changed region is read as one card; the visible-band matcher (stacks.py) for cards put on stacks
-            cands = self.identify([region])[0]
-            card, p, sc, i = cands[0]
             cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+            side = self.layout.side(cx, cy, w, h)  # before the read: the side's legend rules its candidates
+            # ponytail: the whole changed region is read as one card; the visible-band matcher (stacks.py) for cards put on stacks
+            cands = self.identify([region], [side])[0]
+            if not cands:
+                continue
+            card, p, sc, i = cands[0]
             r = self.rows[i]
             if p < self.gate_p or r.get("type") in QUIET + STATIC or self.recently_played(t, card, cx, cy):
                 continue
-            side = self.layout.side(cx, cy, w, h)
             self.plays.append((t, card, cx, cy))
             q = [[box[0], box[1]], [box[2], box[1]], [box[2], box[3]], [box[0], box[3]]]
             guesses = [{"printing_id": self.rows[j]["printing_id"], "card_id": c, "name": self.rows[j]["name"], "p": round(pc, 3)}

@@ -121,9 +121,10 @@ def test_build_writes_the_gallery_the_catalogue_and_the_thumbnails(world):
 
     # the catalogue: what the tracker and the overlay read, in the gallery's order
     slim = json.loads((out / "catalog.json").read_text(encoding="utf-8"))
-    assert [set(r) for r in slim] == [{"printing_id", "card_id", "name", "type"}] * 4
+    assert all({"printing_id", "card_id", "name", "type"} <= set(r) for r in slim)
+    assert all(set(r) - {"printing_id", "card_id", "name", "type"} <= {"domains", "variant", "tags"} for r in slim)  # and the legend rule's
     assert [r["printing_id"] for r in slim] == IDS
-    assert slim[2] == {"printing_id": "TST-003", "card_id": "card-2", "name": "Card 2", "type": "Legend"}
+    assert {k: slim[2][k] for k in ("printing_id", "card_id", "name", "type")} == {"printing_id": "TST-003", "card_id": "card-2", "name": "Card 2", "type": "Legend"}
 
     # the thumbnails: what the runner's /art/<id>.jpg serves
     server = LiveServer(port=0, art=lambda pid: cat.cache_path(world["art"], next(r for r in world["rows"] if r["printing_id"] == pid)["image_url"]))

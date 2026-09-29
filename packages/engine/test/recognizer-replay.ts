@@ -21,6 +21,8 @@ export interface ReplayMeta {
   det_score: number;
   temperature: number;
   title: string;
+  /** Whether the legend rule was on; fixtures written before it had none, and ran without it. */
+  legend_rule?: boolean;
   levels: number[];
   rows: number;
   dim: number;
@@ -369,7 +371,13 @@ export async function replay(fx: ReplayFixture, frame: (s: ReplayStep) => Promis
     finderMs += performance.now() - tic;
     return boxes;
   };
-  const rec = new Traced(layout, fx.rows, enc, gallery, { title: fx.meta.title, fps: fx.meta.fps, finder, temperature: fx.meta.temperature });
+  const rec = new Traced(layout, fx.rows, enc, gallery, {
+    title: fx.meta.title,
+    fps: fx.meta.fps,
+    finder,
+    temperature: fx.meta.temperature,
+    legendRule: fx.meta.legend_rule ?? false,
+  });
   enc.rec = rec;
   const report: ReplayReport = {
     steps: 0,

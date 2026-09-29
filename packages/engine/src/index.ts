@@ -19,3 +19,4 @@ export * as detector from './detector';
 export * as embedder from './embedder';
 export * as ort from './ort';
 export * as recognizer from './recognizer';
+export * as priors from './priors';

@@ -44,7 +44,7 @@ Not yet: the legends and decklists that narrow the search (next, [below](#next-l
 
 ## Next: legends and decklists
 
-Measured first, in the research pipeline, and coming to the extension next ([report](docs/reports/m2-decklist-prior.md)).
+The legend rule is built into the engine and comes with the next update of the extension; decklists come after it ([report](docs/reports/m2-decklist-prior.md)).
 
 - **The legends narrow the search, with nothing to set up.**
   - Every card in a Riftbound deck must fit its legend's two domains, runes included.
