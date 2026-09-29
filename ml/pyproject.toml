@@ -29,6 +29,9 @@ detector = ["torch>=2.4", "torchvision>=0.17", "rfdetr==1.11.0"]
 # to open Twitch streams (BSD-2-Clause), yt-dlp for YouTube (Unlicense). It needs no torch until the trained
 # detector is plugged in.
 live = ["scipy>=1.11", "streamlink>=6", "yt-dlp>=2024.1"]
+# The models for the browser (M2): exporting them to ONNX and checking the copies against PyTorch. onnx and
+# onnx-ir are Apache-2.0; onnxruntime, onnxscript and onnxconverter-common are MIT (checked 2026-09-28).
+onnx = ["onnx>=1.17", "onnxruntime>=1.20", "onnxscript>=0.2", "onnxconverter-common>=1.14"]
 
 [tool.setuptools.packages.find]
 include = ["rifteye_ml*"]

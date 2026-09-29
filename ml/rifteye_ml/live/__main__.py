@@ -58,13 +58,13 @@ def link_start(link: str) -> float:
 
 def temperature_for(spec: str, enc, given: float | None) -> float | None:
     """How an encoder's scores become confidence: the one given, the one packed with the weights, embedder-v1's
-    for a fine-tuned embedder, or None for the pipeline's own (fitted for colour and structure)."""
+    for a fine-tuned embedder (its ONNX export too), or None for the pipeline's own (fitted for colour and structure)."""
     if given:
         return given
     meta = getattr(enc, "meta", None) or {}
     if meta.get("temperature"):
         return float(meta["temperature"])
-    return EMBEDDER_T if spec.startswith("embedder:") else None
+    return EMBEDDER_T if spec.startswith(("embedder:", "onnx:")) else None
 
 
 def ensure_catalogue(catalog: Path | None, cache: Path) -> Path:

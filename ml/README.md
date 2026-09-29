@@ -246,6 +246,30 @@ python -m rifteye_ml.spike real --encoder embedder:embedder-v0.pth ...   # any t
 
 The weights are trained on Riot's card art, so they stay private like the art: never commit or publish them.
 
+## For the browser (M2): the models as ONNX
+
+Both models export to ONNX for ONNX Runtime Web (`pip install -e '.[detector,torch,onnx]'`):
+
+```bash
+python -m rifteye_ml.detect onnx ~/rifteye-data/models/detector-v0.pth ~/rifteye-data/models/onnx
+python -m rifteye_ml.embed onnx ~/rifteye-data/models/embedder-v1.pth ~/rifteye-data/models/onnx
+python -m rifteye_ml.spike real --encoder onnx:~/rifteye-data/models/onnx/embedder-v1.fp16.onnx ...   # any encoder spec
+```
+
+- **Output.** Each command writes `<name>.onnx` (float32) and `<name>.fp16.onnx` (float16 inside, float32 in and out), then checks both against PyTorch on random input.
+- **Detector.** It takes 576 px tiles in 0..1 and normalises them itself. It returns the head's raw outputs (`pred_logits`, `pred_boxes`, `pred_keypoints`); `detect/onnx.py` `OnnxNet` runs them through the same postprocess and tile merge. Opset 17: WebGPU's GridSample stops at 19.
+- **Embedder.** It takes the letterboxed 224 px crops, values 0..255, and returns the 256-d rows. `onnx:<file>` runs it wherever an encoder spec goes, with the same calibrated temperature.
+- **Same answers (2026-09-29, ORT on the CPU).**
+  - Detector, float32: the same detections as PyTorch on 60 Los Angeles and Barcelona frames. On the whole LA final (374 frames, 794 reviewed cards) the recall is the same: 99.6%.
+  - Detector, float16: it reorders near-tied low-score queries, so some duplicate boxes move. The recall on the reviewed cards is still 99.6%, and 99% of the live runner's card boxes match (centres within 2.2 px, p95).
+  - Embedder: card and printing accuracy on the held-out broadcasts are identical to the crop for torch, float32 and float16 (Barcelona 95.99% / 94.83%, LA final 99.37% / 99.05%), and so is the calibration.
+  - A bilinear resize of the query crops keeps card accuracy. Nearest-neighbour costs about 2 points of printing accuracy on Barcelona.
+- **Cost.** One 576 tile is about 166 GFLOP (35.9M parameters, mostly the DINOv2 backbone over 2,304 tokens); one crop is about 12 GFLOP.
+  - A 1080p frame is 1 tile on the LA layout and 2 on Barcelona's and Shenyang's.
+  - The live runner reads each crop in its four turns: median 8 images a frame, p90 16.
+  - WebGPU float16 needs the adapter's `shader-f16`; without it, use float32.
+- The ONNX files are trained on Riot's card art like the weights, so they stay private too. [apps/bench](../apps/bench/README.md) times them in Chrome.
+
 ## Live: a recording or a stream, named as it plays
 
 `python -m rifteye_ml.live` runs the pipeline in real time and shows it on a local page at http://127.0.0.1:8765 (or the next free port): the video with every card it finds boxed and named (point at one to see it), each player's legend and cards on the table, and the plays as they happen. Install it with `pip install -e '.[live]'` (no torch needed); on the first run it fetches the public card catalogue and art into `~/rifteye-data`.

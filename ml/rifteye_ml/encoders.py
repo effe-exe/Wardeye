@@ -15,6 +15,8 @@ stream crops that drops the sleeve edge and the mat around the card (M0: 93.7% â
   for DINOv2). Needs the optional `torch` extra. Cards are letterboxed to a square, so no
   centre crop cuts off the name or the cost.
 * `embedder:<file>`: the fine-tuned M1 embedder (`rifteye_ml.embed`), 256-d.
+* `onnx:<file>`: an ONNX export of it (`embed onnx`, float32 or float16), run with onnxruntime: the same
+  crops in, the same 256-d rows out, and no torch needed.
 """
 from __future__ import annotations
 
@@ -187,8 +189,8 @@ class Fused:
 
 
 def get_encoder(spec: str) -> Encoder:
-    """'colorgrid', 'colorgrid:8', 'dhash', 'dhash:8', 'timm:<model>[@<size>][/<pool>]', or
-    'embedder:<file>' (fine-tuned weights from `rifteye_ml.embed pack`).
+    """'colorgrid', 'colorgrid:8', 'dhash', 'dhash:8', 'timm:<model>[@<size>][/<pool>]',
+    'embedder:<file>' (fine-tuned weights from `rifteye_ml.embed pack`), or 'onnx:<file>' (from `embed onnx`).
     Parts joined by '+' make a `Fused` encoder, equally weighted unless a part ends in '*<weight>',
     e.g. 'colorgrid/trim0.03+dhash/trim0.03' or 'colorgrid*1+dhash*3'."""
     if "+" in spec:
@@ -213,4 +215,10 @@ def get_encoder(spec: str) -> Encoder:
         if not arg:
             raise ValueError("embedder needs a weights file: 'embedder:<file>'")
         return FineTuned(arg)
+    if kind == "onnx":
+        from .embed.onnx import Onnx  # needs onnxruntime
+
+        if not arg:
+            raise ValueError("onnx needs a model file: 'onnx:<file>'")
+        return Onnx(arg)
     raise ValueError(f"unknown encoder {spec!r}")

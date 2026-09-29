@@ -1,0 +1,56 @@
+/* The bench page: plain, dark, system fonts only (nothing is loaded from outside the package). */
+:root {
+  color-scheme: dark;
+  --bg: #14171c;
+  --panel: #1c2027;
+  --line: #2d333d;
+  --text: #e4e7ec;
+  --dim: #9aa3b2;
+  --accent: #8a7cf5;
+  --pass: #52c483;
+  --fail: #f0616d;
+  --warn: #e3b341;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 1320px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { margin: 0 0 4px; font-size: 26px; }
+h2 { margin: 28px 0 8px; font-size: 16px; color: var(--dim); font-weight: 600; letter-spacing: .02em; }
+.lede { margin: 0 0 16px; color: var(--dim); max-width: 70ch; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0; }
+button {
+  font: inherit; font-weight: 600; color: #fff; background: var(--accent);
+  border: 0; border-radius: 6px; padding: 8px 20px; cursor: pointer;
+}
+button:hover:not(:disabled) { filter: brightness(1.1); }
+button:disabled { opacity: .4; cursor: default; }
+#stop { background: transparent; border: 1px solid var(--line); color: var(--text); }
+#status, #copied { color: var(--dim); }
+pre, textarea, table { font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+pre, textarea {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+  padding: 10px 12px; margin: 0; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+#frame:empty { display: none; }
+#frame { margin-top: 12px; }
+textarea { display: block; width: 100%; resize: vertical; white-space: pre; overflow: auto; }
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--dim); font-weight: 600; }
+tbody tr:last-child td { border-bottom: 0; }
+td.num { text-align: right; }
+td.check { white-space: normal; min-width: 26ch; overflow-wrap: anywhere; }
+td.pass { color: var(--pass); }
+td.fail { color: var(--fail); }
+td.note { color: var(--dim); white-space: normal; }
+tr.detail td { white-space: pre-wrap; overflow-wrap: anywhere; padding-top: 0; }
+tr.detail .err { color: var(--fail); }
+tr.detail .warn { color: var(--warn); }
+tr.error td:first-child { box-shadow: inset 3px 0 var(--fail); }
+tr.skipped td { color: var(--dim); }

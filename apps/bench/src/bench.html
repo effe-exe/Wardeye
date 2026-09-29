@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RiftEye bench</title>
+  <link rel="stylesheet" href="bench.css">
+</head>
+<body>
+  <main>
+    <h1>RiftEye bench</h1>
+    <p class="lede">
+      Runs RiftEye's card detector and card embedder in this browser (onnxruntime-web, on WebGPU and on WASM), times
+      them, and checks their outputs against PyTorch's. It takes a few minutes: keep this tab in front until it is
+      done, and for fair numbers plug the laptop in and close other heavy tabs and apps. Nothing leaves this computer.
+    </p>
+
+    <div class="controls">
+      <button id="run" type="button">Run</button>
+      <button id="stop" type="button" disabled>Stop</button>
+      <span id="status" role="status" aria-live="polite">Ready. Press Run.</span>
+    </div>
+
+    <h2>This browser</h2>
+    <pre id="env">Looking...</pre>
+
+    <h2>Results</h2>
+    <div class="scroll">
+      <table id="results">
+        <thead>
+          <tr>
+            <th>Model</th><th>Precision</th><th>Runtime</th>
+            <th title="starting the runtime: the wasm module and the GPU device, timed on a one-node model">Init ms</th>
+            <th title="creating the session for the model">Load ms</th>
+            <th title="the very first run, which compiles the shaders">First ms</th>
+            <th title="per batch size: median / p90 milliseconds per run, and per item">Median / p90 per run</th>
+            <th title="the worst output against the tolerance">Check</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <pre id="frame"></pre>
+
+    <h2>Summary to paste</h2>
+    <textarea id="summary" readonly spellcheck="false" wrap="off" rows="22" aria-label="Summary of the results"></textarea>
+    <div class="controls">
+      <button id="copy" type="button">Copy results</button>
+      <span id="copied" role="status" aria-live="polite"></span>
+    </div>
+  </main>
+  <script type="module" src="bench.js"></script>
+</body>
+</html>

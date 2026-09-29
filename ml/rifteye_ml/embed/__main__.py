@@ -7,6 +7,7 @@
     python -m rifteye_ml.embed real-bank --catalog ... --cache ... --crops la-v1/crops --labels la-v1/labels.csv --out real-la
     python -m rifteye_ml.embed train --catalog ... --cache ... --bank bank --out runs/heldout --train-sets OGN,OGS,SFD
     python -m rifteye_ml.embed pack --checkpoint runs/heldout/final.pt --out embedder-v0-heldout.pth
+    python -m rifteye_ml.embed onnx embedder-v1.pth onnx/       # embedder-v1.onnx and embedder-v1.fp16.onnx, for the browser
     python -m rifteye_ml.embed evaluate --catalog ... --cache ... --bank bank-eval --train-sets OGN,OGS,SFD \\
         --encoder timm:vit_small_patch14_dinov2.lvd142m --encoder embedder:embedder-v0-heldout.pth --out scores.csv
 
@@ -137,6 +138,20 @@ def _pack(a) -> int:
     return 0
 
 
+def _onnx(a) -> int:
+    from .model import FineTuned
+    from .onnx import export, parity
+
+    keep = [op.strip() for op in a.keep_fp32.split(",") if op.strip()]
+    paths = export(a.weights, a.out_dir, opset=a.opset, keep_fp32=keep)
+    for p in paths:
+        print(f"{p}: {p.stat().st_size / 1e6:.1f} MB")
+    scores = parity(FineTuned(a.weights, device="cpu").net, paths)
+    for name, (cos, diff) in scores.items():
+        print(f"{name}: against torch on random pictures, lowest cosine {cos:.7f}, largest difference {diff:.1e}")
+    return 0 if scores[paths[0].name][0] >= 0.9999 else 1
+
+
 def _evaluate(a) -> int:
     from ..encoders import get_encoder
     from .bank import Bank
@@ -153,7 +168,7 @@ def _evaluate(a) -> int:
     for spec in a.encoder:
         enc = get_encoder(spec)
         meta = getattr(enc, "meta", None)
-        label = Path(spec.split(":", 1)[1]).stem if spec.startswith("embedder:") else \
+        label = Path(spec.split(":", 1)[1]).stem if spec.startswith(("embedder:", "onnx:")) else \
             "frozen" if spec.startswith("timm:") else spec
         encoders[label] = (enc, meta.get("trained_on", "?") if meta is not None else "none")
     t0 = time.time()
@@ -221,11 +236,19 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", required=True)
     p.set_defaults(fn=_pack)
 
+    p = sub.add_parser("onnx", help="packed weights as ONNX for the browser: float32 and float16, checked against torch")
+    p.add_argument("weights", help="packed weights (embedder-v1.pth)")
+    p.add_argument("out_dir", help="gets <name>.onnx and <name>.fp16.onnx")
+    p.add_argument("--opset", type=int, default=20)
+    p.add_argument("--keep-fp32", default="", help="operator types the float16 copy computes in float32 "
+                                                   "(e.g. LayerNormalization,Softmax)")
+    p.set_defaults(fn=_onnx)
+
     p = sub.add_parser("evaluate", help="score encoders on an eval bank")
     data(p)
     p.add_argument("--bank", nargs="+", required=True)
     p.add_argument("--train-sets", default="OGN,OGS,SFD", help="the sets the held-out model trained on")
-    p.add_argument("--encoder", action="append", required=True, help="repeatable: timm:<model> or embedder:<file>")
+    p.add_argument("--encoder", action="append", required=True, help="repeatable: timm:<model>, embedder:<file> or onnx:<file>")
     p.add_argument("--views", default="full,top:0.4,top:0.25")
     p.add_argument("--max-side", type=int, default=512)
     p.add_argument("--out", required=True)

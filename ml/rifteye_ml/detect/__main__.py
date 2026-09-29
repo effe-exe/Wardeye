@@ -7,6 +7,7 @@
     python -m rifteye_ml.detect evaluate --run ~/rifteye-data/synth/v0 --checkpoint .../checkpoint_best_total.pth
     python -m rifteye_ml.detect pack --checkpoint .../checkpoint_best_total.pth --out detector-v0.pth
     python -m rifteye_ml.detect run --frames DIR --table 0.17,0.09,0.86,0.884 --card-px 131 --checkpoint ... --out dets.jsonl
+    python -m rifteye_ml.detect onnx detector-v0.pth ~/rifteye-data/models/onnx
 """
 from __future__ import annotations
 
@@ -116,6 +117,35 @@ def _score_real(a) -> int:
     return 0
 
 
+def _onnx(a) -> int:
+    import numpy as np
+    import torch
+    import torchvision.transforms.functional as F
+
+    from .export import TILE
+    from .model import Detector
+    from .onnx import OUTPUTS, export, session, to_fp16
+
+    det = Detector(a.checkpoint, "cpu")
+    out = Path(a.out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    fp32 = export(det, out / f"{Path(a.checkpoint).stem}.onnx")
+    paths = [fp32, to_fp16(fp32, fp32.with_suffix(".fp16.onnx"))]
+    tile = torch.randint(0, 256, (1, 3, TILE, TILE), generator=torch.Generator().manual_seed(0)) / 255
+    with torch.inference_mode():
+        want = det.net(F.normalize(tile, det.rf.means, det.rf.stds))
+    # A random tile has no clear best proposals: a copy can rank them otherwise, and those queries' outputs then
+    # differ a lot. The queries that agree say more; real frames are the test that counts.
+    print("against PyTorch on a random tile (max |diff| per output; queries whose logits agree to 0.05):")
+    for p in paths:
+        got = dict(zip(OUTPUTS, session(p).run(list(OUTPUTS), {"tiles": tile.numpy()})))
+        diff = {k: np.abs(got[k] - want[k].numpy()) for k in OUTPUTS}
+        agree = int((diff["pred_logits"].max(-1) < 0.05).sum())
+        print(f"  {p.name} ({p.stat().st_size / 1e6:.0f} MB): " + ", ".join(f"{k} {d.max():.2g}" for k, d in diff.items())
+              + f"; {agree} of {diff['pred_logits'].shape[1]} queries agree")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m rifteye_ml.detect", description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -178,6 +208,11 @@ def main(argv: list[str] | None = None) -> int:
     q.add_argument("--labels", required=True, help="labels.csv of those crops")
     q.add_argument("--out", help="CSV of the numbers (safe to share)")
     q.set_defaults(fn=_score_real)
+
+    o = sub.add_parser("onnx", help="weights -> <name>.onnx and <name>.fp16.onnx for the browser (private)")
+    o.add_argument("checkpoint")
+    o.add_argument("out_dir")
+    o.set_defaults(fn=_onnx)
 
     a = ap.parse_args(argv)
     return a.fn(a)

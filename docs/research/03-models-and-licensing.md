@@ -73,6 +73,13 @@ State as of **2026-09-26**.
 | TensorFlow.js | 4.22.0 (Oct 2024) | Apache-2.0 | Effectively superseded |
 | WebNN | Origin trial | — | Not a production target |
 
+ORT Web 1.30.0 first ships in `apps/bench`, the M2 feasibility bench. Its npm dependencies, checked 2026-09-29:
+- onnxruntime-common and platform: MIT;
+- flatbuffers and long: Apache-2.0;
+- protobufjs and its @protobufjs/* parts: BSD-3-Clause;
+- guid-typescript: ISC;
+- @types/node and undici-types (pulled in by protobufjs): MIT.
+
 Practical constraints for ORT Web:
 
 - **int8 is not GPU-accelerated in WebGPU.** The op table lacks QLinearConv and ConvInteger. Use **fp16 or fp32 on WebGPU** (validate fp16 per model; DETR decoders can overflow) and **uint8 on WASM**.
@@ -112,6 +119,7 @@ These run on the Maintainer's and contributors' machines for the spike, training
 | timm, huggingface_hub, safetensors | Apache-2.0 | timm's ImageNet weights keep the caveat in §3.7; the two backbones below are not ImageNet-trained |
 | DINOv2 ViT-S/14 (`timm/vit_small_patch14_dinov2.lvd142m`) | Apache-2.0 (weights) | First embedder candidate |
 | Perception Encoder Core S16 (`timm/vit_pe_core_small_patch16_384.fb`, run at 224 px) | Apache-2.0 (weights) | Second embedder candidate |
+| onnx 1.23 and onnx-ir; onnxruntime 1.30, onnxscript and onnxconverter-common (the `onnx` extra) | Apache-2.0; MIT | Export the detector and the embedder to ONNX for the browser (M2) and check the copies against PyTorch. Checked 2026-09-28 |
 | `rfdetr[train]` 1.11.0 and the keypoint preview weights (`rf-detr-keypoint-preview-xlarge.pth`, served with the Apache-2.0 package, not `rfdetr_plus`) | Apache-2.0 | The M1 detector. Its training extras, checked 2026-09-28: pytorch-lightning, torchmetrics, peft, faster-coco-eval, torch-hungarian, pyDeprecate and roboflow (Apache-2.0); supervision, hotcoco and simplejpeg (MIT); ultrafast-pycocotools (BSD-2-Clause); vernier (MIT or Apache-2.0). supervision pulls in PyAV, whose wheels bundle FFmpeg libraries; like imageio-ffmpeg it stays on training machines |
 
 ## 3.9 Evaluated: typed-decision models (Laya)

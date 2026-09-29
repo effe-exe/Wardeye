@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "RiftEye bench",
+  "version": "0.1.0",
+  "description": "Times RiftEye's card models in this browser (WebGPU and WASM) and checks them against PyTorch. Nothing leaves this computer.",
+  "background": {
+    "service_worker": "worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Open the RiftEye bench"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "cross_origin_embedder_policy": {
+    "value": "require-corp"
+  },
+  "cross_origin_opener_policy": {
+    "value": "same-origin"
+  }
+}
