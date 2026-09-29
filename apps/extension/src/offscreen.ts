@@ -31,14 +31,19 @@ async function readPackage(): Promise<StandalonePackage | null> {
   }
 }
 
-/** What this browser can do, asked of the same document the engine runs from. */
+/** What this browser can do, asked of the same document the engine runs from, and what it found of the GPU, in words (the
+ * badge's second line gives them when the engine runs on WASM). The default adapter is asked for first, then the high-performance
+ * one: a laptop's default may be a chip that WebGPU cannot use while its discrete GPU can. */
 async function probe(): Promise<Capabilities> {
   const jspi = 'Suspending' in WebAssembly;
+  if (!('gpu' in navigator) || !navigator.gpu) return { webgpu: false, shaderF16: false, jspi, gpu: 'navigator.gpu is not there' };
   try {
-    const adapter = 'gpu' in navigator && navigator.gpu ? await navigator.gpu.requestAdapter() : null;
-    return { webgpu: adapter !== null, shaderF16: adapter?.features.has('shader-f16') ?? false, jspi };
-  } catch {
-    return { webgpu: false, shaderF16: false, jspi };
+    const adapter = (await navigator.gpu.requestAdapter()) ?? (await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }));
+    if (!adapter) return { webgpu: false, shaderF16: false, jspi, gpu: 'navigator.gpu gave no adapter' };
+    const info = [adapter.info?.vendor, adapter.info?.architecture].filter(Boolean).join(' ');
+    return { webgpu: true, shaderF16: adapter.features.has('shader-f16'), jspi, gpu: info || 'an adapter' };
+  } catch (e) {
+    return { webgpu: false, shaderF16: false, jspi, gpu: `requestAdapter failed: ${e instanceof Error ? e.message : String(e)}` };
   }
 }
 

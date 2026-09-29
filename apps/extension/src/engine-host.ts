@@ -19,6 +19,8 @@ export interface FrameRequest {
   t: number;
   video: string;
   jpeg: Uint8Array;
+  /** The decklists the viewer pasted for the tab (the plays panel's), sent with every frame. */
+  lists?: readonly string[];
 }
 
 export interface HostConfig {
@@ -70,8 +72,10 @@ export class EngineHost {
     timer.reset();
     const image = await timer.span('decode', () => parts.decode(req.jpeg));
     const session = this.session(req.tab);
+    session.setLists(req.lists ?? []);
     const t1 = this.now();
     const out = await session.step(req.t, req.video, image);
+    out.state.lists = session.listSummaries; // what the engine made of each list, for the plays panel
     const t2 = this.now();
     const reads = round(this.rate.tick(t2 / 1000), 1);
     const timing = timer.timing(t2 - t1);

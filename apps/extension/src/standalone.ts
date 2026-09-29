@@ -9,6 +9,7 @@
 import { parsePackage, type StandalonePackage } from './assets';
 import { b64Of } from './base64';
 import type { State } from './geometry';
+import type { BoardEvent } from './parts';
 import { RETRY_AFTER_MS } from './mode';
 import { isEngineReply, type EngineReply, type EngineRequest, type FrameMessage } from './protocol';
 import { thumbPath } from './thumbs';
@@ -117,11 +118,12 @@ export class Standalone {
     if (reply?.kind !== 'hello') this.writeOff(reply?.kind === 'unavailable' ? reply.reason : 'the engine document did not answer');
   }
 
-  /** The state for a tab's frame: `{ state }` (null: keep the board), or null when the engine cannot serve it. */
-  async frame(tab: number, msg: FrameMessage): Promise<{ state: State | null } | null> {
+  /** The state for a tab's frame and what happened in it: `{ state, events }` (state null: keep the board), or null when the engine
+   * cannot serve it. */
+  async frame(tab: number, msg: FrameMessage): Promise<{ state: State | null; events: BoardEvent[] } | null> {
     if (!(await this.usable())) return null;
-    const reply = await this.ask({ target: 'engine', kind: 'frame', tab, t: msg.t, video: msg.video, jpeg: msg.jpeg });
-    if (reply?.kind === 'state') return { state: reply.state };
+    const reply = await this.ask({ target: 'engine', kind: 'frame', tab, t: msg.t, video: msg.video, jpeg: msg.jpeg, ...(msg.lists?.length ? { lists: msg.lists } : {}) });
+    if (reply?.kind === 'state') return { state: reply.state, events: Array.isArray(reply.events) ? reply.events : [] };
     this.writeOff(reply?.kind === 'unavailable' ? reply.reason : 'the engine document did not answer');
     return null;
   }

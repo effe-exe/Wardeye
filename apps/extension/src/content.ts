@@ -5,10 +5,14 @@
 // second and hands it to the extension's worker, which asks the live runner on this machine; the
 // board it answers with is drawn over the picture: each card's box, its name once Wardeye is sure,
 // and a hover card when you point at it. Paused, or turned off with Alt+R, nothing is read or sent and the board stays.
+// The plays panel (panel.ts) connects here while it is open: this tab's board and plays (plays.ts) go to it, and a play
+// clicked there jumps the video to it.
 // How it looks is overlay.css (the brand book's section 8); this file makes the markup and never sets a colour.
 
 import { NAME, badge, badgeDetail, badgeParts, becameNamed, boxClass, captureSize, contentRect, drawn, frameInterval, hoverCard, label, labelAnchor, type State, type Track } from './geometry';
 import { MARK_SHAPES, MARK_VIEWBOX } from './mark';
+import type { BoardEvent } from './parts';
+import { PlayLog, sidesOf, type Snapshot } from './plays';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const EVERY_MS = 250; // the live runner: at most four frames a second; a laptop reads about two. The engine in the extension sets its own pace
@@ -27,6 +31,14 @@ const waiting = new Map<string, (jpeg: string | null) => void>();
 const drawnBoxes = new Map<string, { poly: SVGPolygonElement; text: SVGTextElement; track: Track; pulsing: boolean }>();
 let hovered: string | null = null;
 let hoverAt: PointerEvent | null = null;
+const log = new PlayLog(); // this video's plays, for the plays panel
+let lists: string[] = []; // the decklists pasted in the plays panel for this video, sent with every frame
+let listsVideo = ''; // the video they were pasted for
+const MAX_LISTS = 4; // two players, and a list or two more of a bracket
+const panels = new Set<chrome.runtime.Port>(); // the plays panels open on this tab
+let boardSent = 0;
+const BOARD_EVERY_MS = 1000; // the panel's board, at most once a second; a new play at once
+const SEEK_BEFORE_S = 2; // a play clicked in the panel: the video goes back to just before it
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = ''): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -63,6 +75,19 @@ function powerSvg(): SVGSVGElement {
   return icon;
 }
 
+/** The plays panel's icon: three short rules, each after a dot, drawn with the brand's line. */
+function playsSvg(): SVGSVGElement {
+  const icon = document.createElementNS(SVG, 'svg');
+  icon.setAttribute('viewBox', '0 0 24 24');
+  icon.setAttribute('aria-hidden', 'true');
+  for (const d of ['M9 6h11', 'M9 12h11', 'M9 18h11', 'M4.5 6h.01', 'M4.5 12h.01', 'M4.5 18h.01']) {
+    const path = document.createElementNS(SVG, 'path');
+    path.setAttribute('d', d);
+    icon.append(path);
+  }
+  return icon;
+}
+
 const root = el('div', 'rifteye-root');
 const svg = document.createElementNS(SVG, 'svg');
 svg.setAttribute('class', 'rifteye-svg');
@@ -78,7 +103,12 @@ offButton.type = 'button';
 offButton.title = 'Turn Wardeye off (Alt+R)';
 offButton.setAttribute('aria-label', 'Turn Wardeye off (Alt+R)');
 offButton.append(powerSvg());
-badgeMain.append(markSvg(), badgeText, offButton);
+const playsButton = el('button', 'rifteye-plays'); // opens the plays panel beside the page
+playsButton.type = 'button';
+playsButton.title = 'Plays and players';
+playsButton.setAttribute('aria-label', 'Open the plays panel');
+playsButton.append(playsSvg());
+badgeMain.append(markSvg(), badgeText, playsButton, offButton);
 const badgeDetailEl = el('div', 'rifteye-badge-detail'); // the engine's timings, when the engine in the extension reads
 badgeDetailEl.hidden = true;
 badgeEl.append(badgeMain, badgeDetailEl);
@@ -102,12 +132,14 @@ function b64(buf: ArrayBuffer): string {
 
 function connect(): void {
   const p = chrome.runtime.connect({ name: 'rifteye' });
-  p.onMessage.addListener((msg: { kind: string; online?: boolean; state?: State | null; printing_id?: string; jpeg?: string | null }) => {
+  p.onMessage.addListener((msg: { kind: string; online?: boolean; state?: State | null; events?: BoardEvent[]; printing_id?: string; jpeg?: string | null }) => {
     if (msg.kind === 'state') {
       inFlight = false;
       online = Boolean(msg.online);
       state = online ? (msg.state ?? state) : null;
       draw();
+      const fresh = Array.isArray(msg.events) ? log.add(location.pathname, msg.events) : [];
+      sendBoard(fresh.length > 0);
     } else if (msg.kind === 'art' && msg.printing_id) {
       waiting.get(msg.printing_id)?.(msg.jpeg ?? null);
       waiting.delete(msg.printing_id);
@@ -156,7 +188,7 @@ function tick(): void {
   capture(video)
     .then((jpeg) => {
       if (!jpeg || !port) inFlight = false;
-      else port.postMessage({ kind: 'frame', t, video: location.pathname, jpeg });
+      else port.postMessage({ kind: 'frame', t, video: location.pathname, jpeg, ...(listsNow().length ? { lists: listsNow() } : {}) });
     })
     .catch(() => {
       inFlight = false; // a player whose picture cannot be read (a protected stream): nothing to send
@@ -317,6 +349,66 @@ function moveCard(e: PointerEvent): void {
   card.style.top = `${y}px`;
 }
 
+/** The lists pasted for this video: another video starts without them, as its plays do. */
+function listsNow(): string[] {
+  if (listsVideo !== location.pathname) lists = [];
+  return lists;
+}
+
+/** What the plays panel shows of this tab. */
+function snapshot(): Snapshot {
+  log.add(location.pathname, []); // another video: its plays start over
+  const read = (state as { lists?: unknown } | null)?.lists;
+  return {
+    kind: 'board',
+    video: location.pathname,
+    title: document.title,
+    on: shown,
+    live: !/^\/videos\/\d+/.test(location.pathname), // a live channel: its plays cannot be jumped to
+    status: state?.status ?? '',
+    message: state?.message ?? '',
+    sides: sidesOf(state),
+    plays: [...log.plays],
+    lists: listsNow().map((text, i) => ({ text, read: Array.isArray(read) ? ((read[i] as Snapshot['lists'][number]['read']) ?? null) : null })),
+  };
+}
+
+/** The board and the plays to the open plays panels: at once for a new play, else at most once a second. */
+function sendBoard(now = false): void {
+  if (panels.size === 0 || (!now && performance.now() - boardSent < BOARD_EVERY_MS)) return;
+  boardSent = performance.now();
+  const s = snapshot();
+  for (const p of panels) {
+    try {
+      p.postMessage(s);
+    } catch {
+      panels.delete(p); // the panel was closed
+    }
+  }
+}
+
+/** A play clicked in the panel: the video goes to just before it (a replay; a live stream cannot go back). */
+function seek(t: number): void {
+  if (!video || !Number.isFinite(t) || !/^\/videos\/\d+/.test(location.pathname)) return;
+  video.currentTime = Math.max(0, t - SEEK_BEFORE_S);
+}
+
+chrome.runtime.onConnect.addListener((p) => {
+  if (p.name !== 'plays') return;
+  panels.add(p);
+  p.onDisconnect.addListener(() => panels.delete(p));
+  p.onMessage.addListener((msg: { kind?: unknown; t?: unknown; texts?: unknown }) => {
+    if (msg?.kind === 'seek' && typeof msg.t === 'number') seek(msg.t);
+    else if (msg?.kind === 'lists' && Array.isArray(msg.texts)) {
+      // the decklists pasted in the panel, for this video: they go with the next frame, and the panel hears what was made of them
+      lists = msg.texts.filter((x): x is string => typeof x === 'string' && x.trim() !== '').slice(0, MAX_LISTS).map((x) => x.slice(0, 20_000));
+      listsVideo = location.pathname;
+      sendBoard(true);
+    }
+  });
+  p.postMessage(snapshot());
+});
+
 /** Wardeye on or off in this tab: off, the overlay is hidden and no frame is read or sent; the board stays. Three ways lead here: Alt+R
  * (Option+R on a Mac), the badge's off button, and the toolbar button (the worker's 'toggle'). The worker is told, so the toolbar
  * button says OFF while it is off. */
@@ -324,6 +416,7 @@ function setOn(on: boolean): void {
   shown = on;
   place();
   chrome.runtime.sendMessage({ kind: 'switched', on }).catch(() => {}); // the worker may be asleep: it is told again next time
+  sendBoard(true);
 }
 
 document.addEventListener('keydown', (e) => {
@@ -333,6 +426,11 @@ offButton.addEventListener('click', (e) => {
   e.preventDefault();
   e.stopPropagation(); // the player underneath must not take it as a click on the video
   setOn(false);
+});
+playsButton.addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  chrome.runtime.sendMessage({ kind: 'open-panel' }).catch(() => {}); // the worker opens the browser's side panel on it
 });
 chrome.runtime.onMessage.addListener((msg: { kind?: unknown }, _sender, sendResponse) => {
   if (msg?.kind !== 'toggle') return;

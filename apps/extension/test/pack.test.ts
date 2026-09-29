@@ -53,7 +53,7 @@ describe.skipIf(!haveTools)('pack.mjs', () => {
     root = mkdtempSync(join(tmpdir(), 'rifteye-standalone-pack-test-'));
     [dist, ort, models, assets, stage, out] = ['dist', 'ort', 'models', 'assets', 'stage', 'out'].map((d) => join(root, d)) as [string, string, string, string, string, string];
     for (const d of [dist, ort, models, join(assets, 'gallery'), join(assets, 'thumbs'), stage, out]) mkdirSync(d, { recursive: true });
-    for (const f of ['manifest.json', 'content.js', 'overlay.css', 'worker.js', 'offscreen.html', 'offscreen.js', 'engine-webgpu.js', 'engine-wasm.js']) writeFileSync(join(dist, f), `dist ${f}`);
+    for (const f of ['manifest.json', 'content.js', 'overlay.css', 'worker.js', 'offscreen.html', 'offscreen.js', 'engine-webgpu.js', 'engine-wasm.js', 'panel.html', 'panel.js', 'panel.css']) writeFileSync(join(dist, f), `dist ${f}`);
     // what the manifest names besides: the toolbar icons, and the overlay's typefaces with their licences
     for (const d of ['icons', 'fonts']) mkdirSync(join(dist, d), { recursive: true });
     for (const f of [
@@ -98,7 +98,8 @@ describe.skipIf(!haveTools)('pack.mjs', () => {
         'fonts/Inter-latin.woff2', 'fonts/JetBrainsMono-latin.woff2', 'fonts/OFL-Inter.txt', 'fonts/OFL-JetBrainsMono.txt', 'fonts/OFL-SpaceGrotesk.txt',
         'fonts/SpaceGrotesk-latin.woff2', 'icons/icon-128.png', 'icons/icon-16.png', 'icons/icon-32.png', 'icons/icon-48.png', 'manifest.json',
         'models/detector-v0.onnx', 'models/embedder-v1.fp16.onnx', 'offscreen.html', 'offscreen.js', 'ort/ort-wasm-simd-threaded.jspi.mjs',
-        'ort/ort-wasm-simd-threaded.jspi.wasm', 'ort/ort-wasm-simd-threaded.mjs', 'ort/ort-wasm-simd-threaded.wasm', 'overlay.css', 'standalone.json', 'worker.js',
+        'ort/ort-wasm-simd-threaded.jspi.wasm', 'ort/ort-wasm-simd-threaded.mjs', 'ort/ort-wasm-simd-threaded.wasm', 'overlay.css', 'panel.css', 'panel.html',
+        'panel.js', 'standalone.json', 'worker.js',
       ].map((n) => `rifteye-standalone/${n}`),
     );
     // the files are the real ones, followed through their symlinks; JSEP is not in; the other precisions are left out
@@ -260,7 +261,7 @@ describe.skipIf(!haveZip)('pack.mjs --store: the Chrome Web Store zip', () => {
         'fonts/SpaceGrotesk-latin.woff2', 'icons/icon-128.png', 'icons/icon-16.png', 'icons/icon-32.png', 'icons/icon-48.png',
         ...notices.map((n) => `licenses/${n}`), 'manifest.json', 'models/detector-v0.onnx', 'models/embedder-v1.fp16.onnx', 'offscreen.html', 'offscreen.js',
         'ort/ort-wasm-simd-threaded.jspi.mjs', 'ort/ort-wasm-simd-threaded.jspi.wasm', 'ort/ort-wasm-simd-threaded.mjs', 'ort/ort-wasm-simd-threaded.wasm',
-        'overlay.css', 'standalone.json', 'worker.js',
+        'overlay.css', 'panel.css', 'panel.html', 'panel.js', 'standalone.json', 'worker.js',
       ].sort(),
     );
     // the notices and the licence are in, and are the repository's own

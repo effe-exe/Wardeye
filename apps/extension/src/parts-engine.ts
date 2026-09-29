@@ -6,10 +6,10 @@
 // the trained detector's finder at --det-score 0.4, the ONNX embedder with embedder-v1's temperature, the gallery
 // pyramid at the layout's levels, and a Recognizer for each table.
 
-import { autolayout, detector, image, layouts, ort as engineOrt, recognizer, retrieval, type Layout, type RgbImage } from '@rifteye/engine';
+import { autolayout, decklist, detector, image, layouts, ort as engineOrt, recognizer, retrieval, type Layout, type RgbImage } from '@rifteye/engine';
 import type { ModelFiles } from './assets';
 import { pickLevels } from './levels';
-import type { Board, BoardResult, BoardState, LoadContext, Parts } from './parts';
+import type { Board, BoardResult, BoardState, ListSummary, LoadContext, Parts } from './parts';
 
 /** live/__main__.py EMBEDDER_T: how embedder-v1's scores become confidence (fitted on held-out Barcelona and Los
  * Angeles grand final crops; it belongs in the packed weights, but is here until it is). */
@@ -64,6 +64,7 @@ export async function loadParts(ctx: LoadContext): Promise<Parts> {
     return rows;
   };
   const timedEncoder = { name: encoder.name, dim: encoder.dim, embed: timer.wrap('embed', embed) };
+  let catalogue: decklist.Catalogue | null = null; // the rows indexed for decklists, once one is pasted
 
   return {
     decode,
@@ -82,7 +83,24 @@ export async function loadParts(ctx: LoadContext): Promise<Parts> {
           const [state, events] = await rec.step(t, frame);
           return { state: state as unknown as BoardState, events };
         },
+        setLists(lists: unknown) {
+          rec.setLists(lists as decklist.Deck[]);
+        },
       };
+    },
+    readLists(texts: readonly string[]) {
+      catalogue ??= new decklist.Catalogue(gallery.rows);
+      const cat = catalogue;
+      const read = texts.map((text): [decklist.Deck | null, ListSummary] => {
+        try {
+          const deck = decklist.parse(text, cat);
+          const names = deck.legends().map((c) => cat.rows[cat.card.get(c)![0]!]!.name);
+          return [deck, { legends: names, cards: deck.cardIds().size, unmapped: deck.unmapped, error: null }];
+        } catch (e) {
+          return [null, { legends: [], cards: 0, unmapped: [], error: e instanceof Error ? e.message : String(e) }];
+        }
+      });
+      return { lists: read.flatMap(([d]) => (d ? [d] : [])), summaries: read.map(([, s]) => s) };
     },
     async dispose() {
       await detModel.session.release();

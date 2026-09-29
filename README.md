@@ -38,7 +38,7 @@ Off, the overlay is hidden and it reads nothing, and the toolbar button says OFF
 
 What works today, on Twitch: the face-up cards on the table are outlined and named as they are played, with a hover card for each; cards stacked under others are remembered. The recognition runs in the browser, on WebGPU or, more slowly, on the processor.
 
-Not yet: the legends and decklists that narrow the search (next, [below](#next-legends-and-decklists)), the match timeline, YouTube and the side panel ([roadmap](docs/ROADMAP.md)).
+Not yet: the plays panel and the legends and decklists that narrow the search (next, [below](#next-plays-legends-and-decklists)), and YouTube ([roadmap](docs/ROADMAP.md)).
 
 ## Measured, not claimed
 
@@ -48,16 +48,22 @@ Not yet: the legends and decklists that narrow the search (next, [below](#next-l
 | Card identifier v1 | names 96.0% and 99.4% of the cards | two broadcasts held out of training: Barcelona and the Los Angeles grand final ([ml/README](ml/README.md#for-the-browser-m2-the-models-as-onnx)) |
 | In the browser | reads like the Python pipeline on 240 of 240 frames | the Los Angeles grand final, through the extension's own engine: the same cards, names and events |
 
-## Next: legends and decklists
+## Next: plays, legends and decklists
 
-The legend rule is built into the engine and comes with the next update of the extension; decklists come after it ([report](docs/reports/m2-decklist-prior.md)).
+The plays panel, the legend rule and pasted decklists are built and come with the next update of the extension, 0.2 ([report](docs/reports/m2-decklist-prior.md)).
+
+- **The plays, beside the video.** The list button on the badge opens a panel in the browser's side panel, as the local version has one beside its player.
+  - Each player's legend, and what is face up on their side of the table.
+  - The plays as they happened, newest first. Click one and the replay goes to just before it.
+  - The list lives in the tab: nothing is stored, and it goes when the tab closes.
+- **Graphics stay out.** The table is found inside frames drawn between bars (Stockholm) and past a co-streamer's webcam laid over its border, and Riot's showdown banner is no longer read as cards.
 
 - **The legends narrow the search, with nothing to set up.**
   - Every card in a Riftbound deck must fit its legend's two domains, runes included.
   - Once Wardeye has read a player's legend, it compares a card on that player's half only with the cards the legend allows, about a third of the gallery.
   - On the hardest match measured, a Swiss round at Barcelona, the share of cards named right rises from **91.8% to 97.8%**, and every confident read is right.
 - **Paste the decklists, when they are published.**
-  - Paste each player's deck code, or a deckbuilder's export (text, tourney sheet or JSON), and Wardeye looks only among the cards on the list.
+  - Paste each player's deck code, or a deckbuilder's export (text, tourney sheet or JSON), in the plays panel, and Wardeye looks only among the cards on the list. The panel says which legend each list names and any line it could not read.
   - A listed card counts in every printing, because players often use an alternate art or a reprint instead of the printing on the list. In the Barcelona final, 35% of the card sightings on the table were one of those.
   - Wardeye fetches no list from anywhere; it uses only what you paste.
 - **A wrong list can't wreck it.** A list is used only for the player whose legend it names; the other player stays on the legend rule. Applied blindly, another match's lists would name only 8.4% of the cards right.

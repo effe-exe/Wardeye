@@ -5,7 +5,7 @@
 // parts that record what they are asked.
 
 import { layouts, type Layout, type RgbImage } from '@rifteye/engine';
-import type { Board, BoardResult, Parts } from '../src/parts';
+import type { Board, BoardResult, Parts, ReadLists } from '../src/parts';
 
 export const LA = layouts.LAYOUTS['la-rq'];
 
@@ -37,6 +37,9 @@ export class FakeParts implements Parts {
   fail: Error | null = null;
   /** Run inside decode and inside a board's step, to spend time. */
   hooks: { decode?: () => void; step?: () => void } = {};
+  /** The lists each readLists call was given, and the lists each board was given (by board). */
+  listReads: string[][] = [];
+  boardLists: unknown[][] = [];
 
   async decode(jpeg: Uint8Array): Promise<RgbImage> {
     this.hooks.decode?.();
@@ -52,10 +55,23 @@ export class FakeParts implements Parts {
     return this.presetList;
   }
 
+  /** A list reads as its first line, one card per line after it; 'bad' does not read at all. */
+  readLists(texts: readonly string[]): ReadLists {
+    this.listReads.push([...texts]);
+    return {
+      lists: texts.filter((t) => t !== 'bad'),
+      summaries: texts.map((t) =>
+        t === 'bad' ? { legends: [], cards: 0, unmapped: [], error: 'not a deck code' } : { legends: [t.split('\n')[0]!], cards: t.split('\n').length - 1, unmapped: [], error: null },
+      ),
+    };
+  }
+
   board(layout: Layout): Board {
     const id = this.made.length;
     this.made.push(layout);
+    this.boardLists[id] = [];
     return {
+      setLists: (lists: unknown) => this.boardLists[id]!.push(lists),
       step: async (t: number, frame: RgbImage): Promise<BoardResult> => {
         if (this.fail) throw this.fail;
         this.hooks.step?.();

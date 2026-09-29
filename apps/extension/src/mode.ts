@@ -21,6 +21,8 @@ export interface Capabilities {
   shaderF16: boolean;
   /** WebAssembly JSPI: what the native WebGPU build of onnxruntime-web needs. */
   jspi: boolean;
+  /** What the probe found of the GPU, in words: the adapter's vendor and architecture, or why there is none. */
+  gpu?: string;
 }
 
 /** One way to run the engine: the runtime, and the precision of each model's file. */
@@ -52,7 +54,7 @@ export function plan(pkg: StandalonePackage, caps: Capabilities, setting: Runtim
   const attempts: Attempt[] = [];
   const why: string[] = [];
   if (setting === 'auto' || setting === 'webgpu') {
-    if (!caps.webgpu) why.push('this browser has no WebGPU adapter');
+    if (!caps.webgpu) why.push(`this browser has no WebGPU adapter${caps.gpu ? ` (${caps.gpu})` : ''}`);
     else if (!caps.jspi) why.push('this browser has no WebAssembly JSPI (the native WebGPU runtime needs it)');
     else if (!has(detector, 'fp32')) why.push('the package holds no float32 detector (its float16 file fails on WebGPU)');
     else if (caps.shaderF16 && has(embedder, 'fp16')) attempts.push({ runtime: 'webgpu', detector: 'fp32', embedder: 'fp16' });

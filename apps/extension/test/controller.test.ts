@@ -1,5 +1,5 @@
 import type { CatalogRow } from '@rifteye/engine';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { StandalonePackage } from '../src/assets';
 import { Controller, type ControllerEnv, type EngineWorker, type FrameOut, type FrameReq } from '../src/controller';
 import type { Attempt, Capabilities } from '../src/mode';
@@ -23,6 +23,8 @@ class FakeWorker implements EngineWorker {
   hold: Promise<void> | null = null;
   /** The rows the engine was given with its init (the store build); undefined when it was given none. */
   cards: readonly CatalogRow[] | undefined;
+  /** Its states say how it runs, as the engine host's do. */
+  engine = false;
   constructor(readonly attempt: Attempt) {}
   async init(_pkg: StandalonePackage, _attempt: Attempt, progress: (m: string) => void, cards?: readonly CatalogRow[]): Promise<void> {
     this.cards = cards;
@@ -34,7 +36,10 @@ class FakeWorker implements EngineWorker {
     this.frames.push(req);
     if (this.hold) await this.hold;
     if (this.failFrames) throw this.failFrames;
-    return { state: { t: req.t, status: 'live', message: '', frame: { width: 64, height: 36 }, tracks: [] }, events: [] };
+    const state = { t: req.t, status: 'live', message: '', frame: { width: 64, height: 36 }, tracks: [] };
+    if (!this.engine) return { state, events: [] };
+    const timing = { decode: 1, detect: 1, embed: 1, track: 1, total: 4 };
+    return { state: { ...state, engine: { ...this.attempt, every_ms: 200, reads_per_s: 1, timing, layout: 'auto' } }, events: [] };
   }
   forget(tab: number): void {
     this.forgotten.push(tab);
@@ -107,6 +112,27 @@ describe('the engine document', () => {
     await bad.c.frame(req());
     await settle();
     expect(await bad.c.frame(req())).toEqual({ kind: 'unavailable', reason: 'webgpu: detector fp32, embedder fp16: no webgpu; wasm: detector fp32, embedder fp32: no wasm' });
+  });
+
+  it('says with the board why it runs on WASM: what the plan left out, or the ways that would not start', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const noteOf = async (c: Controller): Promise<unknown> => {
+      await c.frame(req());
+      await settle();
+      const r = await c.frame(req());
+      return r.kind === 'state' ? (r.state?.engine as { note?: string } | undefined)?.note : r.kind;
+    };
+    const failed = setup({ setup: (w) => { w.engine = true; if (w.attempt.runtime === 'webgpu') w.initError = new Error('GridSample is not supported'); } });
+    expect(await noteOf(failed.c)).toBe('webgpu: detector fp32, embedder fp16: GridSample is not supported');
+    const left = setup({ caps: { jspi: false, gpu: 'nvidia ampere' }, setup: (w) => (w.engine = true) });
+    expect(await noteOf(left.c)).toBe('this browser has no WebAssembly JSPI (the native WebGPU runtime needs it)');
+    const listed: CatalogRow[] = [{ printing_id: 'A-1', card_id: 'a', name: 'Card A', type: 'Unit' }];
+    const none = setup({ store: true, cards: async () => listed, caps: { webgpu: false, shaderF16: false, gpu: 'navigator.gpu gave no adapter' }, setup: (w) => (w.engine = true) });
+    expect(await noteOf(none.c)).toBe('this browser has no WebGPU adapter (navigator.gpu gave no adapter)');
+    expect(info).toHaveBeenCalledWith('Wardeye: the engine runs on WASM, not WebGPU: this browser has no WebGPU adapter (navigator.gpu gave no adapter)');
+    const gpu = setup({ setup: (w) => (w.engine = true) });
+    expect(await noteOf(gpu.c)).toBeUndefined(); // on WebGPU, nothing to say
+    info.mockRestore();
   });
 
   it('is written off for a while after it could not start, and tried again after that', async () => {

@@ -142,3 +142,24 @@ describe("a tab's board", () => {
     expect(parts.made.length).toBe(1);
   });
 });
+
+describe("a tab's decklists", () => {
+  it('are read when they change, given to its board and to every board after a jump, and said with the state', async () => {
+    const parts = new FakeParts();
+    const s = new Session({ parts, fps: FPS, layout: LA });
+    s.setLists(['Gleaming Anvil\na\nb', 'bad']);
+    s.setLists(['Gleaming Anvil\na\nb', 'bad']); // the same lists with the next frame: not read again
+    expect(parts.listReads).toEqual([['Gleaming Anvil\na\nb', 'bad']]);
+    expect(s.listSummaries).toEqual([
+      { legends: ['Gleaming Anvil'], cards: 2, unmapped: [], error: null },
+      { legends: [], cards: 0, unmapped: [], error: 'not a deck code' },
+    ]);
+    await s.step(1, '/videos/1', frame()); // the first board is made with them
+    await s.step(40, '/videos/1', frame()); // a jump: a new board, with them too
+    expect(parts.boardLists).toEqual([[['Gleaming Anvil\na\nb']], [['Gleaming Anvil\na\nb']]]);
+    s.setLists([]); // taken away: the board is told
+    expect(parts.boardLists[1]).toEqual([['Gleaming Anvil\na\nb'], []]);
+    expect(s.listSummaries).toEqual([]);
+  });
+});
+

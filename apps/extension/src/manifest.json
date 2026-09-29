@@ -13,6 +13,7 @@
     "default_title": "Wardeye is on. Click to turn it off (Alt+R)",
     "default_icon": { "16": "icons/icon-16.png", "32": "icons/icon-32.png" }
   },
+  "side_panel": { "default_path": "panel.html" },
   "background": { "service_worker": "worker.js", "type": "module" },
   "content_scripts": [
     { "matches": ["https://www.twitch.tv/*"], "js": ["content.js"], "css": ["overlay.css"], "run_at": "document_idle" }
@@ -23,7 +24,7 @@
       "matches": ["https://www.twitch.tv/*"]
     }
   ],
-  "permissions": ["offscreen"],
+  "permissions": ["offscreen", "sidePanel"],
   "host_permissions": ["http://127.0.0.1/*"],
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"

@@ -34,7 +34,7 @@ mkdirSync(dist, { recursive: true });
 // folds the constant and drops the branch that is not taken (the companion client, in the store build); it renames nothing and
 // squeezes no whitespace.
 const define = { __STORE__: String(store) };
-for (const [entry, file, format, reads] of [['content.ts', 'content.js', 'iife', false], ['worker.ts', 'worker.js', 'esm', true], ['offscreen.ts', 'offscreen.js', 'esm', true]]) {
+for (const [entry, file, format, reads] of [['content.ts', 'content.js', 'iife', false], ['worker.ts', 'worker.js', 'esm', true], ['offscreen.ts', 'offscreen.js', 'esm', true], ['panel.ts', 'panel.js', 'esm', false]]) {
   await build({
     entryPoints: [here(`./src/${entry}`)],
     bundle: true,
@@ -58,6 +58,7 @@ await build({
   logLevel: 'warning',
 });
 copyFileSync(here('./src/offscreen.html'), join(dist, 'offscreen.html'));
+copyFileSync(here('./src/panel.html'), join(dist, 'panel.html'));
 
 // The manifest. The store's is the developer's less its access to 127.0.0.1 (companion mode), plus access to Riot's card gallery.
 const manifest = JSON.parse(readFileSync(here('./src/manifest.json'), 'utf8'));
@@ -77,6 +78,12 @@ writeFileSync(
   join(dist, 'overlay.css'),
   '/* Wardeye brand (assets/brand): the tokens, and Space Grotesk, Inter and JetBrains Mono under the SIL Open Font License 1.1 */\n' +
     `${tokensCss('.rifteye-root')}\n${fontFaceCss(fontUrl)}\n${readFileSync(here('./src/overlay.css'), 'utf8')}`,
+);
+// The plays panel's stylesheet: it is the extension's own page, so the tokens go on :root and the typefaces are the files beside it.
+writeFileSync(
+  join(dist, 'panel.css'),
+  '/* Wardeye brand (assets/brand): the tokens, and Space Grotesk, Inter and JetBrains Mono under the SIL Open Font License 1.1 */\n' +
+    `${tokensCss(':root')}\n${fontFaceCss((file) => file)}\n${readFileSync(here('./src/panel.css'), 'utf8')}`,
 );
 // the three typefaces, each with the licence that comes with it (the OFL asks for it wherever the font goes)
 mkdirSync(join(dist, 'fonts'), { recursive: true });

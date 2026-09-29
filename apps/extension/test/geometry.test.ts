@@ -145,6 +145,8 @@ describe('the badge of the engine inside the extension', () => {
   it('says how it runs and where a frame\'s time goes on a second line, and nothing without the engine', () => {
     expect(badgeDetail(state())).toBe('WebGPU · detector fp32 · embedder fp16 · decode 6 · detect 44.5 · embed 22.5 · track 8.2 · total 81.2 ms · layout la-rq');
     expect(badgeDetail(state({ engine: { ...engine, runtime: 'wasm', embedder: 'fp32' } }))).toContain('WASM · detector fp32 · embedder fp32');
+    // on WASM, why not WebGPU, at the end of the line
+    expect(badgeDetail(state({ engine: { ...engine, runtime: 'wasm', note: 'this browser has no WebGPU adapter' } }))).toMatch(/ · layout la-rq · not WebGPU: this browser has no WebGPU adapter$/);
     expect(badgeDetail(state({ engine: undefined as never }))).toBe('');
     expect(badgeDetail(null)).toBe('');
   });

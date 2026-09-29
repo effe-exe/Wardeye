@@ -14,7 +14,7 @@ import * as companion from './companion';
 import { RETRY_AFTER_MS } from './mode';
 import { Standalone, cannotReadState, type Env } from './standalone';
 import type { State } from './geometry';
-import type { FromContent, ToContent } from './protocol';
+import type { FromContent, FromPanel, ToContent, ToPanel } from './protocol';
 
 const OFFSCREEN = 'offscreen.html';
 
@@ -60,13 +60,38 @@ chrome.action.onClicked.addListener((tab) => {
 });
 chrome.runtime.onMessage.addListener((msg: { kind?: unknown; on?: unknown }, sender) => {
   const tabId = sender.tab?.id;
-  if (msg?.kind !== 'switched' || typeof msg.on !== 'boolean' || tabId === undefined) return;
-  void chrome.action.setBadgeText({ tabId, text: msg.on ? '' : 'OFF' }).catch(() => {});
-  void chrome.action.setTitle({ tabId, title: msg.on ? ON_TITLE : OFF_TITLE }).catch(() => {});
+  if (tabId === undefined) return;
+  if (msg?.kind === 'switched' && typeof msg.on === 'boolean') {
+    void chrome.action.setBadgeText({ tabId, text: msg.on ? '' : 'OFF' }).catch(() => {});
+    void chrome.action.setTitle({ tabId, title: msg.on ? ON_TITLE : OFF_TITLE }).catch(() => {});
+  } else if (msg?.kind === 'open-panel') {
+    // the badge's plays button, clicked: the browser's side panel opens on the plays panel (a click in a content script may)
+    void chrome.sidePanel?.open({ tabId }).catch(() => {});
+  }
 });
+
+/** A card's hover picture, base64, for the overlay and the plays panel alike; null when there is none. */
+async function art(printingId: string): Promise<string | null> {
+  if (__STORE__) return standalone.art(printingId);
+  return (await standalone.usable()) ? standalone.art(printingId) : companion.art(printingId);
+}
+
 let anonymous = 0; // a port that names no tab still gets a board of its own
 
 chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === 'panel') {
+    // the plays panel: only pictures, and no board of its own
+    port.onMessage.addListener(async (msg: FromPanel) => {
+      if (msg?.kind !== 'art' || typeof msg.printing_id !== 'string') return;
+      const jpeg = await art(msg.printing_id).catch(() => null);
+      try {
+        port.postMessage({ kind: 'art', printing_id: msg.printing_id, jpeg } satisfies ToPanel);
+      } catch {
+        // the panel was closed
+      }
+    });
+    return;
+  }
   if (port.name !== 'rifteye') return;
   const tab = port.sender?.tab?.id ?? --anonymous;
   const send = (m: ToContent): void => {
@@ -83,7 +108,7 @@ chrome.runtime.onConnect.addListener((port) => {
       if (msg.kind === 'frame') {
         const served = await standalone.frame(tab, msg);
         if (served) {
-          send({ kind: 'state', online: true, state: served.state });
+          send({ kind: 'state', online: true, state: served.state, events: served.events });
         } else if (__STORE__) {
           send({ kind: 'state', online: true, state: cannotReadState(msg.t, (await standalone.package()) === null) });
         } else {
@@ -91,12 +116,7 @@ chrome.runtime.onConnect.addListener((port) => {
           send({ kind: 'state', online: state !== null, state: (state ?? null) as State | null });
         }
       } else if (msg.kind === 'art') {
-        const jpeg = __STORE__
-          ? await standalone.art(msg.printing_id)
-          : (await standalone.usable())
-            ? await standalone.art(msg.printing_id)
-            : await companion.art(msg.printing_id);
-        send({ kind: 'art', printing_id: msg.printing_id, jpeg });
+        send({ kind: 'art', printing_id: msg.printing_id, jpeg: await art(msg.printing_id) });
       }
     } catch (e) {
       // whatever went wrong, the overlay is answered: it waits for an answer before it sends another frame

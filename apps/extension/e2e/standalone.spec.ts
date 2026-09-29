@@ -61,6 +61,71 @@ test('the engine in the extension reads the player: an offscreen document, WebGP
   }
 });
 
+test("the plays panel lists the tab's plays and each player's side, and a play clicked jumps the replay to it", async () => {
+  test.setTimeout(180_000);
+  let loaded: Loaded | null = null;
+  try {
+    loaded = await load();
+    const { context } = loaded;
+    const page = await twitch(context);
+    await page.goto('https://www.twitch.tv/videos/12345');
+    await expect(page.locator('text.rifteye-label', { hasText: /\S/ })).toHaveText(['Test Unit'], { timeout: 90_000 });
+    await expect(page.locator('button.rifteye-plays')).toHaveAttribute('aria-label', 'Open the plays panel');
+
+    // the panel, as the side panel shows it, fixed to this tab (the side panel follows the active one)
+    const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+    const tabId = await worker.evaluate(async () => (await chrome.tabs.query({ active: true }))[0]!.id!);
+    const extId = new URL(worker.url()).host;
+    const panel = await context.newPage();
+    await panel.goto(`chrome-extension://${extId}/panel.html?tab=${tabId}`);
+
+    // the play: the named card, when it was named, with its picture from the package (asked of the worker)
+    const plays = panel.locator('#plays li');
+    await expect(plays).toHaveCount(1, { timeout: 20_000 });
+    await expect(plays.first()).toContainText(/^\d+:\d\dTest Unit played$/);
+    await expect(panel.locator('#plays img[src^="data:image/jpeg;base64,"]')).toHaveCount(1, { timeout: 10_000 });
+    // each player's side: the named card on the left, the unsure one counted on the right, no legend seen yet
+    const sides = panel.locator('#players .wd-player');
+    await expect(sides).toHaveCount(2);
+    await expect(sides.nth(0)).toContainText('Player 1');
+    await expect(sides.nth(0)).toContainText('Test Unit');
+    await expect(sides.nth(1)).toContainText('1 unsure');
+    await expect(sides.nth(0)).toContainText('Legend not seen yet');
+    // the page in Wardeye's look: the brand's background, the eyebrows in the primary, its own typefaces
+    expect(await styleOf(panel, 'body', ['background-color'])).toMatchObject({ 'background-color': rgb('bg') });
+    expect(await styleOf(panel, '#plays-head', ['color'])).toMatchObject({ color: rgb('primary') });
+    await expect.poll(() => loadedFonts(panel)).toEqual(expect.arrayContaining(['Inter', 'JetBrains Mono', 'Space Grotesk']));
+
+    // a decklist pasted: the tab sends it with its next frame, and the engine says what it made of it (the stand-in gallery
+    // has no legend, so this list counts for nobody, and the panel says so); a line it cannot read is named
+    await panel.locator('#paste').fill('1 Test Unit (TST-001)\n2 No Such Card');
+    await panel.locator('#add-list').click();
+    await expect(panel.locator('#lists li')).toHaveCount(1);
+    await expect(panel.locator('#lists li')).toContainText('no legend named · 1 card', { timeout: 15_000 });
+    await expect(panel.locator('#lists li')).toContainText('1 line not read: 2 No Such Card');
+    await panel.locator('#lists li button').click();
+    await expect(panel.locator('#lists li')).toHaveCount(0);
+
+    // a play clicked: the replay goes to just before it
+    const when = await page.evaluate(() => {
+      const v = document.querySelector('video')!;
+      v.pause();
+      return v.currentTime;
+    });
+    const t = Number((await plays.first().locator('.wd-time').textContent())!.split(':').reduce((a, b) => String(Number(a) * 60 + Number(b))));
+    expect(when).toBeGreaterThanOrEqual(t);
+    await plays.first().locator('button').click();
+    await expect.poll(() => page.evaluate(() => document.querySelector('video')!.currentTime), { timeout: 5000 }).toBeLessThan(Math.max(t, 1));
+
+    // off in the tab: the panel says so, and the list stays
+    await page.locator('button.rifteye-off').click();
+    await expect(panel.locator('#status')).toContainText('Off in this tab');
+    await expect(plays).toHaveCount(1);
+  } finally {
+    await unload(loaded);
+  }
+});
+
 test('a worker put to sleep and woken again goes on with the same engine document', async () => {
   test.setTimeout(180_000);
   let loaded: Loaded | null = null;

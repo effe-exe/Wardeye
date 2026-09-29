@@ -77,7 +77,7 @@ export function serve(ort: Ort): void {
       try {
         if (!host) throw new Error('the engine is not loaded');
         frameId = m.id;
-        const out = await host.frame({ tab: m.tab, t: m.t, video: m.video, jpeg: bytesOfBase64(m.jpeg) });
+        const out = await host.frame({ tab: m.tab, t: m.t, video: m.video, jpeg: bytesOfBase64(m.jpeg), ...(m.lists ? { lists: m.lists } : {}) });
         post({ kind: 'state', id: m.id, state: out.state, events: out.events });
       } catch (err) {
         post({ kind: 'error', id: m.id, error: describe(err) });

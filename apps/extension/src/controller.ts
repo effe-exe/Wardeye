@@ -24,6 +24,7 @@ export interface FrameReq {
   t: number;
   video: string;
   jpeg: string;
+  lists?: string[];
 }
 
 export interface FrameOut {
@@ -54,13 +55,14 @@ export interface ControllerEnv {
   cards?(): Promise<readonly CatalogRow[]>;
 }
 
-type Decision = { pkg: StandalonePackage; attempts: Attempt[] } | { reason: string };
+/** `why`: why the ways the plan left out were left out (WebGPU, when it runs on WASM). */
+type Decision = { pkg: StandalonePackage; attempts: Attempt[]; why: string } | { reason: string };
 
 type Status =
   | { kind: 'idle' }
   | { kind: 'loading'; message: string }
-  /** `fed`: the engine was given the card list's rows (or has no need of any). */
-  | { kind: 'ready'; worker: EngineWorker; attempt: Attempt; fed: boolean }
+  /** `fed`: the engine was given the card list's rows (or has no need of any). `note`: why it does not run on WebGPU, when it does not. */
+  | { kind: 'ready'; worker: EngineWorker; attempt: Attempt; fed: boolean; note: string }
   | { kind: 'failed'; reason: string; until: number };
 
 const message = (e: unknown): string => (e instanceof Error ? e.message : String(e));
@@ -105,7 +107,7 @@ export class Controller {
       const pkg = await this.env.readPackage();
       if (!pkg) return { reason: 'this build has no models' };
       const { attempts, reason } = plan(pkg, await this.env.probe(), pkg.runtime, this.env.store ?? false);
-      return attempts.length > 0 ? { pkg, attempts } : { reason: reason || 'nothing to run' };
+      return attempts.length > 0 ? { pkg, attempts, why: reason } : { reason: reason || 'nothing to run' };
     })().catch((e): Decision => ({ reason: message(e) }));
     return this.decision;
   }
@@ -124,7 +126,7 @@ export class Controller {
     try {
       const decided = await this.decide();
       if ('reason' in decided) return this.fail(decided.reason);
-      const { pkg, attempts } = decided;
+      const { pkg, attempts, why } = decided;
       // the store build names the cards from Riot's card list: the engine waits a moment for it, and starts without it (each
       // printing named by its id) when it does not come
       let cards: readonly CatalogRow[] | undefined;
@@ -146,8 +148,11 @@ export class Controller {
           errors.push(`${describeAttempt(attempt)}: ${message(e)}`);
           continue;
         }
-        worker.onCrash((why) => this.crashed(worker, why));
-        this.status = { kind: 'ready', worker, attempt, fed };
+        worker.onCrash((reason) => this.crashed(worker, reason));
+        // on WASM: why not WebGPU (the plan left it out, or it would not load), for the badge and the document's console
+        const note = attempt.runtime === 'webgpu' ? '' : [why, ...errors].filter(Boolean).join('; ');
+        if (note) console.info(`Wardeye: the engine runs on WASM, not WebGPU: ${note}`);
+        this.status = { kind: 'ready', worker, attempt, fed, note };
         this.running = attempt;
         this.bad = 0;
         if (!fed && this.late) this.restart(worker);
@@ -215,7 +220,9 @@ export class Controller {
     try {
       const out = await this.queue.submit({ tab: req.tab, run: () => worker.frame(req) });
       this.bad = 0;
-      return { kind: 'state', state: out === DROPPED ? null : out.state };
+      if (out === DROPPED) return { kind: 'state', state: null };
+      const engine = out.state.engine && s.note ? { ...out.state.engine, note: s.note } : out.state.engine;
+      return { kind: 'state', state: engine ? { ...out.state, engine } : out.state, events: out.events };
     } catch (e) {
       if (++this.bad >= MAX_BAD_FRAMES) this.crashed(worker, message(e));
       return { kind: 'state', state: { t: req.t, status: 'error', message: message(e), frame: blank, tracks: [] } };

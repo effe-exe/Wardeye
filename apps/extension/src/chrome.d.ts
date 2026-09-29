@@ -41,6 +41,15 @@ declare namespace chrome.action {
 
 declare namespace chrome.tabs {
   function sendMessage(tabId: number, message: unknown): Promise<any>;
-  /** The tests only: the worker's own view of the tabs (no "tabs" permission, so no addresses). */
-  function query(queryInfo: { active?: boolean }): Promise<{ id?: number }[]>;
+  /** The plays panel's tab (and, in the tests, the worker's own view of the tabs): no "tabs" permission, so no addresses. */
+  function query(queryInfo: { active?: boolean; currentWindow?: boolean }): Promise<{ id?: number }[]>;
+  const onActivated: { addListener(cb: (info: { tabId: number; windowId: number }) => void): void };
+  const onUpdated: { addListener(cb: (tabId: number, change: { status?: string }) => void): void };
+  /** The plays panel's line to a tab's content script (its runtime.onConnect). */
+  function connect(tabId: number, info?: { name?: string }): chrome.runtime.Port;
+}
+
+declare namespace chrome.sidePanel {
+  /** Chrome 116 and later, in answer to a click (the badge's plays button, forwarded by the content script). */
+  function open(options: { tabId?: number; windowId?: number }): Promise<void>;
 }

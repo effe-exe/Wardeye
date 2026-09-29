@@ -4,7 +4,11 @@
 // What the parts of the extension say to each other.
 //
 //   content script <-port 'rifteye'-> worker: today's protocol, unchanged. 'frame' (the video's time, its page and a
-//     base64 JPEG) is answered by 'state' (the board, or null to keep the one on screen); 'art' by the card's picture.
+//     base64 JPEG) is answered by 'state' (the board, or null to keep the one on screen, and the frame's events); 'art' by
+//     the card's picture.
+//   plays panel (panel.ts, the browser's side panel) <-> content script: runtime messages. The panel asks the tab for its
+//     board and plays ('panel'), the tab sends them again as they change ('board', plays.ts Snapshot), and a play clicked in
+//     the panel jumps the video to it ('seek'). The panel asks the worker for a card's picture over a port named 'panel'.
 //   worker <-runtime message-> engine document: one request, one reply, each tagged `target: 'engine'`. The worker
 //     holds nothing the engine needs, so it may be put to sleep and woken at any time; a tab's board lives in the
 //     document, under the tab's id.
@@ -23,6 +27,8 @@ export interface FrameMessage {
   t: number;
   video: string;
   jpeg: string;
+  /** The decklists the viewer pasted in the plays panel for this tab, with every frame (so an engine started afresh has them). */
+  lists?: string[];
 }
 
 export interface ArtMessage {
@@ -33,13 +39,18 @@ export interface ArtMessage {
 export type FromContent = FrameMessage | ArtMessage;
 
 export type ToContent =
-  | { kind: 'state'; online: boolean; state: State | null }
+  /** `events`: what happened on the table in that frame (a card played, left), for the plays panel; none from the live runner. */
+  | { kind: 'state'; online: boolean; state: State | null; events?: BoardEvent[] }
   | { kind: 'art'; printing_id: string; jpeg: string | null };
+
+/** The plays panel <-port 'panel'-> worker: a card's picture, asked as the overlay asks it. */
+export type FromPanel = ArtMessage;
+export type ToPanel = { kind: 'art'; printing_id: string; jpeg: string | null };
 
 /** Worker -> engine document. */
 export type EngineRequest =
   | { target: 'engine'; kind: 'hello' }
-  | { target: 'engine'; kind: 'frame'; tab: number; t: number; video: string; jpeg: string }
+  | { target: 'engine'; kind: 'frame'; tab: number; t: number; video: string; jpeg: string; lists?: string[] }
   | { target: 'engine'; kind: 'forget'; tab: number }
   /** A card's picture, from Riot's gallery (the store build). */
   | { target: 'engine'; kind: 'art'; printing_id: string };
@@ -48,8 +59,8 @@ export type EngineRequest =
 export type EngineReply =
   /** The engine can run here; it is loading, or ready. */
   | { kind: 'hello' }
-  /** The state to draw, or null when this frame was passed over (a newer one of the tab came): keep the board. */
-  | { kind: 'state'; state: State | null }
+  /** The state to draw, or null when this frame was passed over (a newer one of the tab came): keep the board; and what happened. */
+  | { kind: 'state'; state: State | null; events?: BoardEvent[] }
   /** The engine cannot run here (no WebGPU, no models, a failed start): the live runner takes over (the store build has none). */
   | { kind: 'unavailable'; reason: string }
   /** A card's picture as base64, or null when there is none (the list is not read, the card is not in it, the request failed). */
@@ -60,7 +71,7 @@ export type ToEngine =
   /** `cards` (the store build): what Riot's card list says of the printings, which name the gallery's rows; without it the
    * rows are read from the package's catalog.json. Empty when the list could not be read: each row is then its printing id. */
   | { kind: 'init'; pkg: StandalonePackage; attempt: Attempt; cards?: CatalogRow[] }
-  | { kind: 'frame'; id: number; tab: number; t: number; video: string; jpeg: string }
+  | { kind: 'frame'; id: number; tab: number; t: number; video: string; jpeg: string; lists?: string[] }
   | { kind: 'forget'; tab: number };
 
 /** Engine worker -> engine document. */

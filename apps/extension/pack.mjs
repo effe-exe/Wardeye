@@ -54,6 +54,7 @@ const here = (p) => fileURLToPath(new URL(p, import.meta.url));
 const TOP = 'rifteye-standalone';
 const DIST_FILES = [
   'manifest.json', 'content.js', 'overlay.css', 'worker.js', 'offscreen.html', 'offscreen.js', 'engine-webgpu.js', 'engine-wasm.js',
+  'panel.html', 'panel.js', 'panel.css', // the plays panel, in the browser's side panel
   // what the manifest names besides: the toolbar icons, and the overlay's typefaces with their licences (SIL OFL 1.1)
   'icons/icon-16.png', 'icons/icon-32.png', 'icons/icon-48.png', 'icons/icon-128.png',
   'fonts/SpaceGrotesk-latin.woff2', 'fonts/Inter-latin.woff2', 'fonts/JetBrainsMono-latin.woff2',

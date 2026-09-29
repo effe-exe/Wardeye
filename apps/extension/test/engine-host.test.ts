@@ -40,6 +40,15 @@ describe('the engine host', () => {
     expect(state.latency_s).toBe(0.06);
   });
 
+  it("gives each tab's board the decklists its frames carry, and says what it made of them", async () => {
+    const { host, parts } = setup();
+    expect((await host.frame(req(1, 10))).state.lists).toEqual([]);
+    const { state } = await host.frame({ ...req(1, 10.2), lists: ['Gleaming Anvil\na'] });
+    expect(state.lists).toEqual([{ legends: ['Gleaming Anvil'], cards: 1, unmapped: [], error: null }]);
+    expect(parts.boardLists[0]).toEqual([['Gleaming Anvil\na']]);
+    expect((await host.frame(req(2, 10))).state.lists).toEqual([]); // another tab: none
+  });
+
   it('reports the reads a second it manages', async () => {
     const { host, tick } = setup();
     await host.frame(req(1, 10));

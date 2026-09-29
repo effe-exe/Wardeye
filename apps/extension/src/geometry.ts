@@ -48,6 +48,8 @@ export interface EngineInfo {
   timing: Timing;
   /** The layout in use: a preset's name, "auto" while it is being found. */
   layout: string;
+  /** Why it does not run on WebGPU, when it does not (what the engine document found of the GPU, or why WebGPU would not load). */
+  note?: string;
 }
 
 export interface State {
@@ -153,7 +155,8 @@ export function badgeDetail(state: State | null): string {
   if (!e) return '';
   const t = e.timing;
   const way = `${e.runtime === 'webgpu' ? 'WebGPU' : 'WASM'} · detector ${e.detector} · embedder ${e.embedder}`;
-  return `${way} · decode ${t.decode} · detect ${t.detect} · embed ${t.embed} · track ${t.track} · total ${t.total} ms · layout ${e.layout}`;
+  const line = `${way} · decode ${t.decode} · detect ${t.detect} · embed ${t.embed} · track ${t.track} · total ${t.total} ms · layout ${e.layout}`;
+  return e.note ? `${line} · not WebGPU: ${e.note}` : line;
 }
 
 /** How often the overlay sends a frame (ms): what the engine asks (it says more when it is loading), else its own

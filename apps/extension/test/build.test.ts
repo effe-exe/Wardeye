@@ -161,6 +161,50 @@ describe('the build of the extension', () => {
     for (const c of made) expect(rules, c).toMatch(new RegExp(`\\.${c}(?![\\w-])`));
   });
 
+  it('builds the plays panel and opens it in the side panel: its page loads its own script and stylesheet, and nothing else', () => {
+    expect(manifest.side_panel).toEqual({ default_path: 'panel.html' });
+    expect(manifest.permissions).toEqual(['offscreen', 'sidePanel']);
+    const html = built('panel.html');
+    expect([...html.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1])).toEqual(['panel.css', 'panel.js']);
+    expect(html).not.toMatch(/https?:\/\//);
+    expect(built('panel.js')).not.toMatch(/127\.0\.0\.1|riotgames|rgpub/); // the panel asks the worker for pictures; it reaches nothing itself
+  });
+
+  it("writes the panel's stylesheet as the brand's tokens on its own page's :root, its typefaces from the files beside it, then its rules", () => {
+    const css = built('panel.css');
+    const faces = brand.fontFaceCss((file) => file);
+    expect(css.indexOf(brand.tokensCss(':root'))).toBeGreaterThan(-1);
+    expect(css.indexOf(faces)).toBeGreaterThan(css.indexOf(brand.tokensCss(':root')));
+    expect(css.indexOf(readFileSync(join(EXT, 'src', 'panel.css'), 'utf8'))).toBeGreaterThan(css.indexOf(faces));
+    expect([...faces.matchAll(/url\(([^)]+)\)/g)].every((m) => /^fonts\/[\w-]+\.woff2$/.test(m[1]!))).toBe(true);
+    for (const { file } of brand.FONTS) expect(existsSync(join(dist, file)), file).toBe(true);
+    expect(css).not.toMatch(/https?:\/\/|url\(\s*['"]?data:/);
+  });
+
+  it("uses the tokens for every colour in the panel, and moves nothing", () => {
+    const panelRules = stripComments(readFileSync(join(EXT, 'src', 'panel.css'), 'utf8'));
+    expect(panelRules).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+    expect(panelRules).not.toMatch(/\b(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch|color)\(/i);
+    expect(panelRules).not.toMatch(/:[^;{}]*\b(?:white|black|red|green|blue|yellow|orange|purple|gray|grey|silver|gold|violet)\b/i);
+    expect(panelRules).not.toMatch(/transition|animation|@keyframes/);
+    const brandTokens = new Set([...stripComments(tokens).matchAll(/(--wd-[\w-]+)\s*:/g)].map((m) => m[1]!));
+    for (const m of panelRules.matchAll(/var\((--[\w-]+)/g)) expect(brandTokens.has(m[1]!), m[1]).toBe(true);
+    expect([...panelRules.matchAll(/(--[\w-]+)\s*:/g)]).toEqual([]); // it defines no property of its own
+  });
+
+  it('styles every class the panel makes', () => {
+    const panelRules = stripComments(readFileSync(join(EXT, 'src', 'panel.css'), 'utf8'));
+    const made = new Set<string>([
+      ...[...readFileSync(join(EXT, 'src', 'panel.ts'), 'utf8').matchAll(/'(wd-[\w-]+)'/g)].map((m) => m[1]!),
+      ...[...readFileSync(join(EXT, 'src', 'panel.html'), 'utf8').matchAll(/class="([^"]+)"/g)].flatMap((m) => m[1]!.split(/\s+/)),
+      ...MARK_SHAPES.map((shape) => shape.cls.replace('rifteye-', 'wd-')),
+      'wd-play-played', 'wd-play-left', 'wd-play-changed', // a play's kind
+    ]);
+    made.delete('wd-play-played'); // a play is the primary dot as it is: only the other kinds restyle it
+    expect(made.size).toBeGreaterThan(20);
+    for (const c of made) expect(panelRules, c).toMatch(new RegExp(`\\.${c}(?![\\w-])`));
+  });
+
   it('is the developer build: its companion mode is there (the live runner on 127.0.0.1), and its manifest asks for that access and no other', () => {
     expect(manifest.host_permissions).toEqual(['http://127.0.0.1/*']);
     expect(built('worker.js')).toContain('127.0.0.1');
@@ -208,7 +252,7 @@ describe('the store build of the extension (node build.mjs --store)', () => {
     expect(manifest.host_permissions).toEqual(['https://content.publishing.riotgames.com/*', 'https://cmsassets.rgpub.io/*']); // exactly these two
     expect({ ...manifest, host_permissions: srcManifest.host_permissions }).toEqual(srcManifest); // every other key as it is in src/manifest.json
     expect(manifest.version).toBe('0.1.2');
-    expect(manifest.permissions).toEqual(['offscreen']);
+    expect(manifest.permissions).toEqual(['offscreen', 'sidePanel']); // the engine's document, and the plays panel beside the page
     expect((manifest.action as { default_title: string }).default_title).toBe('Wardeye is on. Click to turn it off (Alt+R)'); // the toolbar button, which turns it off
     expect(manifest.content_scripts.flatMap((c) => c.matches)).toEqual(['https://www.twitch.tv/*']); // it runs on twitch.tv and nowhere else
   });

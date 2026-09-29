@@ -1,0 +1,41 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: AGPL-3.0-only -->
+<!-- Copyright (C) 2026 Federico Vietti and Wardeye contributors -->
+<!-- The plays panel, in the browser's side panel beside the Twitch page: each player's legend and what is face up on their side
+     of the table, and the plays as they happened, newest first; a play clicked jumps the replay to it. panel.ts fills it. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Wardeye</title>
+    <link rel="stylesheet" href="panel.css" />
+    <script type="module" src="panel.js"></script>
+  </head>
+  <body>
+    <header class="wd-head">
+      <span id="mark" class="wd-mark-slot"></span>
+      <div>
+        <h1 class="wd-title">Wardeye</h1>
+        <p id="status" class="wd-status">Looking for the Twitch tab</p>
+      </div>
+    </header>
+    <main>
+      <section id="players" class="wd-players" aria-label="Players"></section>
+      <section class="wd-section" aria-labelledby="lists-head">
+        <h2 id="lists-head" class="wd-eyebrow">Decklists</h2>
+        <ul id="lists" class="wd-lists"></ul>
+        <textarea id="paste" class="wd-paste" rows="3" spellcheck="false" placeholder="Paste a deck code or a deckbuilder's export" aria-label="A published decklist"></textarea>
+        <div class="wd-paste-row">
+          <button id="add-list" class="wd-button" type="button">Use this list</button>
+          <span class="wd-note">It counts only for the player whose legend it names. Wardeye fetches no list.</span>
+        </div>
+      </section>
+      <section class="wd-section" aria-labelledby="plays-head">
+        <h2 id="plays-head" class="wd-eyebrow">Plays</h2>
+        <p id="plays-note" class="wd-note" hidden></p>
+        <ol id="plays" class="wd-plays"></ol>
+      </section>
+    </main>
+    <footer class="wd-foot">Read on this computer, from the video alone. The plays and the lists stay in the tab, and go when it closes.</footer>
+  </body>
+</html>

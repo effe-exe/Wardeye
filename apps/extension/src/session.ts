@@ -8,7 +8,7 @@
 
 import type { Layout, RgbImage } from '@rifteye/engine';
 import { matchPreset } from './presets';
-import { startingState, type BoardEvent, type BoardState, type Parts, type Board } from './parts';
+import { startingState, type BoardEvent, type BoardState, type ListSummary, type Parts, type Board, type ReadLists } from './parts';
 
 /** A step in the video's time within this range continues the board; beyond it the board starts over (the runner's). */
 const JUMP_BACK_S = -1;
@@ -42,6 +42,8 @@ export class Session {
   private lastLook: number | null = null;
   private tries = 0;
   private complained = false;
+  private texts: string[] = []; // the decklists the viewer pasted for this tab, as pasted
+  private lists: ReadLists | null = null;
   private readonly lookEvery: number;
   private readonly lookCount: number;
   private readonly presetAfter: number;
@@ -51,6 +53,19 @@ export class Session {
     this.lookEvery = cfg.lookEvery ?? 1;
     this.lookCount = cfg.looks ?? 5;
     this.presetAfter = cfg.presetAfter ?? 12;
+  }
+
+  /** The decklists the viewer pasted for this tab: read when they change, and given to every board of the tab. */
+  setLists(texts: readonly string[]): void {
+    if (texts.length === this.texts.length && texts.every((t, i) => t === this.texts[i])) return;
+    this.texts = [...texts];
+    this.lists = texts.length && this.cfg.parts.readLists ? this.cfg.parts.readLists(texts) : null;
+    this.board?.setLists?.(this.lists?.lists ?? []);
+  }
+
+  /** What the engine made of each list, in the order they were pasted. */
+  get listSummaries(): ListSummary[] {
+    return this.lists?.summaries ?? [];
   }
 
   /** The layout in use: its name, or "auto" while none is found. */
@@ -74,7 +89,10 @@ export class Session {
     if (!this.layout) return this.find(t, image);
     const { parts } = this.cfg;
     const jump = this.lastT !== null && !(t - this.lastT >= JUMP_BACK_S && t - this.lastT <= JUMP_FORWARD_S);
-    if (!this.board || jump) this.board = parts.board(this.layout); // a jump: a new board on the same table
+    if (!this.board || jump) {
+      this.board = parts.board(this.layout); // a jump: a new board on the same table
+      if (this.lists) this.board.setLists?.(this.lists.lists);
+    }
     this.lastT = t;
     return this.board.step(t, image);
   }

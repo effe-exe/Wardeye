@@ -73,10 +73,14 @@ describe('standalone mode, from the worker', () => {
   it("hands a tab's frame to the document, under the tab's id, and its state back", async () => {
     const { s, sent, st } = setup();
     st.replies.push({ kind: 'state', state });
-    expect(await s.frame(4, frame)).toEqual({ state });
+    expect(await s.frame(4, frame)).toEqual({ state, events: [] });
     expect(sent).toEqual([{ target: 'engine', kind: 'frame', tab: 4, t: 3, video: '/videos/1', jpeg: 'QUJD' }]);
     st.replies.push({ kind: 'state', state: null }); // passed over: the board on screen stays
-    expect(await s.frame(4, frame)).toEqual({ state: null });
+    expect(await s.frame(4, frame)).toEqual({ state: null, events: [] });
+    // what happened on the table comes with the board, for the plays panel
+    const played = { t: 3, kind: 'played', text: 'Sivir, Ambitious played', printing_id: 'SFD-120', track: 't71', side: 'right' };
+    st.replies.push({ kind: 'state', state, events: [played] });
+    expect(await s.frame(4, frame)).toEqual({ state, events: [played] });
   });
 
   it('is written off when the document says the engine cannot run here, and asked again a while later', async () => {
@@ -92,14 +96,14 @@ describe('standalone mode, from the worker', () => {
     tick(61_000);
     expect(await s.usable()).toBe(true);
     st.replies.push({ kind: 'state', state });
-    expect(await s.frame(1, frame)).toEqual({ state });
+    expect(await s.frame(1, frame)).toEqual({ state, events: [] });
     warn.mockRestore();
   });
 
   it('makes the document again, once, when it is gone', async () => {
     const { s, st } = setup();
     st.replies.push(new Error('Could not establish connection. Receiving end does not exist.'), { kind: 'state', state });
-    expect(await s.frame(1, frame)).toEqual({ state });
+    expect(await s.frame(1, frame)).toEqual({ state, events: [] });
     expect(st.ensured).toBe(2);
   });
 

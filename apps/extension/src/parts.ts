@@ -29,9 +29,26 @@ export interface BoardResult {
   events: BoardEvent[];
 }
 
+/** What the engine made of a decklist the viewer pasted: the legends it names, how many cards it holds, and what it could not
+ * read. `error` when it could not be read at all (a deck code or JSON it does not understand). */
+export interface ListSummary {
+  legends: string[];
+  cards: number;
+  unmapped: string[];
+  error: string | null;
+}
+
+/** Decklists, read: what the boards are given (`Board.setLists`) and what the panel shows of each. */
+export interface ReadLists {
+  lists: unknown;
+  summaries: ListSummary[];
+}
+
 /** A table's board: the Recognizer with its tracks. */
 export interface Board {
   step(t: number, frame: RgbImage): Promise<BoardResult>;
+  /** The decklists to hold its sides to (Parts.readLists): a side whose pinned legend a list names reads only that list's cards. */
+  setLists?(lists: unknown): void;
 }
 
 export interface Parts {
@@ -43,6 +60,8 @@ export interface Parts {
   presets(): readonly Layout[];
   /** A new board for a table, on the same models and gallery as every other. */
   board(layout: Layout): Board;
+  /** Decklists the viewer pasted, read through the gallery's rows (none, when the parts cannot read lists). */
+  readLists?(texts: readonly string[]): ReadLists;
   /** Frees the models. */
   dispose(): Promise<void>;
 }

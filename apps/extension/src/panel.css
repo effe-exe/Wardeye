@@ -1,0 +1,101 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+/* Copyright (C) 2026 Federico Vietti and Wardeye contributors */
+/* The plays panel, in the browser's side panel: Wardeye's dark look (the brand book, assets/brand/README.md). build.mjs puts the
+   brand's tokens (on :root: this is the extension's own page) and the typefaces in front of these rules, which use the tokens and
+   no colour of their own, only transparency variants of them. The timeline is the brand's: primary dots on a hairline. Nothing
+   moves. */
+
+html { background: var(--wd-bg); color-scheme: dark; }
+body {
+  margin: 0; padding: 14px 14px 20px; background: var(--wd-bg); color: var(--wd-text); font: var(--wd-type-body);
+  -webkit-font-smoothing: antialiased;
+}
+main { display: flex; flex-direction: column; gap: 16px; }
+.wd-section { min-width: 0; }
+
+/* The head: the mark, the name in Space Grotesk, what Wardeye is doing in the tab in Inter, muted. */
+.wd-head { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 14px; }
+.wd-mark-slot { flex: none; padding-top: 2px; }
+.wd-mark { display: block; width: 12px; height: 22px; }
+.wd-mark-ward { fill: var(--wd-primary); }
+.wd-mark-ring { fill: none; stroke: var(--wd-bg); }
+.wd-mark-pupil { fill: var(--wd-bg); }
+.wd-mark-glint { fill: var(--wd-text); }
+.wd-title { margin: 0; font: var(--wd-type-h2); font-weight: 600; }
+.wd-status { margin: 2px 0 0; color: var(--wd-muted); font: var(--wd-type-caption); }
+
+/* Section labels: Inter SemiBold, 11 px, in capitals and the primary. */
+.wd-eyebrow { margin: 0 0 8px; color: var(--wd-primary); font: 600 11px/1.4 var(--wd-font-ui); letter-spacing: 0.06em; text-transform: uppercase; }
+.wd-muted { color: var(--wd-muted); }
+.wd-note { margin: 0 0 8px; color: var(--wd-muted); font: var(--wd-type-caption); }
+.wd-note[hidden] { display: none; }
+
+/* Each player: a surface panel with a hairline border, the legend first, then what is on their side of the table. */
+.wd-players { display: flex; flex-direction: column; gap: 10px; }
+.wd-players:empty { display: none; }
+.wd-player { padding: 10px; background: var(--wd-surface); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius); }
+.wd-legend { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; font-weight: 500; }
+.wd-cards { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; font: var(--wd-type-caption); font-size: 12px; }
+.wd-cards li { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.wd-with { color: var(--wd-muted); }
+
+/* Card pictures: small, rounded, on the raised surface until the picture comes. */
+.wd-thumb, .wd-thumb-sm { flex: none; object-fit: cover; border-radius: 3px; background: var(--wd-surface-2); }
+.wd-thumb { width: 28px; height: 39px; }
+.wd-thumb-sm { width: 20px; height: 28px; }
+.wd-thumb:not([src]), .wd-thumb-sm:not([src]) { visibility: hidden; }
+
+/* The plays, newest first: a primary dot on a hairline for each, its time in JetBrains Mono, the card, what happened. A play on a
+   replay is a button: pointed at, it takes the raised surface; clicked, the video goes to just before it. */
+.wd-plays { position: relative; margin: 0; padding: 0 0 0 14px; list-style: none; }
+.wd-plays::before { content: ''; position: absolute; left: 4px; top: 4px; bottom: 4px; border-left: var(--wd-hairline) solid var(--wd-border); }
+.wd-play { position: relative; }
+.wd-play::before {
+  content: ''; position: absolute; left: -13px; top: 13px; width: 7px; height: 7px; border-radius: 50%; background: var(--wd-primary);
+}
+.wd-play-left::before { background: var(--wd-dim); }
+.wd-play-changed::before { background: var(--wd-accent); }
+.wd-play-row {
+  display: flex; gap: 8px; align-items: center; box-sizing: border-box; width: 100%; padding: 5px 6px; margin: 0;
+  border: 0; border-radius: var(--wd-radius-sm); background: transparent; color: var(--wd-text); font: var(--wd-type-caption); font-size: 12px;
+  text-align: left;
+}
+button.wd-play-row { cursor: pointer; }
+button.wd-play-row:hover { background: var(--wd-surface-2); }
+button.wd-play-row:focus-visible { outline: 2px solid var(--wd-primary); outline-offset: 1px; }
+.wd-time { flex: none; min-width: 44px; color: var(--wd-dim); font: var(--wd-type-micro); font-family: var(--wd-font-mono); }
+.wd-play-text { min-width: 0; overflow-wrap: anywhere; }
+.wd-play-left .wd-play-text { color: var(--wd-muted); }
+
+/* The decklists: each one read, on the surface, with a quiet remove; the paste box below, and the primary button. */
+.wd-lists { display: flex; flex-direction: column; gap: 6px; margin: 0 0 8px; padding: 0; list-style: none; }
+.wd-lists:empty { display: none; }
+.wd-list {
+  display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; padding: 6px 8px;
+  background: var(--wd-surface); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius-sm);
+  font: var(--wd-type-caption); font-size: 12px;
+}
+.wd-list-what { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.wd-list-bad { color: var(--wd-warning); }
+.wd-list-meta { flex: 1 1 100%; color: var(--wd-muted); overflow-wrap: anywhere; }
+.wd-list-remove {
+  flex: none; padding: 0; border: 0; background: transparent; color: var(--wd-muted); font: var(--wd-type-caption); cursor: pointer;
+}
+.wd-list-remove:hover { color: var(--wd-primary-light); }
+.wd-list-remove:focus-visible, .wd-button:focus-visible, .wd-paste:focus-visible { outline: 2px solid var(--wd-primary); outline-offset: 1px; }
+.wd-paste {
+  display: block; box-sizing: border-box; width: 100%; min-height: 56px; padding: 6px 8px; resize: vertical;
+  background: var(--wd-surface-2); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius-sm);
+  color: var(--wd-text); font: var(--wd-type-data); font-size: 11px;
+}
+.wd-paste::placeholder { color: var(--wd-dim); }
+.wd-paste-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+.wd-paste-row .wd-note { margin: 0; }
+.wd-button {
+  flex: none; padding: 5px 10px; border: 0; border-radius: var(--wd-radius-sm); background: var(--wd-primary); color: var(--wd-bg);
+  font: 600 12px/1.3 var(--wd-font-ui); cursor: pointer;
+}
+.wd-button:hover { background: var(--wd-primary-light); }
+.wd-button:disabled { background: var(--wd-surface-2); color: var(--wd-dim); cursor: default; }
+
+.wd-foot { margin-top: 20px; color: var(--wd-dim); font: var(--wd-type-caption); }

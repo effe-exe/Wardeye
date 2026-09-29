@@ -7,9 +7,9 @@
 // exercised: the page's JPEG, the parity decode, onnxruntime-web in a worker (WebGPU or WASM), the gallery and the
 // catalogue, the state, the overlay.
 
-import { layouts, type CatalogRow, type Layout, type RgbImage } from '@rifteye/engine';
+import { decklist, layouts, type CatalogRow, type Layout, type RgbImage } from '@rifteye/engine';
 import type { Track } from '../src/geometry';
-import type { Board, BoardResult, LoadContext, Parts } from '../src/parts';
+import type { Board, BoardResult, ListSummary, LoadContext, Parts } from '../src/parts';
 
 const STANDIN: Layout = layouts.makeLayout({ name: 'standin', title: 'Stand-in table', table: [0, 0, 1, 1], card_long_1080: 252 });
 const BACKGROUND = [16, 48, 62]; // '#10303e', the test video's floor
@@ -103,54 +103,82 @@ export async function loadParts(ctx: LoadContext): Promise<Parts> {
   const level = gallery.levels.get(gallery.index.levels[0]!)!;
   const dim = gallery.index.dim;
 
-  const board = (layout: Layout): Board => ({
-    async step(t: number, f: RgbImage): Promise<BoardResult> {
-      // the tiny detector, timed as the real one is: it sees the frame's first 8 x 8 values
-      await timer.span('detect', async () => {
-        const x = new ort.Tensor('float32', Float32Array.from({ length: 192 }, (_, i) => f.data[i]!), [1, 3, 8, 8]);
-        const out = await detector.run({ x });
-        if (out.z!.dims[1] !== 192) throw new Error('the stand-in detector answered with the wrong shape');
-      });
-      const tracks: Track[] = [];
-      for (const [k, b] of blocks(f).entries()) {
-        const emb = await timer.span('embed', async () => {
-          const out = await embedder.run({ crops: new ort.Tensor('float32', crop8(f, b), [1, 3, 8, 8]) });
-          const v = Float32Array.from(out.embedding!.data as Float32Array);
-          const n = Math.hypot(...v) || 1;
-          return v.map((c) => c / n);
+  const board = (layout: Layout): Board => {
+    const announced = new Set<string>(); // as the recogniser does: a card is played once, when it is first named
+    return {
+      async step(t: number, f: RgbImage): Promise<BoardResult> {
+        // the tiny detector, timed as the real one is: it sees the frame's first 8 x 8 values
+        await timer.span('detect', async () => {
+          const x = new ort.Tensor('float32', Float32Array.from({ length: 192 }, (_, i) => f.data[i]!), [1, 3, 8, 8]);
+          const out = await detector.run({ x });
+          if (out.z!.dims[1] !== 192) throw new Error('the stand-in detector answered with the wrong shape');
         });
-        const sims = rows.map((_, r) => emb.reduce((s, c, d) => s + c * level[r * dim + d]!, 0));
-        const best = sims.map((s, r) => [Math.exp((s - Math.max(...sims)) / T), r] as const);
-        const total = best.reduce((s, [e]) => s + e, 0);
-        const ranked = best.map(([e, r]) => ({ r, p: e / total })).sort((a, c) => c.p - a.p);
-        const top = ranked[0]!;
-        const named = top.p >= 0.85;
-        const row = rows[top.r]!;
-        tracks.push({
-          id: `t${k}`,
-          quad: [[b.x0, b.y0], [b.x1, b.y0], [b.x1, b.y1], [b.x0, b.y1]] as Track['quad'],
-          side: b.x0 + b.x1 < f.width ? 'left' : 'right',
-          state: named ? 'named' : 'unsure',
-          printing_id: named ? row.printing_id : null,
-          name: named ? row.name : '',
-          confidence: Math.round(top.p * 1000) / 1000,
-          guesses: ranked.slice(0, 3).map(({ r, p }) => ({ printing_id: rows[r]!.printing_id, card_id: rows[r]!.card_id, name: rows[r]!.name, p: Math.round(p * 1000) / 1000 })),
-          kind: 'card',
-          hidden: false,
-        });
+        const tracks: Track[] = [];
+        for (const [k, b] of blocks(f).entries()) {
+          const emb = await timer.span('embed', async () => {
+            const out = await embedder.run({ crops: new ort.Tensor('float32', crop8(f, b), [1, 3, 8, 8]) });
+            const v = Float32Array.from(out.embedding!.data as Float32Array);
+            const n = Math.hypot(...v) || 1;
+            return v.map((c) => c / n);
+          });
+          const sims = rows.map((_, r) => emb.reduce((s, c, d) => s + c * level[r * dim + d]!, 0));
+          const best = sims.map((s, r) => [Math.exp((s - Math.max(...sims)) / T), r] as const);
+          const total = best.reduce((s, [e]) => s + e, 0);
+          const ranked = best.map(([e, r]) => ({ r, p: e / total })).sort((a, c) => c.p - a.p);
+          const top = ranked[0]!;
+          const named = top.p >= 0.85;
+          const row = rows[top.r]!;
+          tracks.push({
+            id: `t${k}`,
+            quad: [[b.x0, b.y0], [b.x1, b.y0], [b.x1, b.y1], [b.x0, b.y1]] as Track['quad'],
+            side: b.x0 + b.x1 < f.width ? 'left' : 'right',
+            state: named ? 'named' : 'unsure',
+            printing_id: named ? row.printing_id : null,
+            name: named ? row.name : '',
+            confidence: Math.round(top.p * 1000) / 1000,
+            guesses: ranked.slice(0, 3).map(({ r, p }) => ({ printing_id: rows[r]!.printing_id, card_id: rows[r]!.card_id, name: rows[r]!.name, p: Math.round(p * 1000) / 1000 })),
+            kind: 'card',
+            hidden: false,
+          });
+        }
+        const events = tracks
+          .filter((tr) => tr.state === 'named' && !announced.has(tr.id))
+          .map((tr) => {
+            announced.add(tr.id);
+            return { t, kind: 'played', text: `${tr.name} played`, printing_id: tr.printing_id, track: tr.id, side: tr.side };
+          });
+        const players = [
+          { side: 'left', label: 'Player 1', legend: null },
+          { side: 'right', label: 'Player 2', legend: null },
+        ];
+        return {
+          state: { t, status: 'live', message: '', title: layout.title, frame: { width: f.width, height: f.height }, players, tracks },
+          events,
+        };
+      },
+    };
+  };
+
+  // decklists as the engine's parts read them (parts-engine.ts), through the stand-in gallery's rows
+  const cat = new decklist.Catalogue(rows);
+  const readLists = (texts: readonly string[]) => {
+    const read = texts.map((text): [decklist.Deck | null, ListSummary] => {
+      try {
+        const deck = decklist.parse(text, cat);
+        return [deck, { legends: deck.legends(), cards: deck.cardIds().size, unmapped: deck.unmapped, error: null }];
+      } catch (e) {
+        return [null, { legends: [], cards: 0, unmapped: [], error: e instanceof Error ? e.message : String(e) }];
       }
-      return {
-        state: { t, status: 'live', message: '', title: layout.title, frame: { width: f.width, height: f.height }, players: [], tracks },
-        events: [],
-      };
-    },
-  });
+    });
+    return { lists: read.flatMap(([d]) => (d ? [d] : [])), summaries: read.map(([, sm]) => sm) };
+  };
 
   return {
     decode,
     findLayout: async () => STANDIN,
     presets: () => [STANDIN],
     board,
+    readLists,
     dispose: async () => {
       await detector.release();
       await embedder.release();
