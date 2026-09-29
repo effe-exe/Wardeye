@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "RiftEye bench",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Times RiftEye's card models in this browser (WebGPU and WASM) and checks them against PyTorch. Nothing leaves this computer.",
   "background": {
     "service_worker": "worker.js",

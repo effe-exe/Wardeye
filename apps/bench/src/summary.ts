@@ -5,6 +5,7 @@
 // the environment, one line per row, and the per-frame estimate. Pure text, no DOM.
 
 import type { OutputCheck } from './compare';
+import { decodedText } from './decoded';
 import type { CheckSummary, RowResult } from './types';
 import type { Estimates, EstimateResult, FrameItems } from './estimate';
 import { RUNTIMES } from './runtimes';
@@ -71,7 +72,8 @@ export function checkText(c: CheckSummary): string {
     return `${named ? `${o.name} ` : ''}${fmtValue(c.metric, o.value)}${verdict}${drift}`;
   };
   const parts = c.outputs.map((o) => one(o, c.outputs.length > 1));
-  return `${c.metric} ${parts.join('; ')} ${c.pass ? 'PASS' : 'FAIL'}`;
+  const decoded = c.decoded ? `; ${decodedText(c.decoded)}` : '';
+  return `${c.metric} ${parts.join('; ')} ${c.pass ? 'PASS' : 'FAIL'}${decoded}`;
 }
 
 /** The runtime's name as shown: "-" for a variant that is not in the folder. */

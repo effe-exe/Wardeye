@@ -2,10 +2,15 @@
   "name": "@rifteye/extension",
   "version": "0.1.0",
   "private": true,
-  "description": "RiftEye on the Twitch player: the table's cards boxed and named on the video as it plays, read by the live runner on this machine",
+  "description": "RiftEye on the Twitch player: the table's cards boxed and named on the video as it plays, read by the engine inside the extension (the private build) or by the live runner on this machine",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "pack": "node pack.mjs"
+  },
+  "dependencies": {
+    "@rifteye/engine": "^0.1.0",
+    "onnxruntime-web": "1.30.0"
   }
 }

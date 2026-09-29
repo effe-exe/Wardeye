@@ -6,6 +6,7 @@
 // what the bench needs fails with a sentence that names the field, and that model's rows say so.
 
 import type { Metric, Tolerance } from './compare';
+import type { DetectionTolerance } from './decoded';
 
 /** An input shape entry: a size, or the batch axis. */
 export type Dim = number | 'batch';
@@ -32,6 +33,18 @@ export interface CheckSpec {
   metric: Metric;
   /** By precision: one number, or one per output. */
   tolerance: Record<string, Tolerance>;
+  /** The decoded detector check (decoded.ts), when the manifest asks for it. */
+  detections?: DetectionsCheck;
+}
+
+/** check.detections: the cards expected on the check tile, and how closely they must be found. */
+export interface DetectionsCheck {
+  /** The expected detections file, next to the manifest. */
+  file: string;
+  /** The score cards are judged at (the live runner's --det-score). */
+  threshold: number;
+  /** By precision: how far a found card's corners (px) and score may be from the expected card's. */
+  tolerance: Record<string, DetectionTolerance>;
 }
 
 export interface BenchManifest {
@@ -94,6 +107,22 @@ function tolerances(v: unknown, where: string): Record<string, Tolerance> {
   return out;
 }
 
+const nonNegative = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0;
+
+function detectionsOf(v: unknown, where: string): DetectionsCheck {
+  if (!isObject(v)) fail(where, 'expected an object');
+  if (!nonNegative(v.threshold) || v.threshold > 1) fail(`${where}.threshold`, 'expected a number from 0 to 1');
+  if (!isObject(v.tolerance)) fail(`${where}.tolerance`, 'expected an object keyed by precision');
+  const tolerance: Record<string, DetectionTolerance> = {};
+  for (const [precision, t] of Object.entries(v.tolerance)) {
+    if (!isObject(t) || !nonNegative(t.corner_px) || !nonNegative(t.score)) {
+      fail(`${where}.tolerance.${precision}`, 'expected { "corner_px": px, "score": difference }, numbers of 0 or more');
+    }
+    tolerance[precision] = { corner_px: t.corner_px, score: t.score };
+  }
+  return { file: fileName(v.file, `${where}.file`), threshold: v.threshold, tolerance };
+}
+
 function checkOf(v: unknown, where: string): CheckSpec {
   if (!isObject(v)) fail(where, 'expected an object');
   if (!isPositiveInt(v.batch)) fail(`${where}.batch`, 'expected a positive integer');
@@ -107,6 +136,7 @@ function checkOf(v: unknown, where: string): CheckSpec {
     expected,
     metric: v.metric,
     tolerance: tolerances(v.tolerance, `${where}.tolerance`),
+    ...(v.detections !== undefined ? { detections: detectionsOf(v.detections, `${where}.detections`) } : {}),
   };
 }
 

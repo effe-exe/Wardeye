@@ -20,5 +20,5 @@
       "@rifteye/engine": ["./packages/engine/src/index.ts"]
     }
   },
-  "include": ["packages/*/src", "packages/*/test", "apps/*/src", "apps/*/test", "apps/*/e2e", "scripts/*.ts", "*.config.ts"]
+  "include": ["packages/*/src", "packages/*/test", "packages/*/e2e", "apps/*/src", "apps/*/test", "apps/*/e2e", "scripts/*.ts", "*.config.ts"]
 }

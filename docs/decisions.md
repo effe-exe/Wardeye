@@ -153,3 +153,9 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
   - The trained weights, and the data made from card art and broadcasts, are not published and are not open source. They ship only inside the extension.
   - Beyond its users, the project shows Gradeon's work on card recognition. The README credits the Maintainer and Gradeon; presenting the tool as Gradeon's waits for [D-021](#d-021-apply-to-riot-for-a-riftbound-app-key).
 - **Why:** the Maintainer's decision. Free and non-commercial also fits Riot's rules: the Legal Jibber Jabber's non-commercial licence, and the developer policies' "Charge money for your app or provide exclusive access" on the list of things not to do.
+
+### D-023: In the browser, the detector runs in float32 and the embedder in float16
+
+- **Date:** 2026-09-29. **Status:** accepted.
+- **Decision:** On WebGPU the extension runs the detector's float32 file, always, and the embedder's float16 file when the GPU has `shader-f16` (else float32, else WASM). The private package carries only those two files.
+- **Why:** on an Apple-silicon Mac (Chrome 154, native WebGPU), the float16 detector decoded 34 of the check tile's 35 cards, with extra ones: its outputs drift enough to move cards. The float32 detector and the float16 embedder both match PyTorch (embedder cosine 0.99984). The float16 detector would have been faster (44.5 ms a 576 px tile); correct cards come first. The older WebGPU runtime (JSEP) is not used: its GridSample fails in float16.

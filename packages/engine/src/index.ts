@@ -6,3 +6,16 @@
 
 export * from './types';
 export * as image from './image';
+export * as pynum from './pynum';
+export * as layouts from './layouts';
+export * as retrieval from './retrieval';
+export * as lsap from './lsap';
+export * as ndimage from './ndimage';
+export * as matcrops from './matcrops';
+export * as changegate from './changegate';
+export * as autolayout from './autolayout';
+export * as geometry from './geometry';
+export * as detector from './detector';
+export * as embedder from './embedder';
+export * as ort from './ort';
+export * as recognizer from './recognizer';

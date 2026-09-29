@@ -2,7 +2,11 @@
 // Copyright (C) 2026 Federico Vietti and RiftEye contributors
 //
 // The overlay's pure logic, no DOM: where the video's picture sits inside its element, and what each
-// of the live runner's tracks draws and says. The state is the live runner's (ml/rifteye_ml/live/pipeline.py).
+// of the live runner's tracks draws and says. The state is the live runner's (ml/rifteye_ml/live/pipeline.py),
+// whether it comes from the runner on this machine or from the engine inside the extension.
+
+import type { Precision, Runtime } from './mode';
+import type { Timing } from './timer';
 
 export interface Rect {
   left: number;
@@ -31,12 +35,33 @@ export interface Track {
   under?: { id: string; name: string; printing_id: string }[];
 }
 
+/** What only the engine inside the extension adds to the state. */
+export interface EngineInfo {
+  runtime: Runtime;
+  /** The precision each model runs in. */
+  detector: Precision;
+  embedder: Precision;
+  /** How often the overlay should send a frame (ms): the pace the boards are built for. */
+  every_ms: number;
+  reads_per_s: number;
+  /** What the last frame cost. */
+  timing: Timing;
+  /** The layout in use: a preset's name, "auto" while it is being found. */
+  layout: string;
+}
+
 export interface State {
   t: number;
   status: string;
   message: string;
   frame: { width: number; height: number };
   tracks: Track[];
+  fps?: { source: number; processed: number };
+  latency_s?: number;
+  /** Set when the board was read by the engine inside the extension (standalone mode). */
+  engine?: EngineInfo;
+  /** How long until the next frame is wanted (ms), when the engine has none to read now (it is loading). */
+  retry_ms?: number;
 }
 
 /** The picture inside a <video> element of `box`: `object-fit: contain`, letterboxed on the short side. */
@@ -99,5 +124,22 @@ export function badge(online: boolean, state: State | null): string {
   if (state.status === 'away') return 'RiftEye: waiting for the table camera';
   if (state.status === 'error') return `RiftEye: ${state.message}`;
   const named = state.tracks.filter((t) => t.state === 'named' && t.kind !== 'rune' && !t.hidden).length;
-  return `RiftEye · ${named} card${named === 1 ? '' : 's'} named`;
+  const cards = `RiftEye · ${named} card${named === 1 ? '' : 's'} named`;
+  return state.engine ? `${cards} · ${state.engine.reads_per_s.toFixed(1)} reads/s` : cards;
+}
+
+/** The badge's second line, of the engine: how it runs and where a frame's time goes (ms). */
+export function badgeDetail(state: State | null): string {
+  const e = state?.engine;
+  if (!e) return '';
+  const t = e.timing;
+  const way = `${e.runtime === 'webgpu' ? 'WebGPU' : 'WASM'} · detector ${e.detector} · embedder ${e.embedder}`;
+  return `${way} · decode ${t.decode} · detect ${t.detect} · embed ${t.embed} · track ${t.track} · total ${t.total} ms · layout ${e.layout}`;
+}
+
+/** How often the overlay sends a frame (ms): what the engine asks (it says more when it is loading), else its own
+ * pace when it reads them, else the live runner's. */
+export function frameInterval(state: State | null, fallback = 250): number {
+  const ms = state?.retry_ms ?? state?.engine?.every_ms;
+  return typeof ms === 'number' && ms >= 50 ? ms : fallback;
 }

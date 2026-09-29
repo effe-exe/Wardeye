@@ -1,87 +1,82 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Federico Vietti and RiftEye contributors
 //
-// The extension's background worker: the only part that talks to the live runner on this machine
-// (python -m rifteye_ml.live --source browser). A page script may not reach 127.0.0.1 itself, so the
-// overlay hands it each frame over a port; it posts the frame to the runner and hands back the newest
-// state, and fetches card pictures for the hover card. Nothing is sent anywhere else.
+// The extension's background worker. The overlay hands it each frame over a port. In the private build, with a
+// browser that can run the engine, the frame goes to the engine document (an offscreen page that reads it with
+// ONNX Runtime Web) and the board it answers with is handed back; otherwise, as in the public build, the frame is
+// posted to the live runner on this machine (companion mode), the only place a page script cannot reach itself.
+// Nothing is sent anywhere else. The worker keeps nothing the engine needs: a tab's board lives in the engine
+// document, so the worker can be put to sleep and woken at any time.
 
-const PORTS = Array.from({ length: 10 }, (_, k) => 8765 + k); // the runner takes the next free one of these
-let runner: string | null = null;
-let failures = 0; // answers in a row that did not come: one slow answer is not a runner gone
+import * as companion from './companion';
+import { Standalone, type Env } from './standalone';
+import type { State } from './geometry';
+import type { FromContent, ToContent } from './protocol';
 
-async function findRunner(): Promise<string | null> {
-  for (const p of PORTS) {
-    const base = `http://127.0.0.1:${p}`;
-    try {
-      const r = await fetch(`${base}/hello`, { signal: AbortSignal.timeout(1500) });
-      const hello = (await r.json()) as { rifteye?: string; frames?: boolean };
-      if (hello.rifteye === 'live' && hello.frames) return base;
-    } catch {
-      // not there, or another program on that port
-    }
-  }
-  return null;
-}
+const OFFSCREEN = 'offscreen.html';
 
-function bytesOf(b64: string): Uint8Array<ArrayBuffer> {
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
+let creating: Promise<void> | null = null;
 
-function b64Of(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf);
-  let bin = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return btoa(bin);
-}
-
-/** The runner's newest state; undefined when this answer was slow or lost (keep the board); null when there is no
- * runner at all. */
-async function postFrame(msg: { t: number; video: string; jpeg: string }): Promise<unknown | null | undefined> {
-  runner ??= await findRunner();
-  if (!runner) return null;
-  try {
-    const r = await fetch(`${runner}/frame`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'image/jpeg', 'X-Media-Time': String(msg.t), 'X-Video': msg.video },
-      body: bytesOf(msg.jpeg),
-      signal: AbortSignal.timeout(10_000),
+/** The engine document, made when it is not there (only one can exist, and none survives the browser). */
+async function ensureDocument(): Promise<void> {
+  if (creating) return creating;
+  const here = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
+  if (here.length > 0) return;
+  creating = chrome.offscreen
+    .createDocument({ url: OFFSCREEN, reasons: ['WORKERS'], justification: "Reads the Twitch player's frames with ONNX Runtime Web, in a worker, on this computer." })
+    .finally(() => {
+      creating = null;
     });
-    if (r.ok) {
-      failures = 0;
-      return await r.json();
-    }
-  } catch {
-    // slow, or the runner stopped
-  }
-  if (++failures >= 3) {
-    runner = null; // look for it again, maybe on another port
-    failures = 0;
-  }
-  return undefined;
+  return creating;
 }
 
-async function art(printingId: string): Promise<string | null> {
-  if (!runner) return null;
-  try {
-    const r = await fetch(`${runner}/art/${encodeURIComponent(printingId)}.jpg`, { signal: AbortSignal.timeout(5000) });
-    return r.ok ? b64Of(await r.arrayBuffer()) : null;
-  } catch {
-    return null;
-  }
-}
+const env: Env = {
+  now: () => Date.now(),
+  read: async (path) => {
+    try {
+      const r = await fetch(chrome.runtime.getURL(path));
+      return r.ok ? new Uint8Array(await r.arrayBuffer()) : null;
+    } catch {
+      return null; // not in this build
+    }
+  },
+  ensureDocument,
+  send: (request) => chrome.runtime.sendMessage(request),
+};
+
+const standalone = new Standalone(env);
+let anonymous = 0; // a port that names no tab still gets a board of its own
 
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== 'rifteye') return;
-  port.onMessage.addListener(async (msg: { kind: string; t: number; video: string; jpeg: string; printing_id: string }) => {
-    if (msg.kind === 'frame') {
-      const state = await postFrame(msg);
-      port.postMessage({ kind: 'state', online: state !== null, state: state ?? null });
-    } else if (msg.kind === 'art') {
-      port.postMessage({ kind: 'art', printing_id: msg.printing_id, jpeg: await art(msg.printing_id) });
+  const tab = port.sender?.tab?.id ?? --anonymous;
+  const send = (m: ToContent): void => {
+    try {
+      port.postMessage(m);
+    } catch {
+      // the tab went away while the frame was read
+    }
+  };
+  void standalone.warm();
+  port.onDisconnect.addListener(() => void standalone.forget(tab));
+  port.onMessage.addListener(async (msg: FromContent) => {
+    try {
+      if (msg.kind === 'frame') {
+        const served = await standalone.frame(tab, msg);
+        if (served) {
+          send({ kind: 'state', online: true, state: served.state });
+          return;
+        }
+        const state = await companion.postFrame(msg);
+        send({ kind: 'state', online: state !== null, state: (state ?? null) as State | null });
+      } else if (msg.kind === 'art') {
+        const jpeg = (await standalone.usable()) ? await standalone.art(msg.printing_id) : await companion.art(msg.printing_id);
+        send({ kind: 'art', printing_id: msg.printing_id, jpeg });
+      }
+    } catch (e) {
+      // whatever went wrong, the overlay is answered: it waits for an answer before it sends another frame
+      console.warn(`RiftEye: ${e instanceof Error ? e.message : String(e)}`);
+      send(msg.kind === 'frame' ? { kind: 'state', online: true, state: null } : { kind: 'art', printing_id: msg.printing_id, jpeg: null });
     }
   });
 });

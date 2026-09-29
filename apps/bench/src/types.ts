@@ -5,6 +5,7 @@
 // workers say to each other. Plain data: it crosses postMessage.
 
 import type { CheckResult } from './compare';
+import type { DecodedCheck } from './decoded';
 import type { BenchManifest } from './model-manifest';
 import type { RuntimeId } from './runtimes';
 
@@ -24,6 +25,8 @@ export interface BatchResult {
 export interface CheckSummary extends CheckResult {
   batch: number;
   error: string | null;
+  /** The decoded detector check, when the manifest has check.detections: its own verdict (`pass` is the raw check's). */
+  decoded?: DecodedCheck;
 }
 
 export interface RowResult {

@@ -6,10 +6,10 @@
 // board it answers with is drawn over the picture: each card's box, its name once RiftEye is sure,
 // and a hover card when you point at it. Paused, nothing is sent and the board stays. Alt+R hides it.
 
-import { badge, boxClass, captureSize, contentRect, drawn, hoverCard, label, labelAnchor, type State, type Track } from './geometry';
+import { badge, badgeDetail, boxClass, captureSize, contentRect, drawn, frameInterval, hoverCard, label, labelAnchor, type State, type Track } from './geometry';
 
 const SVG = 'http://www.w3.org/2000/svg';
-const EVERY_MS = 250; // at most four frames a second; a laptop reads about two
+const EVERY_MS = 250; // the live runner: at most four frames a second; a laptop reads about two. The engine in the extension sets its own pace
 
 let port: chrome.runtime.Port | null = null;
 let inFlight = false;
@@ -37,7 +37,11 @@ const root = el('div', 'rifteye-root');
 const svg = document.createElementNS(SVG, 'svg');
 svg.setAttribute('class', 'rifteye-svg');
 svg.setAttribute('preserveAspectRatio', 'none');
-const badgeEl = el('div', 'rifteye-badge', 'RiftEye');
+const badgeEl = el('div', 'rifteye-badge');
+const badgeMain = el('div', 'rifteye-badge-main', 'RiftEye');
+const badgeDetailEl = el('div', 'rifteye-badge-detail'); // the engine's timings, when the engine in the extension reads
+badgeDetailEl.hidden = true;
+badgeEl.append(badgeMain, badgeDetailEl);
 const card = el('div', 'rifteye-card');
 card.hidden = true;
 root.append(svg, badgeEl, card);
@@ -98,7 +102,7 @@ function tick(): void {
   place();
   if (!video || video.paused || video.ended || inFlight || !port) return;
   const now = performance.now();
-  if (now - lastSent < EVERY_MS) return;
+  if (now - lastSent < frameInterval(state, EVERY_MS)) return;
   inFlight = true;
   lastSent = now;
   const t = video.currentTime;
@@ -109,7 +113,7 @@ function tick(): void {
     })
     .catch(() => {
       inFlight = false; // a player whose picture cannot be read (a protected stream): nothing to send
-      badgeEl.textContent = 'RiftEye: this player cannot be read';
+      badgeMain.textContent = 'RiftEye: this player cannot be read';
     });
 }
 
@@ -131,7 +135,10 @@ function place(): void {
 }
 
 function draw(): void {
-  badgeEl.textContent = badge(online, state);
+  badgeMain.textContent = badge(online, state);
+  const detail = badgeDetail(state);
+  badgeDetailEl.textContent = detail;
+  badgeDetailEl.hidden = detail === '';
   const live = new Set<string>();
   if (state?.frame.width && state.frame.height) {
     svg.setAttribute('viewBox', `0 0 ${state.frame.width} ${state.frame.height}`);

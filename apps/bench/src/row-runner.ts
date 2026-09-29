@@ -9,6 +9,7 @@
 
 import type { InferenceSession } from 'onnxruntime-web';
 import { decodeBin, evaluate, toFloat32, type OutputPair } from './compare';
+import { decodeFirst, judgeDetections, parseDetections, type ExpectedDetections } from './decoded';
 import { batchesOf, elementCount, itemSize, outputCount, resolveOutShape, resolveShape } from './model-manifest';
 import { measureRuns, summarize } from './stats';
 import { startupModel } from './tiny-onnx';
@@ -133,6 +134,9 @@ async function measure(ort: Ort, job: RowJob, io: RowIO, row: RowResult): Promis
   let checkInput: Float32Array | Uint8Array | null = null;
   const expected: Record<string, Float32Array> = {};
   let checkFilesError: string | null = null;
+  // the decoded check's file fails on its own: the raw check can still be made
+  let expectedCards: ExpectedDetections | null = null;
+  let cardsError: string | null = null;
   if (check) {
     try {
       say('reading the check files');
@@ -155,6 +159,13 @@ async function measure(ort: Ort, job: RowJob, io: RowIO, row: RowResult): Promis
     } catch (e) {
       checkInput = null;
       checkFilesError = describe(e);
+    }
+    if (check.detections) {
+      try {
+        expectedCards = parseDetections(JSON.parse(new TextDecoder().decode(await io.read(check.detections.file))));
+      } catch (e) {
+        cardsError = `${check.detections.file}: ${describe(e)}`;
+      }
     }
   }
 
@@ -244,6 +255,14 @@ async function measure(ort: Ort, job: RowJob, io: RowIO, row: RowResult): Promis
         return { name: o.name, got, want, rowLength: typeof last === 'number' ? last : 1 };
       });
       Object.assign(summary, evaluate(check.metric, pairs, check.tolerance[job.precision]), { error: null });
+      if (check.detections) {
+        const spec = check.detections;
+        const tolerance = spec.tolerance[job.precision];
+        const cards = pairs.length === 3 ? decodedCards(pairs, check.batch) : null;
+        summary.decoded = cardsError || !expectedCards || !cards
+          ? { ...judgeDetections([], [], spec.threshold, tolerance), pass: false, note: cardsError ?? 'the outputs are not the detector\'s pred_logits, pred_boxes and pred_keypoints' }
+          : judgeDetections(cards, expectedCards.detections, spec.threshold, tolerance);
+      }
     } catch (e) {
       summary.error = describe(e);
       fail('check', e);
@@ -266,6 +285,16 @@ async function measure(ort: Ort, job: RowJob, io: RowIO, row: RowResult): Promis
       fail('release', e);
     }
   }
+}
+
+/** The check tile's cards, decoded from the detector's three outputs (the first item of the check batch). */
+function decodedCards(pairs: readonly OutputPair[], batch: number) {
+  const get = (name: string) => pairs.find((p) => p.name === name)?.got;
+  const logits = get('pred_logits');
+  const boxes = get('pred_boxes');
+  const keypoints = get('pred_keypoints');
+  if (!(logits instanceof Float32Array) || !(boxes instanceof Float32Array) || !(keypoints instanceof Float32Array)) return null;
+  return decodeFirst({ pred_logits: logits, pred_boxes: boxes, pred_keypoints: keypoints }, batch);
 }
 
 function failedCheck(metric: CheckSummary['metric'], batch: number, error: string | null): CheckSummary {

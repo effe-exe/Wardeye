@@ -92,6 +92,21 @@ describe.skipIf(!haveZip)('pack.mjs', () => {
     expect(r.stdout).toMatch(/a\.zip: [\d.]+ MB \(\d+ bytes\), sha256 [0-9a-f]{64}/);
   });
 
+  it('packs the decoded check\'s expected cards, and refuses a manifest whose cards file is missing', () => {
+    const dir = join(root, 'models-cards');
+    mkdirSync(dir, { recursive: true });
+    const check = { batch: 1, input: 'cards.check.input.bin', expected: { out: 'cards.check.out.bin' }, detections: { file: 'cards.check.detections.json', threshold: 0.4, tolerance: {} } };
+    writeFileSync(join(dir, 'cards.bench.json'), JSON.stringify({ id: 'cards', variants: [{ precision: 'fp16', file: 'cards.fp16.onnx' }], check }));
+    for (const f of ['cards.fp16.onnx', 'cards.check.input.bin', 'cards.check.out.bin']) writeFileSync(join(dir, f), f);
+    const refused = run(['--models', dir, '--dist', dist, '--stage', stage, '--out', join(root, 'c0.zip')]);
+    expect(refused.status).not.toBe(0);
+    expect(refused.stderr).toContain('check files cards.check.detections.json are not in');
+    writeFileSync(join(dir, 'cards.check.detections.json'), '{"detections": []}');
+    const out = join(root, 'c.zip');
+    expect(run(['--models', dir, '--dist', dist, '--stage', stage, '--out', out]).status).toBe(0);
+    expect(zipNames(out)).toContain('rifteye-bench/models/cards.check.detections.json');
+  });
+
   it('puts both precisions in when asked, and lists the manifests in models/index.json', () => {
     const out = join(root, 'b.zip');
     expect(run(['--models', models, '--dist', dist, '--stage', stage, '--precisions', 'fp32,fp16', '--out', out]).status).toBe(0);

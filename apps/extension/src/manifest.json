@@ -7,5 +7,15 @@
   "content_scripts": [
     { "matches": ["https://www.twitch.tv/*"], "js": ["content.js"], "css": ["overlay.css"], "run_at": "document_idle" }
   ],
-  "host_permissions": ["http://127.0.0.1/*"]
+  "permissions": ["offscreen"],
+  "host_permissions": ["http://127.0.0.1/*"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "cross_origin_embedder_policy": {
+    "value": "require-corp"
+  },
+  "cross_origin_opener_policy": {
+    "value": "same-origin"
+  }
 }

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, expect, test, type BrowserContext, type Page } from '@playwright/test';
+import { load, offscreenDocuments, twitch, unload, type Loaded } from './harness';
 
 const DIST = fileURLToPath(new URL('../dist/', import.meta.url));
 // A 16 x 16 grey JPEG: the fake runner's "card art" (a made-up picture, no card art in git).
@@ -164,6 +165,27 @@ test('frames from the Twitch player reach the runner and its board is drawn on t
     await expect(page.locator('.rifteye-root')).toBeHidden();
   } finally {
     await context?.close();
+    runner.close();
+  }
+});
+
+test('a private build in a browser with no WebGPU adapter hands the frames to the runner, and draws its board', async () => {
+  test.setTimeout(120_000);
+  const posted: Posted[] = [];
+  const runner = await fakeRunner(posted, []);
+  let loaded: Loaded | null = null;
+  try {
+    loaded = await load({ gpu: false }); // the package is there; the browser cannot run the engine
+    const { context } = loaded;
+    const page = await twitch(context, 10);
+    await page.goto('https://www.twitch.tv/videos/12345');
+    await expect(page.locator('polygon.rifteye-box')).toHaveCount(2, { timeout: 30_000 });
+    await expect(page.locator('.rifteye-badge')).toHaveText('RiftEye · 1 card named'); // the runner's board: no reads a second
+    await expect.poll(() => posted.length, { timeout: 20_000 }).toBeGreaterThanOrEqual(3);
+    expect(posted.every((p) => p.jpeg && p.video === '/videos/12345')).toBe(true);
+    expect(await offscreenDocuments(context)).toBe(1); // made when the tab connected, which said it cannot run the engine
+  } finally {
+    await unload(loaded);
     runner.close();
   }
 });

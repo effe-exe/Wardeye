@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { badge, boxClass, captureSize, contentRect, hoverCard, label, labelAnchor, type State, type Track } from '../src/geometry';
+import { badge, badgeDetail, boxClass, captureSize, contentRect, frameInterval, hoverCard, label, labelAnchor, type State, type Track } from '../src/geometry';
 
 const track = (over: Partial<Track> = {}): Track => ({
   id: 't1',
@@ -74,5 +74,30 @@ describe('the badge', () => {
     );
     expect(badge(true, state({ status: 'away' }))).toBe('RiftEye: waiting for the table camera');
     expect(badge(true, state({ tracks: [track(), track({ id: 't2', kind: 'rune' }), track({ id: 't3', hidden: true })] }))).toBe('RiftEye · 1 card named');
+  });
+});
+
+describe('the badge of the engine inside the extension', () => {
+  const engine = { runtime: 'webgpu' as const, detector: 'fp32' as const, embedder: 'fp16' as const, every_ms: 200, reads_per_s: 11.94, timing: { decode: 6, detect: 44.5, embed: 22.5, track: 8.2, total: 81.2 }, layout: 'la-rq' };
+  const state = (over: Partial<State> = {}): State => ({ t: 1, status: 'live', message: '', frame: { width: 1920, height: 1080 }, tracks: [], engine, ...over });
+
+  it('says the reads a second beside the cards named', () => {
+    expect(badge(true, state({ tracks: [track()] }))).toBe('RiftEye · 1 card named · 11.9 reads/s');
+    expect(badge(true, state({ status: 'starting', message: 'loading the models (webgpu, fp16)' }))).toBe('RiftEye: loading the models (webgpu, fp16)');
+  });
+
+  it('says how it runs and where a frame\'s time goes on a second line, and nothing without the engine', () => {
+    expect(badgeDetail(state())).toBe('WebGPU · detector fp32 · embedder fp16 · decode 6 · detect 44.5 · embed 22.5 · track 8.2 · total 81.2 ms · layout la-rq');
+    expect(badgeDetail(state({ engine: { ...engine, runtime: 'wasm', embedder: 'fp32' } }))).toContain('WASM · detector fp32 · embedder fp32');
+    expect(badgeDetail(state({ engine: undefined as never }))).toBe('');
+    expect(badgeDetail(null)).toBe('');
+  });
+
+  it('sends frames at the pace the engine asks, and at the live runner\'s otherwise', () => {
+    expect(frameInterval(state())).toBe(200);
+    expect(frameInterval(state({ engine: undefined as never }))).toBe(250);
+    expect(frameInterval(null)).toBe(250);
+    expect(frameInterval(state({ engine: { ...engine, every_ms: 5 } }))).toBe(250); // not a pace a page can keep
+    expect(frameInterval(state({ engine: undefined as never, retry_ms: 1000 }))).toBe(1000); // it is loading: not so fast
   });
 });

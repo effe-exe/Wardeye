@@ -90,7 +90,10 @@ function chooseModels(modelsDir, precisions) {
       console.warn(`pack: ${id} has no ${precisions.join('/')} variant; only its manifest goes in`);
     } else {
       for (const v of chosen) files.add(v.file);
-      const checkFiles = m.check ? [m.check.input, ...Object.values(m.check.expected ?? {})].map(named) : [];
+      // the check's input and expected outputs, and the decoded check's expected cards when it has one
+      const checkFiles = m.check
+        ? [m.check.input, ...Object.values(m.check.expected ?? {}), ...(m.check.detections ? [m.check.detections.file] : [])].map(named)
+        : [];
       const gone = checkFiles.filter((f) => !existsSync(join(modelsDir, f)));
       if (gone.length) fail(`${id}: check files ${gone.join(', ')} are not in ${modelsDir}`);
       for (const f of checkFiles) files.add(f);
