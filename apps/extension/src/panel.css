@@ -37,6 +37,7 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .wd-legend { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; font-weight: 500; }
 .wd-cards { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; font: var(--wd-type-caption); font-size: 12px; }
 .wd-cards li { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.wd-card-text { min-width: 0; overflow-wrap: anywhere; }
 .wd-with { color: var(--wd-muted); }
 
 /* Card pictures: small, rounded, on the raised surface until the picture comes. */

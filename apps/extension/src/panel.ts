@@ -122,8 +122,9 @@ function sideSection(s: Side): HTMLElement {
   const list = el('ul', 'wd-cards');
   for (const g of s.cards) {
     const li = el('li', '');
-    li.append(thumb(g.printing_id, 'wd-thumb-sm'), el('span', '', g.count > 1 ? `${g.name} ×${g.count}` : g.name));
-    if (g.under.length) li.append(el('span', 'wd-with', ` + ${g.under.join(', ')}`));
+    const text = el('span', 'wd-card-text', g.count > 1 ? `${g.name} ×${g.count}` : g.name); // what lies under it follows in the same run
+    if (g.under.length) text.append(el('span', 'wd-with', ` + ${g.under.join(', ')}`));
+    li.append(thumb(g.printing_id, 'wd-thumb-sm'), text);
     list.append(li);
   }
   const bits = [
