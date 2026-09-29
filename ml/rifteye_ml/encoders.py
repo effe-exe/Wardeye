@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """Image encoders for card retrieval. Every encoder returns L2-normalised float32 rows.
 
 * `colorgrid[:N][/trimF]`: an N×N colour grid of the whole card, mean-centred. It is the

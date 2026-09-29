@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """Train and run the amodal card detector: RF-DETR keypoint (Apache-2.0) with the four card corners.
 
 `rfdetr` is imported lazily, so the rest of the package works without it (`pip install -e '.[detect]'`).

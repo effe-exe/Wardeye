@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 #
 # Run m1-detector.sh on an existing Google Cloud GPU VM, from your own machine (needs gcloud and a
 # checkout of this repository, which the VM does not need access to):

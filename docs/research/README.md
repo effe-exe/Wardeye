@@ -1,5 +1,7 @@
 # RiftEye research
 
+> Written when the project was called RiftEye. It is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)).
+
 How to build an open-source tool that watches Riftbound streams, logs every card played on a timeline, and lets viewers hover a card on the video to see it. What it takes, what already exists, and what constrains it. Researched in September 2026.
 
 ## Executive summary

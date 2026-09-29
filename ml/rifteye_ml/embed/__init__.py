@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """The card embedder (M1): DINOv2-S/14 fine-tuned with Sub-center ArcFace on synthetic stream crops.
 
 * `bank`: the training crops, every printing degraded many times through the H.264 stream simulator

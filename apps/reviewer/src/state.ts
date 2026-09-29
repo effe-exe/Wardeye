@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // Pure review logic: no DOM, so it is unit-tested directly. A model proposes an answer for
 // every item in a pack; the reviewer only says correct, wrong (and, if they know it, what is

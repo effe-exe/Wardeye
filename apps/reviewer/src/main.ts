@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // DOM wiring for the reviewer. All review logic lives in state.ts (unit-tested).
 
@@ -307,7 +307,7 @@ $<HTMLInputElement>('open-pack').addEventListener('change', async (e) => {
   try {
     const { pack, issues } = openPack(JSON.parse(await file.text()));
     if (!pack) {
-      alert(`Not a valid RiftEye review pack:\n${issues.slice(0, 10).join('\n')}`);
+      alert(`Not a valid Wardeye review pack:\n${issues.slice(0, 10).join('\n')}`);
       return;
     }
     const before = saved(pack);

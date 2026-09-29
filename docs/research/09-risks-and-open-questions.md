@@ -1,5 +1,7 @@
 # 09: Risks and open questions
 
+> Written when the project was called RiftEye. It is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)).
+
 ## 9.1 Risk register
 
 | # | Risk | Likelihood | Impact | Mitigation | Early signal |

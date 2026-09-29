@@ -1,5 +1,5 @@
-RiftEye
-Copyright (C) 2026 Federico Vietti and RiftEye contributors
+Wardeye
+Copyright (C) 2026 Federico Vietti and Wardeye contributors
 
 This program is free software: you can redistribute it and/or modify it
 under the terms of the GNU Affero General Public License as published by
@@ -9,11 +9,11 @@ Licensing: see LICENSING.md. Trademarks: see TRADEMARKS.md.
 ----------------------------------------------------------------------------
 Riot Games
 
-RiftEye was created under Riot Games' "Legal Jibber Jabber" policy using
+Wardeye was created under Riot Games' "Legal Jibber Jabber" policy using
 assets owned by Riot Games. Riot Games does not endorse or sponsor this
 project.
 
-RiftEye isn't endorsed by Riot Games and doesn't reflect the views or
+Wardeye isn't endorsed by Riot Games and doesn't reflect the views or
 opinions of Riot Games or anyone officially involved in producing or
 managing Riot Games properties. Riot Games, and all associated properties
 are trademarks or registered trademarks of Riot Games, Inc.
@@ -21,5 +21,10 @@ are trademarks or registered trademarks of Riot Games, Inc.
 ----------------------------------------------------------------------------
 Third-party components
 
-None yet. As dependencies are added, their licences and required notices
+Space Mono (assets/brand/SpaceMono-Regular.ttf, SpaceMono-Bold.ttf), inlined
+into the pages' stylesheets. Copyright 2016 The Space Mono Project Authors
+(https://github.com/googlefonts/spacemono). Licensed under the SIL Open Font
+License, Version 1.1: see assets/brand/OFL.txt.
+
+As more dependencies are added, their licences and required notices
 (including Apache-2.0 NOTICE files) are listed here.

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """Build a normalised Riftbound catalogue for research, and cache its images locally.
 
 Everything here runs on the researcher's machine. Card images and text are Riot Games IP:
@@ -40,7 +40,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Iterable, Iterator
 
-USER_AGENT = "RiftEyeResearch/0.1 (+https://github.com/effe-exe/RiftEye)"
+USER_AGENT = "WardeyeResearch/0.1 (+https://github.com/effe-exe/wardeye)"
 FEED_URL = ("https://content.publishing.riotgames.com/publishing-content/v2.0/public/channel/"
             "riftbound_website/list/riftbound_gallery_cards")
 

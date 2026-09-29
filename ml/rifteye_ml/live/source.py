@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """The frame source: a file, an http(s) URL, a Twitch channel or VOD, or a YouTube video or live
 stream, decoded by ffmpeg into a steady sequence of RGB frames.
 

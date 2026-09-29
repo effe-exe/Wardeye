@@ -1,5 +1,7 @@
 # 07: Licensing and governance
 
+> Written when the project was called RiftEye. It is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)).
+
 > **Superseded in part on 2026-09-29 by [D-022](../decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon):** the project is free for everyone. No commercial licences, paid tiers or paid services are planned, and the trained weights are not published. The CLA stays. The analysis below is kept as it was written.
 
 **The goal:** RiftEye should be genuinely open source and easy to contribute to. The Maintainer should keep the ability to offer commercial terms, run paid services, or sell the project later. And nobody should be able to take the code closed and sell it as their own.

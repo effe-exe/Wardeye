@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
-"""RiftEye live: the cards on the table of a recording or a live stream, named as it plays.
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
+"""Wardeye live: the cards on the table of a recording or a live stream, named as it plays.
 
     python -m rifteye_ml.live --source match.mp4 --layout la-rq
     python -m rifteye_ml.live --source https://www.twitch.tv/videos/2885620401 --start 14:54:00 --layout la-rq
@@ -154,7 +154,7 @@ def find_layout(frames, det, every: float = 1.0, give_up: float = 120.0):
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m rifteye_ml.live", description=__doc__.split("\n\n")[0])
     ap.add_argument("--source", required=True, help="a video file, a Twitch channel or VOD URL, a YouTube URL, an HLS "
-                                                    "URL, or browser: the frames the RiftEye extension sends")
+                                                    "URL, or browser: the frames the Wardeye extension sends")
     ap.add_argument("--layout", default="auto", choices=sorted(LAYOUTS) + ["auto"],
                     help="the broadcast's layout (default auto: found from its first table shots)")
     ap.add_argument("--start", default="0", help="where to start in a recording or VOD: seconds or HH:MM:SS "
@@ -203,11 +203,11 @@ def main(argv: list[str] | None = None) -> int:
         r = by_pid.get(pid)
         return cat.cache_path(a.cache, r["image_url"]) if r else None
 
-    title = a.title or (LAYOUTS[a.layout].title if a.layout in LAYOUTS else "RiftEye live")
+    title = a.title or (LAYOUTS[a.layout].title if a.layout in LAYOUTS else "Wardeye live")
     browser = BrowserSource(fps=a.fps) if a.source == "browser" else None
     server = LiveServer(a.host, a.port, art=art, title=title, on_frame=browser.post if browser else None)
     url = server.start()
-    print(f"RiftEye live: {url}  ({len(rows)} printings, {a.encoder}, layout {a.layout})", flush=True)
+    print(f"Wardeye live: {url}  ({len(rows)} printings, {a.encoder}, layout {a.layout})", flush=True)
 
     def status(kind: str, message: str, size: tuple[int, int] = (1920, 1080)) -> None:
         server.publish_state({"t": 0, "status": kind, "message": message, "title": title,
@@ -215,8 +215,8 @@ def main(argv: list[str] | None = None) -> int:
                               "latency_s": 0, "players": [], "tracks": []})
 
     if browser is not None:
-        status("starting", "waiting for the RiftEye extension: play a Riftbound video on Twitch")
-        print("waiting for the RiftEye extension: play a Riftbound video on Twitch in Chrome", flush=True)
+        status("starting", "waiting for the Wardeye extension: play a Riftbound video on Twitch")
+        print("waiting for the Wardeye extension: play a Riftbound video on Twitch in Chrome", flush=True)
     else:
         status("starting", f"opening {a.source}")
     if not a.no_browser and browser is None:

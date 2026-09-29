@@ -1,6 +1,6 @@
 # Security policy
 
-RiftEye has no released versions yet. Once the browser extension ships, the latest store release is the supported version.
+Wardeye has no released versions yet. Once the browser extension ships, the latest store release is the supported version.
 
 ## Reporting a vulnerability
 

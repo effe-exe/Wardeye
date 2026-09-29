@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 #
 # M1 embedder v0 on any Linux machine with an NVIDIA GPU: DINOv2-S/14 fine-tuned with Sub-center ArcFace on
 # synthetic stream crops, built from this repository and public card data only (docs/research/04, D-015).
@@ -99,8 +99,8 @@ echo "disk: $free GB free for $WORK; the full run wants $need GB"
 step "code"
 if [ -z "${RIFTEYE_DIR:-}" ]; then
   export GIT_TERMINAL_PROMPT=0
-  [ -d "$SRC/.git" ] || git clone -q https://github.com/effe-exe/RiftEye.git "$SRC" || {
-    echo "cannot clone RiftEye here (while the repository is private, this machine needs GitHub access)."
+  [ -d "$SRC/.git" ] || git clone -q https://github.com/effe-exe/wardeye.git "$SRC" || {
+    echo "cannot clone Wardeye here (while the repository is private, this machine needs GitHub access)."
     echo "Copy a checkout to this machine and set RIFTEYE_DIR to it; m1-embedder-gce.sh does that for Google Cloud VMs."
     exit 1
   }

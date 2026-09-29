@@ -4,7 +4,7 @@
 
 ## Checklist
 
-- [ ] I have signed the [CLA](https://github.com/effe-exe/RiftEye/blob/main/CLA.md) (the bot will ask on your first PR)
+- [ ] I have signed the [CLA](https://github.com/effe-exe/wardeye/blob/main/CLA.md) (the bot will ask on your first PR)
 - [ ] No stream frames, crops, VODs, audio, card images or datasets are added
 - [ ] New dependencies (code **and** model weights) are permissively licensed, and named here with their licence
 - [ ] Nothing reads hand cams, face-down cards or other hidden information

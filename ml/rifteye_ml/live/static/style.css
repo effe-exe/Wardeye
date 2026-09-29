@@ -1,87 +1,93 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-/* Copyright (C) 2026 Federico Vietti and RiftEye contributors */
+/* Copyright (C) 2026 Federico Vietti and Wardeye contributors */
 
-/* Same palette and general look as apps/viewer/src/style.css, for the live runner's own page. */
+/* Same look as apps/viewer/src/style.css (Gradeon's), for the live runner's own page. */
 :root {
   color-scheme: dark;
-  --bg: #121418;
-  --panel: #1b1e24;
-  --line: #2c313a;
-  --text: #e6e8ec;
-  --muted: #8b93a1;
+  accent-color: #6153cc;
+  /* Gradeon's look (D-020): see assets/brand/README.md */
+  --bg: #0a0a0a;
+  --panel: #111111;
+  --raised: #1a1a1a;
+  --rule: #1a1a1a;
+  --line: #333333;
+  --text: #ffffff;
+  --muted: #999999;
+  --faint: #666666;
   --accent: #6153cc;
-  --accent-2: #8a7ff0;
-  --good: #3f9d6b;
-  --warn: #e0b04a;
-  --bad: #d9534f;
-  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  --accent-2: #7b6fd4;
+  --good: #00ff88;
+  --warn: #ff6600;
+  --bad: #ff0044;
+  --mono: 'Space Mono', ui-monospace, Menlo, Consolas, monospace;
+  font: 14px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
 
-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-h1 { font-size: 16px; margin: 0; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+h1 { font: 700 15px/1.2 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; margin: 0; }
 h1 span { color: var(--muted); font-weight: 400; }
-h2 { font-size: 14px; margin: 0 0 8px; }
-h3 { font-size: 11px; margin: 14px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+h2 { font: 700 12px/1.3 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 8px; }
+h3 { font: 700 11px/1.3 var(--mono); margin: 14px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
 .muted { color: var(--muted); }
 .small { font-size: 12px; }
 
 .stats { display: flex; align-items: center; gap: 12px; }
 .toggle { display: flex; gap: 6px; align-items: center; cursor: pointer; color: var(--muted); }
-.pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; border: 1px solid var(--line); color: var(--muted); }
-.pill-live { color: #0e1712; background: var(--good); border-color: var(--good); }
+.pill { font-family: var(--mono); display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; border: 1px solid var(--line); color: var(--muted); }
+.pill-live { color: var(--bg); background: var(--good); border-color: var(--good); }
 .pill-error { color: #fff; background: var(--bad); border-color: var(--bad); }
-.pill-away { color: #0e1712; background: var(--warn); border-color: var(--warn); }
+.pill-away { color: var(--bg); background: var(--warn); border-color: var(--warn); }
 
-#banner { margin: 10px 16px 0; background: #3a1f24; border: 1px solid #7a3340; padding: 10px; border-radius: 6px; }
+#banner { margin: 10px 16px 0; background: rgba(255, 0, 68, 0.1); border: 1px solid var(--bad); padding: 10px; border-radius: 2px; }
 
 main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; padding: 12px 16px; min-height: 0; }
 @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
 
-#player { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 8px; overflow: hidden; }
+#player { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 4px; overflow: hidden; }
 #video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
 /* Same box, same fit mode as the image (object-fit: contain / preserveAspectRatio meet), so the
    overlay's viewBox (set to the frame size in app.js) always letterboxes exactly like the image. */
 #overlay { position: absolute; inset: 0; width: 100%; height: 100%; }
 
-#overlay .box { fill: rgba(138, 127, 240, 0.001); stroke-width: 2.5; vector-effect: non-scaling-stroke; pointer-events: all; cursor: pointer; }
+#overlay .box { fill: rgba(123, 111, 212, 0.001); stroke-width: 2.5; vector-effect: non-scaling-stroke; pointer-events: all; cursor: pointer; }
 #overlay .box-named { stroke: var(--accent-2); }
 #overlay .box-unsure { stroke: var(--warn); stroke-dasharray: 7 5; }
-#overlay .box-facedown { stroke: #7f8794; stroke-dasharray: 1.5 5; stroke-linecap: round; }
-#overlay .box-new { stroke: #5b616c; stroke-width: 1.5; }
-#overlay .box-rune { stroke: #5b616c; stroke-width: 1; stroke-dasharray: none; cursor: default; }
+#overlay .box-facedown { stroke: var(--faint); stroke-dasharray: 1.5 5; stroke-linecap: round; }
+#overlay .box-new { stroke: #555555; stroke-width: 1.5; }
+#overlay .box-rune { stroke: #555555; stroke-width: 1; stroke-dasharray: none; cursor: default; }
 #overlay .box.hot { stroke: #fff; stroke-width: 3.5; fill: rgba(255, 255, 255, 0.1); }
 #overlay.hide-boxes .box:not(.hot) { stroke: transparent; }
-#overlay .box-label { font: 700 30px/1 system-ui, sans-serif; fill: #fff; paint-order: stroke; stroke: rgba(8, 9, 12, 0.9); stroke-width: 6px; stroke-linejoin: round; pointer-events: none; }
+#overlay .box-label { font: 700 30px/1 system-ui, sans-serif; fill: #fff; paint-order: stroke; stroke: rgba(10, 10, 10, 0.9); stroke-width: 6px; stroke-linejoin: round; pointer-events: none; }
 #overlay.hide-boxes .box-label { display: none; }
 
-#side { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow: auto; max-height: calc(100vh - 96px); }
-.player + .player { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+#side { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 12px; overflow: auto; max-height: calc(100vh - 96px); }
+.player + .player { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rule); }
 .legend { display: flex; align-items: center; gap: 8px; min-height: 47px; }
-.legend img { width: 34px; height: 47px; object-fit: cover; border-radius: 3px; background: #000; flex: none; }
+.legend img { width: 34px; height: 47px; object-fit: cover; border-radius: 2px; background: #000; flex: none; }
 .card-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .card-list li { display: flex; align-items: center; gap: 8px; }
-.card-list img { width: 28px; height: 39px; object-fit: cover; border-radius: 3px; background: #000; flex: none; }
+.card-list img { width: 28px; height: 39px; object-fit: cover; border-radius: 2px; background: #000; flex: none; }
 
-#plays { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
+#plays { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--rule); }
 #feed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 #feed li { display: grid; grid-template-columns: 34px 28px 1fr; gap: 8px; align-items: center; }
-.feed-time { color: var(--accent-2); font-variant-numeric: tabular-nums; font-size: 12px; }
-#feed img { width: 28px; height: 39px; object-fit: cover; border-radius: 3px; background: #000; }
+.feed-time { font-family: var(--mono); color: var(--accent-2); font-variant-numeric: tabular-nums; font-size: 12px; }
+#feed img { width: 28px; height: 39px; object-fit: cover; border-radius: 2px; background: #000; }
 .feed-thumb-empty { width: 28px; }
 .feed-text { font-size: 13px; }
 .feed-left .feed-text { color: var(--muted); }
 
-.hover { position: fixed; z-index: 10; background: var(--panel); border: 1px solid var(--accent); border-radius: 10px; padding: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); pointer-events: none; max-width: 420px; }
-.hover-one img { height: 220px; border-radius: 8px; display: block; }
+.hover { position: fixed; z-index: 10; background: var(--panel); border: 1px solid var(--accent); border-radius: 4px; padding: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); pointer-events: none; max-width: 420px; }
+.hover-one img { height: 220px; border-radius: 4px; display: block; }
 .hover-name { font-size: 15px; font-weight: 600; margin-top: 6px; }
-.hover-sure { color: var(--good); font-size: 12px; }
+.hover-sure { color: var(--good); font: 12px/1.45 var(--mono); }
 .hover-note { color: var(--warn); font-size: 12px; margin-bottom: 6px; }
 .hover-under { color: var(--muted); font-size: 12px; margin-top: 6px; }
 .card-list .with { color: var(--muted); font-size: 12px; }
 .hover-guesses { display: flex; gap: 8px; }
 .hover-guesses figure { margin: 0; width: 108px; }
-.hover-guesses img { height: 148px; border-radius: 6px; display: block; width: 100%; object-fit: cover; }
+.hover-guesses img { height: 148px; border-radius: 2px; display: block; width: 100%; object-fit: cover; }
 .hover-guesses figcaption { font-size: 11px; margin-top: 4px; }

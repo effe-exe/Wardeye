@@ -1,4 +1,4 @@
-# RiftEye reviewer
+# Wardeye reviewer
 
 A small static web page for turning a model's guesses into labels. The model proposes an answer for every item in a **review pack**. You only say whether it is right:
 

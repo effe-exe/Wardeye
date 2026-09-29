@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // DOM wiring for the viewer preview. The logic lives in demo.ts (unit-tested).
 
@@ -71,7 +71,7 @@ function showHover(track: Track): void {
     name.textContent = state.card.name;
     const sure = document.createElement('div');
     sure.className = 'sure';
-    sure.textContent = `RiftEye is ${Math.round(state.p * 100)}% sure`;
+    sure.textContent = `Wardeye is ${Math.round(state.p * 100)}% sure`;
     one.append(img(state.card.art, state.card.name), name, sure);
     hover.append(one);
   } else if (state.kind === 'unsure') {
@@ -89,9 +89,9 @@ function showHover(track: Track): void {
     }
     hover.append(note, three);
   } else if (state.kind === 'face-down') {
-    hover.textContent = 'A face-down card. It is hidden information, so RiftEye never tries to identify it.';
+    hover.textContent = 'A face-down card. It is hidden information, so Wardeye never tries to identify it.';
   } else {
-    hover.textContent = 'A card RiftEye does not know yet.';
+    hover.textContent = 'A card Wardeye does not know yet.';
   }
   hover.hidden = false;
   placeHover();

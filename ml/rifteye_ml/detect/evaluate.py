@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """Score detections against a synthetic run's exact annotations, frame by frame.
 
 A card counts as found when a detection of the same class overlaps its full quad with IoU >= 0.75.

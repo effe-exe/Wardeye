@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 #
 # Run the M1 embedder (m1-embedder.sh) on a Google Cloud GPU VM, after the detector run that is going there,
 # from your own machine (needs gcloud and a checkout of this repository):

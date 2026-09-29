@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """The crop bank: every printing as a stream shows it, many times over, cropped upright.
 
 One task is one seed at one card height. Every printing is placed on boards, degraded at the camera

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """Turn spike CSVs into report material: Markdown tables and an SVG accuracy-vs-height chart.
 
 Reports carry numbers only, never images of cards or streams (decision D-006).

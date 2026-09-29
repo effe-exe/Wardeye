@@ -1,4 +1,4 @@
-# RiftEye timeline logger
+# Wardeye timeline logger
 
 A small static web page for recording **ground-truth timelines**: what happened in a match, and when, typed in by a person watching the recording. These timelines are the product test set ([docs/research/04 §4.5](../../docs/research/04-data-and-evaluation.md#45-ground-truth-timelines)). The engine's output is scored against them.
 
@@ -25,7 +25,7 @@ open apps/logger/dist/index.html    # or double-click it; no server needed
 
 Your work is also autosaved in this browser, per video file name. Reopening the same file offers to continue. The exported file is the real record.
 
-**Hidden cards** (<kbd>H</kbd>) are logged without a name, always. RiftEye never records hidden information ([D-005](../../docs/decisions.md#d-005-public-information-only)).
+**Hidden cards** (<kbd>H</kbd>) are logged without a name, always. Wardeye never records hidden information ([D-005](../../docs/decisions.md#d-005-public-information-only)).
 
 ## Tests
 

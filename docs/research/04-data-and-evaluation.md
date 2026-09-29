@@ -1,5 +1,7 @@
 # 04: Data strategy and evaluation
 
+> Written when the project was called RiftEye. It is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)).
+
 The models are the easy part to write down. The data engine that keeps improving them, and the test sets that keep everyone honest, are the hard part. This chapter covers where data comes from, how it is labeled, how it is governed, and how success is measured.
 
 ## 4.1 Four sources of data

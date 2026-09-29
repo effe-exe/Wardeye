@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // Card names for the logger's autocomplete. The catalogue is a local file on the
 // logger's machine (ml/ `catalog build` output); nothing is fetched or re-hosted.

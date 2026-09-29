@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """Realism check for a synthetic run: name its fully visible cards the way real ones are named.
 
 Each face-up card that is fully visible and inside the frame is cut out through its quad, with the

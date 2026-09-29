@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The live page's only script: an EventSource for state/feed, an <img> for the MJPEG stream, and
 // an SVG overlay drawn from the latest state. Plain ES2019, no build step, no modules, nothing
@@ -72,7 +72,7 @@
 
   function renderState(state) {
     titleEl.textContent = state.title ? "– " + state.title : "";
-    document.title = "RiftEye live" + (state.title ? " – " + state.title : "");
+    document.title = "Wardeye live" + (state.title ? " – " + state.title : "");
 
     if (state.frame && state.frame.width && state.frame.height) {
       frameW = state.frame.width;
@@ -237,7 +237,7 @@
       name.textContent = track.name || "(unnamed)";
       var sure = document.createElement("div");
       sure.className = "hover-sure";
-      sure.textContent = "RiftEye is " + Math.round((track.confidence || 0) * 100) + "% sure";
+      sure.textContent = "Wardeye is " + Math.round((track.confidence || 0) * 100) + "% sure";
       one.appendChild(name);
       one.appendChild(sure);
       hoverEl.appendChild(one);

@@ -1,6 +1,6 @@
 # Code of conduct
 
-RiftEye is a community of players, streamers, organisers and developers. Everyone is welcome here, whatever their level of experience or background.
+Wardeye is a community of players, streamers, organisers and developers. Everyone is welcome here, whatever their level of experience or background.
 
 **Expected:**
 

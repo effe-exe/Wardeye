@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 #
 # M1 detector v0 on any Linux machine with an NVIDIA GPU, built from this repository and public card
 # data only: the public card-gallery feed and Riot's public image CDN (docs/research/04, D-015).
@@ -51,8 +51,8 @@ fi
 step "code"
 if [ -z "${RIFTEYE_DIR:-}" ]; then
   export GIT_TERMINAL_PROMPT=0  # fail fast rather than wait for a password nobody types
-  [ -d "$SRC/.git" ] || git clone -q https://github.com/effe-exe/RiftEye.git "$SRC" || {
-    echo "cannot clone RiftEye here (while the repository is private, this machine needs GitHub access)."
+  [ -d "$SRC/.git" ] || git clone -q https://github.com/effe-exe/wardeye.git "$SRC" || {
+    echo "cannot clone Wardeye here (while the repository is private, this machine needs GitHub access)."
     echo "Copy a checkout to this machine and set RIFTEYE_DIR to it; m1-detector-gce.sh does that for Google Cloud VMs."
     exit 1
   }

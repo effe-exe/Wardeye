@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """Layer 1: a cheap change gate that says when and where the table changed.
 
 The detector and embedder are the expensive stages. Most of the time nothing on the table

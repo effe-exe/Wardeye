@@ -1,5 +1,5 @@
 name: Layout preset
-description: Tell RiftEye where the table camera is in a broadcast's frame.
+description: Tell Wardeye where the table camera is in a broadcast's frame.
 labels: [layout-preset]
 body:
   - type: input

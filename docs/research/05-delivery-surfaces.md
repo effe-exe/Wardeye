@@ -1,5 +1,7 @@
 # 05: Delivery surfaces
 
+> Written when the project was called RiftEye. It is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)).
+
 Where RiftEye runs, and in which order. State as of September 2026.
 
 ## 5.1 Summary

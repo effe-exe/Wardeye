@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // DOM wiring for the timeline logger. All timeline logic lives in state.ts (unit-tested).
 
@@ -399,7 +399,7 @@ $<HTMLInputElement>('open-timeline').addEventListener('change', async (e) => {
   try {
     const { state: imported, issues } = fromDocument(JSON.parse(await file.text()));
     if (!imported) {
-      alert(`Not a valid RiftEye timeline:\n${issues.slice(0, 10).join('\n')}`);
+      alert(`Not a valid Wardeye timeline:\n${issues.slice(0, 10).join('\n')}`);
       return;
     }
     state = imported;

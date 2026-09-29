@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """A demo bundle for apps/viewer: a clip where every recognised card can be hovered, plus
 the timeline the change gate and the identifier produce together.
 

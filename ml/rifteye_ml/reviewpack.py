@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """Review packs: the model proposes, a person says correct or wrong.
 
 Naming thousands of crops by hand is slow. Confirming a guess takes about two seconds.

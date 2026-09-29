@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """Covered cards: name each one from the part a stack leaves visible, and review the guesses.
 
 The amodal detector gives every card's full quad and, per corner, the chance it shows. In a frame:

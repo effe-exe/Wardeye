@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """The layout sampler: plausible 1v1 Riftbound boards on a table plane, in millimetres.
 
 The table follows Tournament Rules 508 (docs/research/01 §1.3). Runes sit closest to each player

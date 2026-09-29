@@ -1,5 +1,7 @@
 # M0 feasibility spike
 
+> Written when the project was called RiftEye. It is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)).
+
 **Date:** 2026-09-26, updated 2026-09-28. **Status:** complete for two broadcasts: synthetic curves, reviewed real sets from Shenyang (2,381 crops) and Los Angeles (1,383), stacked-card strips simulated and cut from real cards, the bitrate sweep, a quick fine-tune and the change gate's precision on two broadcasts. A held-out test on a third broadcast (Barcelona), and face-down cards.
 
 The question from [04 §4.8](../research/04-data-and-evaluation.md#48-the-m0-feasibility-spike): can RiftEye name Riftbound cards from their art at the size they appear on stream? Numbers only. No images of cards or streams are in this folder (D-006, D-015).

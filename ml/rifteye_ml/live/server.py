@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """The local web server for the live runner.
 
 `LiveServer` shows the recognition loop's work at http://127.0.0.1:8765 while it runs. It knows
@@ -84,7 +84,7 @@ class LiveServer:
     """
 
     def __init__(self, host: str = "127.0.0.1", port: int = 8765,
-                 art: Callable[[str], Path | None] | None = None, title: str = "RiftEye live",
+                 art: Callable[[str], Path | None] | None = None, title: str = "Wardeye live",
                  on_frame: Callable[[bytes, float, str], None] | None = None) -> None:
         self._host = host
         self._port = port
@@ -258,7 +258,7 @@ class LiveServer:
 class _Handler(BaseHTTPRequestHandler):
     """One instance per connection (ThreadingHTTPServer); `self.server.live` is the LiveServer."""
 
-    server_version = "RiftEyeLive/1"
+    server_version = "WardeyeLive/1"
 
     def log_message(self, format: str, *args) -> None:
         pass  # a local dev tool: keep stdout/stderr quiet

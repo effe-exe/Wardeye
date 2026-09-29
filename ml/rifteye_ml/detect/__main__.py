@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """The amodal card detector (M1): export synthetic tiles, train, evaluate, run on frames.
 
     python -m rifteye_ml.detect export --run ~/rifteye-data/synth/v0 --out ~/rifteye-data/detect/v0-tiles

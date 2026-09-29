@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """Synthetic boards -> a COCO keypoint dataset of square tiles for the amodal card detector.
 
 Each frame's camera window (the overhead ROI) is scaled so its cards are a random 45-110 px on the long

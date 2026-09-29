@@ -1,4 +1,4 @@
-# RiftEye Contributor License Agreement
+# Wardeye Contributor License Agreement
 
 **Version 1.0**
 
@@ -12,7 +12,7 @@
 
 ---
 
-Thank you for your interest in contributing to RiftEye. This Contributor License Agreement ("**Agreement**") documents the rights granted by contributors to Federico Vietti, the maintainer of RiftEye, and the Maintainer's successors and assigns ("**Maintainer**", "**We**" or "**Us**"). This Agreement is for your protection as a contributor as well as the protection of the Maintainer and the Project. It does not change your rights to use your own Contributions for any other purpose.
+Thank you for your interest in contributing to Wardeye. This Contributor License Agreement ("**Agreement**") documents the rights granted by contributors to Federico Vietti, the maintainer of Wardeye, and the Maintainer's successors and assigns ("**Maintainer**", "**We**" or "**Us**"). This Agreement is for your protection as a contributor as well as the protection of the Maintainer and the Project. It does not change your rights to use your own Contributions for any other purpose.
 
 By signing this Agreement, as described in Section 7.9, You accept and agree to these terms for Your present and future Contributions Submitted to the Project, and for any Contributions You Submitted before signing. Except for the licences granted in this Agreement, You reserve all right, title and interest in and to Your Contributions.
 
@@ -24,9 +24,9 @@ By signing this Agreement, as described in Section 7.9, You accept and agree to 
 
 **1.3 "Copyright"** means all rights protecting works of authorship owned or controlled by You, including copyright, moral rights, neighbouring rights and database rights, as applicable, for the full term of their existence, including any extensions.
 
-**1.4 "Material"** means the work of authorship that We make available to third parties, including RiftEye's software, models, data and documentation. When this Agreement covers more than one project, "Material" means the work of authorship to which the Contribution was Submitted. After You Submit a Contribution, it may be included in the Material.
+**1.4 "Material"** means the work of authorship that We make available to third parties, including Wardeye's software, models, data and documentation. When this Agreement covers more than one project, "Material" means the work of authorship to which the Contribution was Submitted. After You Submit a Contribution, it may be included in the Material.
 
-**1.5 "Project"** means RiftEye (currently at github.com/effe-exe/RiftEye) and any other project owned or managed by the Maintainer that states that it accepts contributions under this Agreement.
+**1.5 "Project"** means Wardeye (currently at github.com/effe-exe/wardeye) and any other project owned or managed by the Maintainer that states that it accepts contributions under this Agreement.
 
 **1.6 "Submit"** means any form of electronic, verbal or written communication sent to Us or Our representatives for the purpose of discussing and improving the Material. That includes pull requests, patches, issues, comments, and uploads to annotation or other tools that We operate for the Project. Communication marked "Not a Contribution" as described in Section 1.2 is excluded.
 

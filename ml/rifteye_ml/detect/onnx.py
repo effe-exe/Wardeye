@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """The card detector as ONNX, for the browser (M2): the same net, run by onnxruntime instead of PyTorch.
 
 The graph takes what a browser has to hand, RGB tiles as float32 in 0..1 (pixels / 255, NCHW, 576 x 576),

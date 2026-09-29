@@ -1,5 +1,7 @@
 # 03: Models, runtimes and their licences
 
+> Written when the project was called RiftEye. It is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)).
+
 Every component here was checked for **two** licences: the code's and the **weights'**. RiftEye's dual-licensing plan only works if everything that ships is permissive ([D-002](../decisions.md#d-002-permissive-dependencies-only)). Licences change: two of the models below changed terms during 2025–2026. **Re-check before adopting anything, and record the date you checked.**
 
 State as of **2026-09-26**.
@@ -106,6 +108,8 @@ Practical constraints for ORT Web:
 | DINOv2; Perception Encoder; SigLIP 2; PP-ShiTuV2 | RT-DETRv4 (DINOv3 teacher) | Ultralytics (all versions), YOLOv6/v7/v9 (GPL), YOLOv10/v12 (AGPL), BoxMOT |
 | ORT Web; Transformers.js; LiteRT.js; trackers; supervision; Norfair | | Community models trained with Ultralytics (e.g. existing YOLO11 card detectors) |
 | PaddleOCR(.js); RapidOCR; docTR; Tesseract.js; Whisper; Moonshine (streaming/EN); CVAT; Label Studio; SAM 2 | | |
+
+Fonts: **Space Mono**, Gradeon's typeface ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)), ships unmodified in `assets/brand/` under the SIL Open Font License 1.1. It may be bundled with any software, the AGPL included, if every copy carries its copyright notice and licence. The font itself stays under the OFL and may not be sold on its own. Space Mono reserves no font name. Checked 2026-09-29.
 
 ## 3.8 Research tooling in `ml/` (not shipped)
 

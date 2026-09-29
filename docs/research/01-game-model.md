@@ -1,5 +1,7 @@
 # 01: Riftbound, as a computer-vision problem
 
+> Written when the project was called RiftEye. It is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)).
+
 What RiftEye needs to know about the game: the card pool it must recognise, what the table looks like, which events are visible from an overhead camera, and which rules shrink the search space. Everything here is current as of **September 2026**. The game adds a set roughly every three months, so the numbers go stale fast: update this chapter with each release.
 
 Rule numbers refer to the *Riftbound Core Rules* (last updated 2026-07-16) and the *Riftbound Tournament Rules* (last updated 2026-07-16) [R1, R2].

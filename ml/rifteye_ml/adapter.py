@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """The M0 "quick fine-tune": a linear head on a frozen backbone, trained on synthetic crops.
 
 Frozen features match clean crops well and camera-level crops badly. This asks how much

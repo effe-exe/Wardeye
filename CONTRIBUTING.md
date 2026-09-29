@@ -1,6 +1,6 @@
-# Contributing to RiftEye
+# Contributing to Wardeye
 
-Thanks for helping. RiftEye is in the **design phase**: the architecture and research docs are written and code lands milestone by milestone ([ROADMAP](docs/ROADMAP.md)). Useful contributions right now:
+Thanks for helping. Wardeye is in the **design phase**: the architecture and research docs are written and code lands milestone by milestone ([ROADMAP](docs/ROADMAP.md)). Useful contributions right now:
 
 - **Critique the design.** Open an issue against anything in [`docs/`](docs/) that looks wrong, risky or naive.
 - **Broadcast layouts.** Tell us which Riftbound broadcasts you watch and how they frame the table (see [Layout presets](#4-layout-presets)).
@@ -9,7 +9,7 @@ Thanks for helping. RiftEye is in the **design phase**: the architecture and res
 
 ## 1. The Contributor Licence Agreement (CLA)
 
-Before your first pull request can be merged, you sign the [RiftEye CLA](CLA.md). A bot comments on your PR with instructions. Signing takes one comment and covers all your future contributions.
+Before your first pull request can be merged, you sign the [Wardeye CLA](CLA.md). A bot comments on your PR with instructions. Signing takes one comment and covers all your future contributions.
 
 **What it means, in plain words** (the [CLA](CLA.md) itself is what counts):
 
@@ -61,7 +61,7 @@ pip install -e '.[dev]' && pytest -q
 
 ## 4. Layout presets
 
-A layout preset is a small JSON file (`layouts/<broadcaster>.json`) telling RiftEye where the overhead table camera sits in a broadcast's frame ([schema](docs/ARCHITECTURE.md#6-data-contracts)). To propose one:
+A layout preset is a small JSON file (`layouts/<broadcaster>.json`) telling Wardeye where the overhead table camera sits in a broadcast's frame ([schema](docs/ARCHITECTURE.md#6-data-contracts)). To propose one:
 
 1. Open an issue with the **public** VOD URL and a timestamp where the table view is visible.
 2. Give the region coordinates as fractions of the frame (0–1). Include which side player A sits on, and the date range the layout was used.

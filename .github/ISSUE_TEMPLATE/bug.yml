@@ -1,5 +1,5 @@
 name: Bug report
-description: Something RiftEye got wrong (a missed or misnamed card, a broken overlay, a crash).
+description: Something Wardeye got wrong (a missed or misnamed card, a broken overlay, a crash).
 labels: [bug]
 body:
   - type: input

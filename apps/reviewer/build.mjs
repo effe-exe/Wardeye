@@ -1,6 +1,7 @@
 // Bundles the reviewer into dist/: a static page that works from file:// or any static host.
 import { build } from 'esbuild';
-import { copyFileSync, mkdirSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { withSpaceMono } from '../../assets/brand/brand.mjs';
 
 const here = (p) => new URL(p, import.meta.url).pathname;
 mkdirSync(here('./dist'), { recursive: true });
@@ -13,5 +14,6 @@ await build({
   sourcemap: true,
   legalComments: 'inline',
 });
-for (const f of ['index.html', 'style.css']) copyFileSync(here(`./src/${f}`), here(`./dist/${f}`));
+copyFileSync(here('./src/index.html'), here('./dist/index.html'));
+writeFileSync(here('./dist/style.css'), withSpaceMono(readFileSync(here('./src/style.css'), 'utf8'))); // Gradeon's look
 console.log('reviewer built -> apps/reviewer/dist/');

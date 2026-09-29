@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright (C) 2026 Federico Vietti and RiftEye contributors
+// Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
-// RiftEye data formats. Types mirror docs/ARCHITECTURE.md §6; every document carries a
+// Wardeye data formats. Types mirror docs/ARCHITECTURE.md §6; every document carries a
 // `schema` tag and a `version` so old files stay readable as the formats evolve.
 
 export const SCHEMA_VERSION = 1 as const;
@@ -26,7 +26,7 @@ export interface Printing {
   variant: Variant;
   /** BCP-47 tag, e.g. "en", "zh-Hans". */
   language: string;
-  /** The public source URL. RiftEye never stores or re-hosts card images (decision D-015). */
+  /** The public source URL. Wardeye never stores or re-hosts card images (decision D-015). */
   imageUrl: string;
   orientation: Orientation;
 }

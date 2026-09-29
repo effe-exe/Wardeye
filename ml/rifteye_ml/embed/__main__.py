@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """The card embedder (M1): crop banks, fine-tuning, packing and scoring.
 
     python -m rifteye_ml.embed crops --catalog catalog.jsonl --cache ~/rifteye-data/art --out bank --seeds 1-16

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """Compose a sampled board into a broadcast frame, with exact annotations.
 
 1. **Table plane.** Mats on a table, then every card in board order: art or a sleeve back,

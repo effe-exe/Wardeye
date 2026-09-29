@@ -68,7 +68,7 @@ Use the copy as written, or shorten it. Don't add claims beyond it (see the rule
 **7. From Gradeon**
 - *Wardeye comes from Gradeon, the AI card pre-grading app: the same eye for cards, pointed at the table.*
 - Link: `gradeon.ai`.
-- Once the repository is public, add: *Open source: github.com/effe-exe/wardeye*. It is still private and still named rifteye, so leave the link out for now.
+- Once the repository is public, add: *Open source: github.com/effe-exe/wardeye*. It is still private, so leave the link out for now.
 
 **8. FAQ**
 - **Which browsers?** Chrome and Edge on desktop. A recent graphics chip (WebGPU) makes it fast; without one it is slower.

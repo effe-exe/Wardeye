@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """The embedder as ONNX, to run in a browser (M2): `export` writes the float32 graph and a float16 copy, `Onnx`
 runs a file as the encoder `onnx:<file>` with onnxruntime (no torch needed to run it).
 

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """Frames from the browser extension: what the viewer is watching on Twitch, in its own player.
 
     python -m rifteye_ml.live --source browser --detector detector-v0.pth

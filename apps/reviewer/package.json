@@ -2,7 +2,7 @@
   "name": "@rifteye/reviewer",
   "version": "0.1.0",
   "private": true,
-  "description": "Reviewer: mark a model's proposals correct or wrong, exported as RiftEye review answers",
+  "description": "Reviewer: mark a model's proposals correct or wrong, exported as Wardeye review answers",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {

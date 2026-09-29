@@ -1,10 +1,10 @@
-# RiftEye viewer (preview)
+# Wardeye viewer (preview)
 
-A static page that plays a recorded match with RiftEye's output on top, the way the extension will show it on a live stream ([ARCHITECTURE §5.1](../../docs/ARCHITECTURE.md#51-browser-extension-first-public-surface)):
+A static page that plays a recorded match with Wardeye's output on top, the way the extension will show it on a live stream ([ARCHITECTURE §5.1](../../docs/ARCHITECTURE.md#51-browser-extension-first-public-surface)):
 
-- **Point at a card** on the table to see it. When RiftEye is sure, the hover card shows the card and how sure it is. When it is not, it shows the best three guesses side by side ([§3.5](../../docs/ARCHITECTURE.md#35-matcher-priors-and-fusion)). A face-down card says so, and is never identified.
+- **Point at a card** on the table to see it. When Wardeye is sure, the hover card shows the card and how sure it is. When it is not, it shows the best three guesses side by side ([§3.5](../../docs/ARCHITECTURE.md#35-matcher-priors-and-fusion)). A face-down card says so, and is never identified.
 - **The timeline** lists changes on the table with the card involved. Click one to jump to a moment before it.
-- **On the table now** lists what RiftEye sees at this moment.
+- **On the table now** lists what Wardeye sees at this moment.
 
 It is a preview, not the product: everything is computed ahead of time by the M0 pipeline in [`ml/rifteye_ml/demo.py`](../../ml/rifteye_ml/demo.py). That pipeline runs the bootstrap mat detector a few times a second, the colour-grid identifier with a gallery pyramid, tracks of one physical card, and the change gate. The bootstrap detector only sees cards lying on their own, so stacked and overlapping cards have no box yet; the trained detector comes in M1.
 

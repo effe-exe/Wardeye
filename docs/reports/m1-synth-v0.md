@@ -1,5 +1,7 @@
 # M1: synthetic boards, v0
 
+> Written when the project was called RiftEye. It is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)).
+
 **Date:** 2026-09-27. **Status:** the generator is built and calibrated once against the M0 broadcasts, and a first set of 400 boards is rendered (private). Training the detector and the embedder on it needs a GPU.
 
 The question from [04 §4.3](../research/04-data-and-evaluation.md#43-synthetic-board-generator-mlsynth): can RiftEye make whole broadcast frames of Riftbound boards, with exact labels, that look enough like real streams to train the detector and the embedder before real frames are labelled? Numbers only. No frames are in this folder (D-006, D-015).

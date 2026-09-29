@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """Score encoders on fresh synthetic crops (an eval bank), split into held-out and training sets.
 
 The protocol is the M0 quick fine-tune's (`adapter`, M0 report §8): crops at the camera level, 1080p at

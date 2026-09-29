@@ -1,4 +1,4 @@
-# RiftEye roadmap
+# Wardeye roadmap
 
 Milestones are ordered, not dated. Sizes assume one maintainer plus a few regular contributors, and they are estimates. Every milestone ends with **exit criteria measured on real stream data**, not on synthetic data ([why](research/04-data-and-evaluation.md#48-the-m0-feasibility-spike)).
 
@@ -7,14 +7,14 @@ flowchart LR
   M0[M0<br/>Foundations and<br/>feasibility spike] --> M1[M1<br/>Recognition core<br/>+ VOD runner]
   M1 --> M2[M2<br/>Extension alpha]
   M2 --> M3[M3<br/>Timeline v1<br/>public beta]
-  M3 --> M4[M4<br/>RiftEye Web<br/>+ audio]
+  M3 --> M4[M4<br/>Wardeye Web<br/>+ audio]
   M3 --> M5[M5<br/>Broadcaster kit<br/>+ Twitch Extension]
 ```
 
 ## M0: Foundations and feasibility (about 2 weeks)
 
 - [x] Repository, licence, CLA, contribution rules, architecture and research docs
-- [ ] **Final name** chosen after a trademark search ([D-010](decisions.md#d-010-rifteye-is-a-working-name))
+- [ ] **Final name:** Wardeye, chosen ([D-020](decisions.md#d-020-the-product-is-called-wardeye)); a trademark search must clear it before the public launch
 - [ ] Footage: written agreements requested from 3–5 organisers; our own consented recording sessions planned; `sources.yaml` started
 - [x] Catalogue v0: every printing from Riot's public card gallery in the `Card` / `Printing` schema, built on the Maintainer's machine and never redistributed ([D-015](decisions.md#d-015-no-riot-api-no-riot-assets-distributed)). 1,189 printings (936 cards) on 2026-09-26, plus Simplified and Traditional Chinese and Korean printings of Origins
 - [x] Timeline logger v0 (`apps/logger`)
@@ -64,7 +64,7 @@ flowchart LR
 
 **Exit:** `card_played` F1 ≥ 0.85 at ±5 s and committed-identity precision ≥ 98% on the out-of-domain test set, with identity kept while covered and false removals reported for stacked cards. Privacy policy and the Legal Jibber Jabber notice in the store listing.
 
-## M4: RiftEye Web and more evidence (later)
+## M4: Wardeye Web and more evidence (later)
 
 - VOD library with precomputed, human-reviewed timelines, searchable by card, legend and player
 - The extension shows precomputed timelines on processed VODs (exact sync through the media clock)

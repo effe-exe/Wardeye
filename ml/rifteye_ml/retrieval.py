@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """Gallery search and the metrics the evaluation suite reports.
 
 Search is brute force: a few thousand printings times a few hundred dimensions is

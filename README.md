@@ -1,8 +1,10 @@
-# RiftEye
+# Wardeye
 
 **Open-source computer vision for Riftbound streams.** A timeline of every card played, and hover-to-inspect cards on Twitch and YouTube.
 
-> **Status: M0 (foundations and feasibility).** Research, architecture and roadmap are written. So far the code covers the data formats (`packages/schema`), a timeline logger for ground truth (`apps/logger`), a correct/wrong reviewer that turns model guesses into labels (`apps/reviewer`), a viewer preview that shows the hover card and timeline on a recorded match (`apps/viewer`) and the feasibility-spike toolkit (`ml/`). The extension comes in M2 ([roadmap](docs/ROADMAP.md)). "RiftEye" is a working name ([why](docs/decisions.md#d-010-rifteye-is-a-working-name)).
+Wardeye is a free, open-source community project by Federico Vietti, who also makes [Gradeon](https://gradeon.ai), the AI card pre-grading app. It wears Gradeon's look.
+
+> **Status: alpha, not released yet.** The card detector and the card identifier are trained and tested on real broadcasts ([reports](docs/reports/)). The extension draws the cards it recognises on the Twitch player. For now a runner on the same computer does the recognition ([apps/extension](apps/extension/README.md)); moving it all into the browser is the current milestone, M2 ([roadmap](docs/ROADMAP.md)). Wardeye was called RiftEye until September 2026 ([D-020](docs/decisions.md#d-020-the-product-is-called-wardeye)), and the code's internal names still say `rifteye`.
 
 ## What it will do
 
@@ -27,7 +29,7 @@ flowchart LR
   V --> L[Timeline]
 ```
 
-Cards are small on stream (roughly 70–140 px tall at 1080p) and their text is unreadable. So RiftEye identifies cards by **art**, then narrows the candidates with what the game itself reveals:
+Cards are small on stream (roughly 70–140 px tall at 1080p) and their text is unreadable. So Wardeye identifies cards by **art**, then narrows the candidates with what the game itself reveals:
 
 - the legend's two domains;
 - published decklists;
@@ -42,7 +44,7 @@ Details in [ARCHITECTURE.md](docs/ARCHITECTURE.md) and the [research](docs/resea
 - **Local first.** Inference runs in the viewer's browser, with WebGPU and a WASM fallback.
 - **Measured, not claimed.** Every model ships with results on a real, event-split test set.
 - **Open and clean.** AGPL code, and permissively licensed dependencies and weights only.
-- **No footage, card art or card text in RiftEye.** The extension loads card data from Riot's public card gallery in your browser, and broadcasts belong to their organisers.
+- **No footage, card art or card text in Wardeye.** The extension loads card data from Riot's public card gallery in your browser, and broadcasts belong to their organisers.
 
 ## Documents
 
@@ -83,6 +85,6 @@ Contributions are welcome: design critique, broadcast layout presets, prior art,
 
 ## Legal
 
-RiftEye was created under Riot Games' "Legal Jibber Jabber" policy using assets owned by Riot Games. Riot Games does not endorse or sponsor this project.
+Wardeye was created under Riot Games' "Legal Jibber Jabber" policy using assets owned by Riot Games. Riot Games does not endorse or sponsor this project.
 
-RiftEye isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.
+Wardeye isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.

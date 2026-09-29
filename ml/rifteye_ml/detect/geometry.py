@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """Quads and tiles for the amodal card detector.
 
 The detector predicts the four corners of every card, in *image* order: the corner up and to the left

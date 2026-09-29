@@ -88,7 +88,7 @@ test('hover a recognised card, see three guesses for an unsure one, and jump fro
   await hoverOn('k0');
   await expect(page.locator('#hover')).toBeVisible();
   await expect(page.locator('#hover .name')).toHaveText('Fake Hero');
-  await expect(page.locator('#hover .sure')).toHaveText('RiftEye is 93% sure');
+  await expect(page.locator('#hover .sure')).toHaveText('Wardeye is 93% sure');
   await hoverOn('k1');
   await expect(page.locator('#hover .three figure')).toHaveCount(3);
   await expect(page.locator('#hover .note')).toHaveText('Not sure yet. Best guesses:');

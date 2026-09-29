@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 Federico Vietti and RiftEye contributors
+# Copyright (C) 2026 Federico Vietti and Wardeye contributors
 """Procedural stand-in cards for tests and demos.
 
 They share a real card's layout: frame colour, an art window, a name bar, a text box

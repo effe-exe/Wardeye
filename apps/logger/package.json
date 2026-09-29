@@ -2,7 +2,7 @@
   "name": "@rifteye/logger",
   "version": "0.1.0",
   "private": true,
-  "description": "Timeline logger: record ground-truth match events against a video, exported as a RiftEye timeline",
+  "description": "Timeline logger: record ground-truth match events against a video, exported as a Wardeye timeline",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {

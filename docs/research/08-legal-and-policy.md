@@ -1,5 +1,7 @@
 # 08: Legal and policy constraints
 
+> Written when the project was called RiftEye. It is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)).
+
 > **Risk analysis, not legal advice.** Riot's developer pages were read through verbatim third-party copies because the official pages were unreachable from the research environment. **Re-read the live pages** (developer.riotgames.com/docs/riftbound, developer.riotgames.com/policies/riftbound, riotgames.com/en/legal) before relying on any quote. State as of September 2026.
 
 ## 8.1 Summary

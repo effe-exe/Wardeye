@@ -1,5 +1,7 @@
 # 06: Prior art, competitors and starting point
 
+> Written when the project was called RiftEye. It is now Wardeye ([D-020](../decisions.md#d-020-the-product-is-called-wardeye)).
+
 ## 6.1 Riftbound tools that already exist (September 2026)
 
 | Tool | What it does | How | Relevance |
