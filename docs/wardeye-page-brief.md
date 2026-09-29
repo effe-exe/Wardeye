@@ -64,7 +64,7 @@ Use the copy as written, or shorten it. Don't add claims beyond it (see the rule
 **5. Measured, not claimed** (numbers in JetBrains Mono)
 - `97.6%` of the cards found, on 5,465 reviewed cards from three broadcasts.
 - `96.0%` and `99.4%` of the cards named, on two broadcasts held out of training.
-- Label under the numbers: *Alpha results, measured on real broadcasts. The reports are public on GitHub* (link once the repository is public).
+- Label under the numbers: *Alpha results, measured on real broadcasts. The reports are public on GitHub*, linking to `https://github.com/effe-exe/Wardeye/tree/main/docs/reports`.
 
 **6. Private by design**
 - **Runs on your computer.** Recognition happens in your browser, on your GPU. No video leaves your machine.
@@ -76,7 +76,7 @@ Use the copy as written, or shorten it. Don't add claims beyond it (see the rule
 
 **8. Who makes it**
 - *Wardeye is a community project by Federico Vietti, who also makes [Gradeon](https://gradeon.ai), the AI card pre-grading app. It shares Gradeon's dark look; it is not a Gradeon product.*
-- Once the repository is public, add: *Open source (AGPL): github.com/effe-exe/wardeye*. It is still private, so leave the link out for now.
+- Then: *Open source (AGPL): [github.com/effe-exe/Wardeye](https://github.com/effe-exe/Wardeye)*. The repository is public.
 
 **9. FAQ**
 - **Which browsers?** Chrome and Edge on desktop. A recent graphics chip (WebGPU) makes it fast; without one it is slower.
