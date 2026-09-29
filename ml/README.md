@@ -268,6 +268,12 @@ python -m rifteye_ml.spike real --encoder onnx:~/rifteye-data/models/onnx/embedd
   - A 1080p frame is 1 tile on the LA layout and 2 on Barcelona's and Shenyang's.
   - The live runner reads each crop in its four turns: median 8 images a frame, p90 16.
   - WebGPU float16 needs the adapter's `shader-f16`; without it, use float32.
+  - Measured on 2026-09-29 by apps/bench in Chrome 154 on an Apple-silicon Mac, native WebGPU runtime, fp16:
+    - detector: 44.5 ms for one tile, 75 ms for two;
+    - embedder: 6.5 ms for one image, 22.5 ms for eight;
+    - about 15 frames a second in all on the LA layout.
+  - WASM with 4 threads takes 1.0 s + 0.54 s a frame.
+  - The older JSEP runtime fails to compile GridSample in float16, so use the native one.
 - The ONNX files are trained on Riot's card art like the weights, so they stay private too. [apps/bench](../apps/bench/README.md) times them in Chrome.
 
 ## Live: a recording or a stream, named as it plays
