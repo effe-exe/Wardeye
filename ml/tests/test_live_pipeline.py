@@ -407,6 +407,30 @@ def test_the_legend_rule_holds_a_side_to_its_legend():
     assert rec.identify([crop])[0] == before                                     # no sides: the whole gallery
 
 
+def test_a_pasted_list_holds_the_side_whose_legend_it_names():
+    from rifteye_ml import decklist
+
+    crop = Image.new("RGB", (56, 78), (200, 100, 50))
+    _, plain = _rule_setup()
+    plain.legends["right"] = {"printing_id": "VEN-912", "name": "Thunder Crown"}
+    rule_right = plain.identify([crop], ["right"])[0]
+    _, rec = _rule_setup()
+    rec.legends["left"] = {"printing_id": "SFD-901", "name": "Gleaming Anvil"}
+    rec.legends["right"] = {"printing_id": "VEN-912", "name": "Thunder Crown"}
+    # the Gleaming Anvil list, blaze-fist on its side board; the other player's list is not given
+    lst = decklist.parse("1 Fakesmith - Gleaming Anvil (SFD-901)\n3 Fakesmith - Hammerer (SFD-902)\n7 Hush Rune (OGN-918)\n"
+                         "1 Quiet Glade (OGN-907)\nSide Board:\n2 Blaze Fist (OGN-914)", rec.catalogue())
+    rec.set_lists([lst])
+    left, right = rec.identify([crop, crop], ["left", "right"])
+    cards = [c for c, *_ in left]
+    assert cards[:3] == ["blaze-fist", "hush-rune", "fakesmith-hammerer"]   # listed, in every printing
+    assert "ember-rune" not in cards and "spark-bolt" not in cards          # what the legend alone allowed, off the list
+    assert "quiet-glade" in cards and "wisp" in cards                       # its battlefield, and the tokens
+    assert [c for c, *_ in right] == [c for c, *_ in rule_right]            # no list names Thunder Crown: the legend rule
+    rec.set_lists([])
+    assert [c for c, *_ in rec.identify([crop], ["left"])[0][:2]] == ["hush-rune", "fakesmith-hammerer"]
+
+
 def test_a_tracks_crops_follow_its_side_and_the_rule_can_be_turned_off():
     noise = Image.fromarray(np.random.default_rng(0).integers(0, 256, (540, 960, 3), dtype=np.uint8))
     for rule in (True, False):

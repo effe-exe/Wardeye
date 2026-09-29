@@ -305,6 +305,8 @@ class Recognizer:
         # The legend rule: a side's crops compete only with the rows its pinned legend allows (`allowed`).
         self.legend_rule = legend_rule
         self.masks: dict[str, np.ndarray] = {}   # legend card_id -> the gallery rows its side's crops compete with
+        self.decks: list = []                    # the decklists given (set_lists): a list holds the side whose legend it names
+        self._cat = None                         # the rows indexed for decklists, once a list is read
         self.tokens: np.ndarray | None = None    # priors.token_rows, once a legend needs it
         self.boxes_now: dict[str, tuple[float, float, float, float]] = {}  # track id -> its box's extent, this frame
         # Camera cuts: frames off the table camera are skipped and the board's clocks stop (`pause`). After a
@@ -472,9 +474,13 @@ class Recognizer:
         return t - tr.last_read > self.recheck_s
 
     def allowed(self, side: str) -> np.ndarray | None:
-        """The gallery rows a crop on `side` competes with: once the side's legend is pinned, those that fit it
-        (`priors.legend_mask`, runes held to its domains; every battlefield and token), one mask per legend. None,
-        the whole gallery, before that, on a side with no legend, or with the rule off."""
+        """The gallery rows a crop on `side` competes with: once the side's legend is pinned, the cards of the lists
+        that name it (`decklist.list_mask`: every printing of them, both lists' battlefields and the tokens) or, when no
+        list does, those that fit the legend (`priors.legend_mask`, runes held to its domains; every battlefield and
+        token), one mask per legend. None, the whole gallery, before that, on a side with no legend, or with the rule
+        off."""
+        from .. import decklist
+
         lg = self.legends.get(side) if self.legend_rule and side else None
         row = self.row_of.get(lg["printing_id"]) if lg is not None else None
         if row is None:
@@ -483,8 +489,23 @@ class Recognizer:
         if card not in self.masks:
             if self.tokens is None:
                 self.tokens = priors.token_rows(self.rows)[0]
-            self.masks[card] = priors.legend_mask(self.rows, [card], self.tokens, runes=True)[0]
+            mask = decklist.list_mask(self.catalogue(), self.decks, card) if self.decks else None
+            self.masks[card] = mask if mask is not None else priors.legend_mask(self.rows, [card], self.tokens, runes=True)[0]
         return self.masks[card]
+
+    def catalogue(self):
+        """The gallery's rows, indexed for decklists (`decklist.Catalogue`, made once, when a list is read)."""
+        from ..decklist import Catalogue
+
+        if self._cat is None:
+            self._cat = Catalogue(self.rows)
+        return self._cat
+
+    def set_lists(self, decks) -> None:
+        """The decklists given, read through `catalogue()`: from the next read on, a side whose pinned legend a list
+        names competes with that list's cards; the other sides keep the legend rule. None: the rule everywhere."""
+        self.decks = list(decks)
+        self.masks.clear()
 
     def identify(self, crops: Sequence[Image.Image], sides: Sequence[str] | None = None) -> list[list[tuple[str, float, float, int]]]:
         """Per crop, its candidate cards as (card_id, probability, best score, best gallery row), best first.

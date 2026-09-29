@@ -34,6 +34,7 @@ import * as image from './image';
 import { box as layoutBox, cardPx, side as layoutSide, sides as layoutSides } from './layouts';
 import { linearSumAssignment } from './lsap';
 import { FACE_DOWN_DETAIL, detail, findCards, matColour, notmatMask, type Mask } from './matcrops';
+import { Catalogue, listMask, type Deck } from './decklist';
 import { legendMask, tokenRows } from './priors';
 import { pyMod, pyRound } from './pynum';
 import { ROTATIONS, argsortDescending, bestSimilarities, type Pyramid } from './retrieval';
@@ -601,6 +602,9 @@ export class Recognizer {
   masks = new Map<string, Uint8Array>();
   /** priors.tokenRows, once a legend needs it. */
   tokens: Uint8Array | null = null;
+  /** The decklists the viewer gave (`setLists`): a side whose pinned legend a list names competes with that list's cards. */
+  decks: Deck[] = [];
+  private cat: Catalogue | null = null;
   /** Track id -> its box's extent, this frame. */
   boxesNow = new Map<string, Box4>();
   // Camera cuts: frames off the table camera are skipped and the board's clocks stop (`pause`). After a cut the view
@@ -834,9 +838,10 @@ export class Recognizer {
     return t - tr.lastRead > this.recheckS;
   }
 
-  /** The gallery rows a crop on `side` competes with: once the side's legend is pinned, those that fit it
-   * (priors.legendMask, runes held to its domains; every battlefield and token), one mask per legend. Null, the whole
-   * gallery, before that, on a side with no legend, or with the rule off. */
+  /** The gallery rows a crop on `side` competes with: once the side's legend is pinned, the cards of the lists that name
+   * it (decklist.listMask: every printing of them, both lists' battlefields and the tokens) or, when no list does, those
+   * that fit the legend (priors.legendMask, runes held to its domains; every battlefield and token), one mask per
+   * legend. Null, the whole gallery, before that, on a side with no legend, or with the rule off. */
   allowed(side: string): Uint8Array | null {
     const lg = this.legendRule && side ? this.legends.get(side) : undefined;
     const row = lg !== undefined ? this.rowOf.get(lg.printing_id) : undefined;
@@ -845,10 +850,23 @@ export class Recognizer {
     let mask = this.masks.get(card);
     if (mask === undefined) {
       this.tokens ??= tokenRows(this.rows).mask;
-      mask = legendMask(this.rows, [card], { tokens: this.tokens, runes: true }).mask;
+      mask = (this.decks.length ? listMask(this.catalogue(), this.decks, card) : null) ?? legendMask(this.rows, [card], { tokens: this.tokens, runes: true }).mask;
       this.masks.set(card, mask);
     }
     return mask;
+  }
+
+  /** The gallery's rows, indexed for decklists (made once, when a list is read). */
+  catalogue(): Catalogue {
+    this.cat ??= new Catalogue(this.rows);
+    return this.cat;
+  }
+
+  /** The decklists the viewer gave, read through `catalogue()`: from the next read on, a side whose pinned legend a list
+   * names competes with that list's cards; the other sides keep the legend rule. None: the legend rule everywhere. */
+  setLists(decks: readonly Deck[]): void {
+    this.decks = [...decks];
+    this.masks.clear();
   }
 
   /** Per crop, its candidate cards as (card_id, probability, best score, best gallery row), best first. All four

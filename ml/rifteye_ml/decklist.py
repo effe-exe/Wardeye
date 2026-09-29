@@ -467,6 +467,18 @@ def legend_domains(cat: Catalogue, legends: Iterable[str], runes: bool = False) 
                                 + ("Runes only of the legends' domains" if runes else "every Rune")})
 
 
+def list_mask(cat: Catalogue, decks: Sequence[Deck], legend: str) -> np.ndarray | None:
+    """The printings a side may be read as when a list names its legend: every card of the lists that name it (both
+    boards: a sideboard card can come in between games), every battlefield of all the lists (both players'
+    battlefields lie on the midline, so one list's turns up on the other half), and the tokens. None when no list
+    names the legend: the legend rule holds there, and a list that is not the players' costs nothing."""
+    mine = [d for d in decks if legend in d.legends()]
+    if not mine:
+        return None
+    fields = set().union(*(d.battlefields() for d in decks))
+    return expand(cat, set().union(*(d.card_ids() for d in mine)) | fields).mask
+
+
 def adjust(sims: np.ndarray, allowed: np.ndarray | None = None, bonus: float | None = None) -> np.ndarray:
     """Retrieval scores under a prior. `allowed` flags gallery rows (one row of flags, or one per query): with
     no `bonus` the prior is hard (only allowed printings compete), with one it is soft (+bonus on allowed)."""
@@ -792,13 +804,12 @@ def evaluate_match(cat: Catalogue, sims: np.ndarray, crops: list[dict], match: M
         """A list only on the side whose legend, as seen on the table, it names (with every list's battlefields
         and the tokens); a side no list names gets its own legend's prior, runes held to it; a side whose
         legend was not seen gets the whole catalogue. The guard against a list that is not the players'."""
-        fields = set().union(*(d.battlefields() for d in lists))
         masks, used = {}, {}
         for s in choices:
             lg = seen[s].most_common(1)[0][0] if seen.get(s) else None
-            mine = [d for d in lists if lg is not None and lg in d.legends()]
-            if mine:
-                masks[s], used[s] = expand(cat, set().union(*(d.card_ids() for d in mine)) | fields).mask, "list"
+            mine = list_mask(cat, lists, lg) if lg is not None else None
+            if mine is not None:
+                masks[s], used[s] = mine, "list"
             elif lg is not None:
                 masks[s], used[s] = legend_domains(cat, [lg], runes=True).mask, "legend"
             else:

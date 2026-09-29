@@ -22,6 +22,7 @@ import {
   smooth,
   type Ghost,
 } from '../src/recognizer';
+import * as decklist from '../src/decklist';
 import { rgbImage } from '../src/image';
 import { Pyramid } from '../src/retrieval';
 import type { CardBox, CatalogRow, Encoder, RgbImage } from '../src/types';
@@ -452,6 +453,30 @@ describe('the legend rule', () => {
     expect(rec.allowed('left')).toBe(rec.masks.get('gleaming-anvil'));
     expect([rec.allowed('right'), rec.allowed(''), rec.allowed('top')]).toEqual([null, null, null]);
     same((await rec.identify([crop]))[0]!, BEFORE); // no sides: the whole gallery
+  });
+
+  it("holds a side whose legend a pasted list names to that list's cards, and the other side to its legend", async () => {
+    const crop = rgbImage(56, 78);
+    const plain = ruled();
+    plain.legends.set('right', { printing_id: 'VEN-912', name: 'Thunder Crown' });
+    const [ruleRight] = await plain.identify([crop], ['right']);
+    const rec = ruled();
+    rec.legends.set('left', { printing_id: 'SFD-901', name: 'Gleaming Anvil' });
+    rec.legends.set('right', { printing_id: 'VEN-912', name: 'Thunder Crown' });
+    // the Gleaming Anvil list, blaze-fist on its side board; the other player's list is not given
+    const list = decklist.parse('1 Fakesmith - Gleaming Anvil (SFD-901)\n3 Fakesmith - Hammerer (SFD-902)\n7 Hush Rune (OGN-918)\n1 Quiet Glade (OGN-907)\nSide Board:\n2 Blaze Fist (OGN-914)', rec.catalogue());
+    rec.setLists([list]);
+    const [left, right] = await rec.identify([crop, crop], ['left', 'right']);
+    const cards = left!.map(([c]) => c);
+    expect(cards.slice(0, 3)).toEqual(['blaze-fist', 'hush-rune', 'fakesmith-hammerer']); // listed, in every printing
+    expect(cards).not.toContain('ember-rune'); // a Fury rune the list does not hold, which the legend alone allowed ...
+    expect(cards).not.toContain('spark-bolt');
+    expect(cards).toContain('quiet-glade');
+    expect(cards).toContain('wisp'); // ... and the tokens, which no list names
+    expect(right!.map(([c]) => c)).toEqual(ruleRight!.map(([c]) => c)); // no list names Thunder Crown: the legend rule
+    rec.setLists([]);
+    const [again] = await rec.identify([crop], ['left']);
+    same(again!, LEFT); // the lists taken away: the legend rule again
   });
 
   it("reads a track's crops on its side, and can be turned off", async () => {

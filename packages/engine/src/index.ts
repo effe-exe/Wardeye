@@ -20,3 +20,4 @@ export * as embedder from './embedder';
 export * as ort from './ort';
 export * as recognizer from './recognizer';
 export * as priors from './priors';
+export * as decklist from './decklist';
