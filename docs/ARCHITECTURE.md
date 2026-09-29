@@ -1,7 +1,7 @@
 # Wardeye architecture
 
-> **Status:** design, v0.1 (September 2026). Nothing below is implemented yet.
-> This document describes the target system that the [roadmap](ROADMAP.md) builds toward.
+> **Status:** v0.2 (September 2026). Much of this is built: the detector, the embedder and the gallery search, the tracker, the change gate and the layouts, in Python (`ml/`) and in TypeScript for the browser (`packages/engine`), and the extension's overlay on Twitch (`apps/extension`). Not built yet: the event engine beyond plays, the game priors, the side panel, YouTube, the broadcaster kit and the VOD library.
+> This document describes the target system that the [roadmap](ROADMAP.md) builds toward. Where it and the code differ, the code and the [decision log](decisions.md) are right: for example, the browser runs the RF-DETR detector ([D-013](decisions.md#d-013-browser-detector-is-a-small-cnn-or-obb-model-rf-detr-runs-on-the-server)).
 > The reasoning and sources behind each choice are in [`docs/research/`](research/README.md).
 > Settled choices are logged in [decisions.md](decisions.md).
 

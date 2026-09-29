@@ -78,7 +78,7 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 
 ### D-013: Browser detector is a small CNN or OBB model; RF-DETR runs on the server
 
-- **Date:** 2026-09-26. **Status:** accepted, to be confirmed by the M1 benchmarks.
+- **Date:** 2026-09-26. **Status:** superseded by the M2 benchmarks: the RF-DETR keypoint detector (v0) runs in the browser itself, in float32 on WebGPU ([D-023](#d-023-in-the-browser-the-detector-runs-in-float32-and-the-embedder-in-float16)). About 45 ms a 576 px tile on an Apple-silicon Mac was fast enough, and it was the model already trained. A smaller browser model stays an option for slow machines.
 - **Decision:** In the browser, start with RT-DETRv2-OBB-S, with D-FINE-S plus the corner refiner as fallback; both are Apache-2.0. On the server and as the labeling teacher, use RF-DETR keypoint (4 corners) or RF-DETR-Seg.
 - **Why:** ViT-backbone DETRs are currently slow and fp16-fragile in browsers ([03 §3.2](research/03-models-and-licensing.md#32-detectors)).
 
