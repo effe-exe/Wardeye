@@ -19,7 +19,11 @@
         <p id="status" class="wd-status">Looking for the Twitch tab</p>
       </div>
     </header>
-    <main>
+    <nav class="wd-tabs" role="tablist" aria-label="Panel">
+      <button id="tab-match" class="wd-tab" type="button" role="tab" aria-selected="true" aria-controls="match">Match</button>
+      <button id="tab-settings" class="wd-tab" type="button" role="tab" aria-selected="false" aria-controls="settings">Settings</button>
+    </nav>
+    <main id="match" role="tabpanel" aria-labelledby="tab-match">
       <section id="players" class="wd-players" aria-label="Players"></section>
       <section class="wd-section" aria-labelledby="lists-head">
         <h2 id="lists-head" class="wd-eyebrow">Decklists</h2>
@@ -32,6 +36,11 @@
         <ol id="plays" class="wd-plays"></ol>
       </section>
     </main>
+    <section id="settings" class="wd-settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
+      <h2 class="wd-eyebrow">Performance</h2>
+      <p class="wd-note">How often Wardeye reads the video. Less often uses less of your computer, for other apps; cards are named more slowly.</p>
+      <div id="powers" class="wd-powers" role="radiogroup" aria-label="Performance"></div>
+    </section>
     <footer class="wd-foot">Read on this computer, from the video alone. The plays and the lists stay in the tab, and go when it closes.</footer>
   </body>
 </html>

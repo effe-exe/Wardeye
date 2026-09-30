@@ -11,6 +11,7 @@
 import { MARK_SHAPES, MARK_VIEWBOX } from './mark';
 import type { BoardEvent } from './parts';
 import { clock, isSnapshot, type Side, type Snapshot } from './plays';
+import { POWERS, POWER_TEXT, asPower, type Power } from './power';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const RETRY_MS = 2000; // a tab whose page is loading has no content script yet: it is asked again, a few times
@@ -272,6 +273,44 @@ async function follow(force = false): Promise<void> {
   });
   line = p;
 }
+
+// --- the tabs: the match, and the settings -----------------------------------------------------------------------
+
+const tabs = { match: document.getElementById('tab-match')!, settings: document.getElementById('tab-settings')! };
+const panes = { match: document.getElementById('match')!, settings: document.getElementById('settings')! };
+function show(which: 'match' | 'settings'): void {
+  for (const k of ['match', 'settings'] as const) {
+    tabs[k].setAttribute('aria-selected', String(k === which));
+    panes[k].hidden = k !== which;
+  }
+}
+tabs.match.addEventListener('click', () => show('match'));
+tabs.settings.addEventListener('click', () => show('settings'));
+
+/** The performance levels, one to choose; the choice is kept in the extension's storage, and every tab follows it at once. */
+const powersEl = document.getElementById('powers')!;
+function drawPowers(chosen: Power): void {
+  powersEl.replaceChildren(
+    ...POWERS.map((p) => {
+      const label = el('label', 'wd-power');
+      const input = el('input', '');
+      input.type = 'radio';
+      input.name = 'power';
+      input.value = p;
+      input.checked = p === chosen;
+      input.addEventListener('change', () => void chrome.storage.local.set({ power: p }).catch(() => {}));
+      const text = el('span', 'wd-power-text');
+      text.append(el('span', 'wd-power-name', POWER_TEXT[p].name), el('span', 'wd-power-about', POWER_TEXT[p].about));
+      label.append(input, text);
+      return label;
+    }),
+  );
+}
+drawPowers(asPower(undefined));
+chrome.storage.local.get('power').then((v) => drawPowers(asPower(v['power'])), () => {});
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes['power']) drawPowers(asPower(changes['power'].newValue));
+});
 
 chrome.tabs.onActivated.addListener(() => void follow());
 chrome.tabs.onUpdated.addListener((id, change) => {

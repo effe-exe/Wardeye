@@ -53,3 +53,9 @@ declare namespace chrome.sidePanel {
   /** Chrome 116 and later, in answer to a click (the badge's plays button, forwarded by the content script). */
   function open(options: { tabId?: number; windowId?: number }): Promise<void>;
 }
+
+declare namespace chrome.storage {
+  /** The viewer's settings (the plays panel's performance level): the only thing Wardeye keeps. */
+  const local: { get(key: string): Promise<Record<string, unknown>>; set(items: Record<string, unknown>): Promise<void> };
+  const onChanged: { addListener(cb: (changes: Record<string, { newValue?: unknown }>, area: string) => void): void };
+}

@@ -13,6 +13,7 @@ import { NAME, badge, badgeDetail, badgeParts, becameNamed, boxClass, captureSiz
 import { MARK_SHAPES, MARK_VIEWBOX } from './mark';
 import type { BoardEvent } from './parts';
 import { PlayLog, sidesOf, type Snapshot } from './plays';
+import { DEFAULT_POWER, asPower, paced, type Power } from './power';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const EVERY_MS = 250; // the live runner: at most four frames a second; a laptop reads about two. The engine in the extension sets its own pace
@@ -32,6 +33,11 @@ const drawnBoxes = new Map<string, { poly: SVGPolygonElement; text: SVGTextEleme
 let hovered: string | null = null;
 let hoverAt: PointerEvent | null = null;
 const log = new PlayLog(); // this video's plays, for the plays panel
+let power: Power = DEFAULT_POWER; // how hard Wardeye works (the panel's settings), from the extension's storage
+chrome.storage.local.get('power').then((v) => (power = asPower(v['power'])), () => {});
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes['power']) power = asPower(changes['power'].newValue);
+});
 let lists: string[] = []; // the plays panel's decklist boxes for this video, one a player ('' for an empty one)
 let listsVideo = ''; // the video they were pasted for
 const LIST_SLOTS = 2; // a box for each player
@@ -181,7 +187,7 @@ function tick(): void {
   place();
   if (!video || !shown || video.paused || video.ended || inFlight || !port) return; // off (Alt+R) or paused: nothing is read
   const now = performance.now();
-  if (now - lastSent < frameInterval(state, EVERY_MS)) return;
+  if (now - lastSent < paced(frameInterval(state, EVERY_MS), power)) return; // the viewer's performance setting
   inFlight = true;
   lastSent = now;
   const t = video.currentTime;

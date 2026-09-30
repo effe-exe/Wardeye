@@ -1,6 +1,6 @@
 # Wardeye privacy policy
 
-**Last updated: 29 September 2026.** Wardeye is a free, open-source browser extension, a community project by Federico Vietti. This policy covers the extension as published on the Chrome Web Store. Its code is public, so everything below can be checked in [apps/extension](../apps/extension/).
+**Last updated: 30 September 2026.** Wardeye is a free, open-source browser extension, a community project by Federico Vietti. This policy covers the extension as published on the Chrome Web Store. Its code is public, so everything below can be checked in [apps/extension](../apps/extension/).
 
 ## In short
 
@@ -27,7 +27,7 @@ These are ordinary web requests, like visiting the gallery. Riot's servers see y
 
 ## What it stores
 
-Nothing of its own: no cookies, no history of what you watched, no settings about you. When you close the tab, the board is gone. From version 0.2, the plays panel lists the plays of the video in that tab, and holds any decklist you paste into it; both are kept only in the tab's memory and go when the tab closes or another video starts. A pasted decklist is read on your computer and sent nowhere. Your browser may keep the card list and the card images in its ordinary cache, as it does for any web page.
+No cookies, no history of what you watched, nothing about you. From version 0.2 it keeps one setting, the performance level you choose in the plays panel (Full, Balanced or Light), in the extension's own storage in your browser; it is never sent anywhere, and goes when you remove the extension. When you close the tab, the board is gone. From version 0.2, the plays panel lists the plays of the video in that tab, and holds any decklist you paste into it; both are kept only in the tab's memory and go when the tab closes or another video starts. A pasted decklist is read on your computer and sent nowhere. Your browser may keep the card list and the card images in its ordinary cache, as it does for any web page.
 
 ## The permissions it asks for
 
@@ -36,6 +36,7 @@ Nothing of its own: no cookies, no history of what you watched, no settings abou
 | Read and change data on `www.twitch.tv` | To read the video frames and draw the overlay on the player |
 | `offscreen` | To run the recognition engine in a hidden document of the extension, so it does not slow the page |
 | `sidePanel` (from version 0.2) | To show the plays panel, the plays and each player's side of the table, in the browser's side panel beside the page |
+| `storage` (from version 0.2) | To remember the performance level chosen in the panel's settings, on your computer |
 | Access to `content.publishing.riotgames.com` and `cmsassets.rgpub.io` | To load the card names, types and images from Riot's public card gallery |
 
 The extension also makes its three fonts available to twitch.tv pages, for the overlay. A page could use them to tell that Wardeye is installed; they carry no information about you.

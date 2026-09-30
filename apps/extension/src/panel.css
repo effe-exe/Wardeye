@@ -97,4 +97,27 @@ button.wd-play-row:focus-visible { outline: 2px solid var(--wd-primary); outline
 .wd-button:hover { background: var(--wd-primary-light); }
 .wd-button:disabled { background: var(--wd-surface-2); color: var(--wd-dim); cursor: default; }
 
+/* The tabs: the match and the settings, a hairline under them, the chosen one in the primary. */
+.wd-tabs { display: flex; gap: 4px; margin: 0 0 14px; border-bottom: var(--wd-hairline) solid var(--wd-border); }
+.wd-tab {
+  padding: 6px 10px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: transparent;
+  color: var(--wd-muted); font: 600 12px/1.3 var(--wd-font-ui); cursor: pointer;
+}
+.wd-tab:hover { color: var(--wd-text); }
+.wd-tab[aria-selected="true"] { color: var(--wd-primary); border-bottom-color: var(--wd-primary); }
+.wd-tab:focus-visible { outline: 2px solid var(--wd-primary); outline-offset: 1px; }
+main[hidden], .wd-settings[hidden] { display: none; }
+
+/* The performance levels: one row each on the surface, the chosen one bordered in the primary. */
+.wd-powers { display: flex; flex-direction: column; gap: 6px; }
+.wd-power {
+  display: flex; gap: 8px; align-items: flex-start; padding: 8px; cursor: pointer;
+  background: var(--wd-surface); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius-sm);
+}
+.wd-power:has(input:checked) { border-color: var(--wd-primary); }
+.wd-power input { margin: 2px 0 0; accent-color: var(--wd-primary); }
+.wd-power-text { display: flex; flex-direction: column; gap: 2px; }
+.wd-power-name { font: 600 12px/1.3 var(--wd-font-ui); }
+.wd-power-about { color: var(--wd-muted); font: var(--wd-type-caption); }
+
 .wd-foot { margin-top: 20px; color: var(--wd-dim); font: var(--wd-type-caption); }

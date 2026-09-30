@@ -125,6 +125,19 @@ test("the plays panel lists the tab's plays and each player's side, and a play c
     await page.locator('button.rifteye-off').click();
     await expect(panel.locator('#status')).toContainText('Off in this tab');
     await expect(plays).toHaveCount(1);
+
+    // the settings tab: Full is chosen until the viewer picks another level, which the extension keeps in its storage
+    await panel.locator('#tab-settings').click();
+    await expect(panel.locator('#settings')).toBeVisible();
+    await expect(panel.locator('#match')).toBeHidden();
+    await expect(panel.locator('#powers input:checked')).toHaveValue('full');
+    await panel.locator('#powers label', { hasText: 'Light' }).click();
+    await expect.poll(() => worker.evaluate(async () => (await chrome.storage.local.get('power'))['power'])).toBe('light');
+    await panel.reload();
+    await panel.locator('#tab-settings').click();
+    await expect(panel.locator('#powers input:checked')).toHaveValue('light');
+    await panel.locator('#tab-match').click();
+    await expect(panel.locator('#match')).toBeVisible();
   } finally {
     await unload(loaded);
   }

@@ -163,7 +163,7 @@ describe('the build of the extension', () => {
 
   it('builds the plays panel and opens it in the side panel: its page loads its own script and stylesheet, and nothing else', () => {
     expect(manifest.side_panel).toEqual({ default_path: 'panel.html' });
-    expect(manifest.permissions).toEqual(['offscreen', 'sidePanel']);
+    expect(manifest.permissions).toEqual(['offscreen', 'sidePanel', 'storage']);
     const html = built('panel.html');
     expect([...html.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1])).toEqual(['panel.css', 'panel.js']);
     expect(html).not.toMatch(/https?:\/\//);
@@ -251,8 +251,8 @@ describe('the store build of the extension (node build.mjs --store)', () => {
     expect(JSON.stringify(manifest)).not.toContain('127.0.0.1');
     expect(manifest.host_permissions).toEqual(['https://content.publishing.riotgames.com/*', 'https://cmsassets.rgpub.io/*']); // exactly these two
     expect({ ...manifest, host_permissions: srcManifest.host_permissions }).toEqual(srcManifest); // every other key as it is in src/manifest.json
-    expect(manifest.version).toBe('0.1.2');
-    expect(manifest.permissions).toEqual(['offscreen', 'sidePanel']); // the engine's document, and the plays panel beside the page
+    expect(manifest.version).toBe('0.2.0');
+    expect(manifest.permissions).toEqual(['offscreen', 'sidePanel', 'storage']); // the engine's document, and the plays panel beside the page
     expect((manifest.action as { default_title: string }).default_title).toBe('Wardeye is on. Click to turn it off (Alt+R)'); // the toolbar button, which turns it off
     expect(manifest.content_scripts.flatMap((c) => c.matches)).toEqual(['https://www.twitch.tv/*']); // it runs on twitch.tv and nowhere else
   });

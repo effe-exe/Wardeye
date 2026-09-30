@@ -45,7 +45,9 @@ Off, the overlay is hidden and nothing is read.
 - the plays, newest first. Click one and the replay goes back to just before it;
 - a decklist box for each player. Paste the player's published deck code or a deckbuilder's export (text, tourney sheet or JSON) and click **Use this list**. The box says which legend the list names and any line it could not read. A list counts only for the player whose legend it names, whichever box it is in, and it helps name only the cards face up on the table.
 
-The plays and the lists stay in the tab and go when it closes. Nothing is stored or sent anywhere.
+**Performance**: the panel's **Settings** tab sets how often Wardeye reads the video. **Full** reads up to 5 frames a second, **Balanced** 2 and **Light** 1, for a computer busy with other apps; the lighter levels name cards more slowly.
+
+The plays and the lists stay in the tab and go when it closes. The performance level is the one thing the extension stores, in the browser. Nothing is sent anywhere.
 
 ## Status: alpha
 
