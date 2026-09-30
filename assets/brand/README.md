@@ -122,10 +122,14 @@ For players and viewers who already care about the game: precise, calm, a little
 The product lives on top of the Twitch and YouTube players, so it stays minimal and the stream remains the hero.
 
 - **Overlays are translucent, borders are hairline**, and colour is kept for recognition confidence and interactive states.
-- **Card preview**, on hover: a surface panel with a 1.5 px primary border and 8 px corners. The official art (from Riot's gallery) on top, then the name (Inter SemiBold), the type and domains (muted), and the confidence (primary, small) when it helps.
+- **Cards on the table are marked, not boxed:** a short stroke along each edge at each corner, 2 px, with a faint dark halo. The primary marks a named card, the warning colour an unsure read, muted a card still being read. Face-down cards and runes get no mark. The full outline, with a faint fill, is for the card under the pointer, and a card just named flashes it once.
+- **Names are chips:** the surface at 88%, a hairline border, 6 px corners, Inter SemiBold at 10 to 13 px, growing with the player. A name that would cover another goes under its card, and waits for the pointer when both places are taken. The name of the card pointed at is edged in the primary.
+- **The viewer chooses what stays on the video:** outlines and names, outlines only, or clean, where nothing shows until a card is pointed at. Pointing at a card shows it in every view.
+- **Card preview**, on hover: a surface panel 224 px wide, with a 1.5 px border (the primary; the warning colour for an unsure read) and 8 px corners. The official art (from Riot's gallery) on top, then the name (Inter SemiBold), the type (muted) when the state has it, how sure the read is (a thin meter and the number, "90% sure", primary, small), and the cards lying under it, each with a small picture and counted when there are several.
+- **The badge** says only the essentials (the cards named, and "on the processor" when WebGPU is not there). The engine's timings show when it is pointed at, in JetBrains Mono.
 - **Timeline:** primary dots on a hairline, with short labels (Turn 3, Unit, Spell, Score).
 - **Icons** are simple and geometric, with a 1.5 px stroke, like Lucide's open icons.
-- **Motion** is restrained: 150–250 ms ease-out for hover and panel open. Nothing moves continuously, except a subtle confidence pulse on a new detection.
+- **Motion** is restrained: 150–250 ms ease-out for hover and panel open, and one flash of a card's outline when it is named. Nothing moves continuously.
 
 ## 9. Where it appears
 

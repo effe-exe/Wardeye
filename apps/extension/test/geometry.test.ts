@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { badge, badgeDetail, badgeParts, becameNamed, boxClass, captureSize, contentRect, frameInterval, hoverCard, label, labelAnchor, type State, type Track } from '../src/geometry';
+import { badge, badgeDetail, badgeParts, becameNamed, belowAnchor, boxClass, captureSize, contentRect, corners, frameInterval, hoverCard, label, labelAnchor, sureText, ticksClass, underOf, type State, type Track } from '../src/geometry';
 
 const track = (over: Partial<Track> = {}): Track => ({
   id: 't1',
@@ -37,17 +37,46 @@ describe('the picture inside the player', () => {
 });
 
 describe('what a card shows', () => {
-  it('is named and boxed solid when Wardeye is sure, and says how sure', () => {
+  it('is named and marked in the primary when Wardeye is sure, and says how sure', () => {
     expect(boxClass(track())).toBe('rifteye-box rifteye-named');
+    expect(ticksClass(track())).toBe('rifteye-ticks rifteye-ticks-named');
     expect(label(track())).toBe('Blade Dancer');
     expect(labelAnchor(track().quad)).toEqual([130, 200]);
-    expect(hoverCard(track())).toEqual({ kind: 'named', printing_id: 'SFD-195a', name: 'Blade Dancer', meta: 'Legend', sure: 'Confidence 0.91', under: '' });
+    expect(belowAnchor(track().quad)).toEqual([130, 284]); // where the name goes when another is in the way above
+    expect(hoverCard(track())).toEqual({ kind: 'named', printing_id: 'SFD-195a', name: 'Blade Dancer', meta: 'Legend', sure: '91% sure', confidence: 0.914, under: [] });
   });
 
-  it('gives its confidence to two decimals, as the card preview does', () => {
-    expect(hoverCard(track({ confidence: 0.9 }))).toMatchObject({ sure: 'Confidence 0.90' });
-    expect(hoverCard(track({ confidence: 1 }))).toMatchObject({ sure: 'Confidence 1.00' });
-    expect(hoverCard(track({ confidence: 0.854 }))).toMatchObject({ sure: 'Confidence 0.85' });
+  it('says how sure it is as a viewer reads it, a whole percentage', () => {
+    expect(hoverCard(track({ confidence: 0.9 }))).toMatchObject({ sure: '90% sure' });
+    expect(hoverCard(track({ confidence: 1 }))).toMatchObject({ sure: '100% sure' });
+    expect(hoverCard(track({ confidence: 0.854 }))).toMatchObject({ sure: '85% sure' });
+    expect(sureText(1.2)).toBe('100% sure');
+    expect(sureText(-0.1)).toBe('0% sure');
+  });
+
+  it('marks a card at its corners: a fifth of each edge, between 6 and 26 frame pixels, never past its middle', () => {
+    // a 60 x 84 card: 12 px along the short edges, 16.8 along the long ones
+    expect(corners(track().quad)).toBe(
+      'M100,216.8L100,200L112,200' + 'M148,200L160,200L160,216.8' + 'M160,267.2L160,284L148,284' + 'M112,284L100,284L100,267.2',
+    );
+    // a big card: capped at 26; a tiny one: at least 6, and never more than half an edge
+    expect(corners([[0, 0], [300, 0], [300, 400], [0, 400]])).toMatch(/^M0,26L0,0L26,0/);
+    expect(corners([[0, 0], [8, 0], [8, 10], [0, 10]])).toMatch(/^M0,5L0,0L4,0/);
+    expect(corners([[0, 0], [1, 1]])).toBe('');
+  });
+
+  it('lists what lies under a card once a printing, counted', () => {
+    const under = [
+      { id: 'a', name: "Zhonya's Hourglass", printing_id: 'OGN-077' },
+      { id: 'b', name: "Zhonya's Hourglass", printing_id: 'OGN-077' },
+      { id: 'c', name: 'Discipline', printing_id: 'OGN-058' },
+      { id: 'd', name: "Zhonya's Hourglass", printing_id: 'OGN-077' },
+    ];
+    expect(underOf(track({ under }))).toEqual([
+      { name: "Zhonya's Hourglass", printing_id: 'OGN-077', count: 3 },
+      { name: 'Discipline', printing_id: 'OGN-058', count: 1 },
+    ]);
+    expect(underOf(track())).toEqual([]);
   });
 
   it('has a meta line only for a type the state carries: a legend and a battlefield say so, any other card does not (the state has no domains)', () => {
@@ -64,14 +93,18 @@ describe('what a card shows', () => {
       { printing_id: 'd', name: 'D', p: 0.1 },
     ];
     const hc = hoverCard(track({ state: 'unsure', guesses: g, under: [{ id: 't2', name: 'Tactical Gear', printing_id: 'x' }] }));
-    expect(hc).toEqual({ kind: 'unsure', guesses: g.slice(0, 3), under: 'Under it: Tactical Gear' });
+    expect(hc).toEqual({ kind: 'unsure', guesses: g.slice(0, 3), under: [{ name: 'Tactical Gear', printing_id: 'x', count: 1 }] });
     expect(label(track({ state: 'unsure' }))).toBe('');
+    expect(ticksClass(track({ state: 'unsure' }))).toBe('rifteye-ticks rifteye-ticks-unsure');
+    expect(ticksClass(track({ state: 'somewhere' }))).toBe('rifteye-ticks rifteye-ticks-new');
   });
 
-  it('never names a face-down card, and runes are boxed faintly with no label or hover', () => {
+  it('never names a face-down card, and runes have no marks, label or hover', () => {
     expect(hoverCard(track({ state: 'facedown' }))).toEqual({ kind: 'text', text: 'Face-down card: never identified' });
+    expect(ticksClass(track({ state: 'facedown' }))).toBe('rifteye-ticks rifteye-ticks-facedown');
     const rune = track({ kind: 'rune', name: 'Fury Rune' });
     expect(boxClass(rune)).toBe('rifteye-box rifteye-named rifteye-rune');
+    expect(ticksClass(rune)).toBe('rifteye-ticks rifteye-ticks-rune');
     expect(label(rune)).toBe('');
     expect(hoverCard(rune)).toBeNull();
   });
@@ -137,13 +170,14 @@ describe('the badge of the engine inside the extension', () => {
   const engine = { runtime: 'webgpu' as const, detector: 'fp32' as const, embedder: 'fp16' as const, every_ms: 200, reads_per_s: 11.94, timing: { decode: 6, detect: 44.5, embed: 22.5, track: 8.2, total: 81.2 }, layout: 'la-rq' };
   const state = (over: Partial<State> = {}): State => ({ t: 1, status: 'live', message: '', frame: { width: 1920, height: 1080 }, tracks: [], engine, ...over });
 
-  it('says the reads a second beside the cards named', () => {
-    expect(badge(true, state({ tracks: [track()] }))).toBe('Wardeye · 1 card named · 11.9 reads/s');
+  it('says the cards named, and that it reads on the processor when it has no WebGPU', () => {
+    expect(badge(true, state({ tracks: [track()] }))).toBe('Wardeye · 1 card named');
+    expect(badge(true, state({ tracks: [track()], engine: { ...engine, runtime: 'wasm' } }))).toBe('Wardeye · 1 card named · on the processor');
     expect(badge(true, state({ status: 'starting', message: 'loading the models (webgpu, fp16)' }))).toBe('Wardeye: loading the models (webgpu, fp16)');
   });
 
-  it('says how it runs and where a frame\'s time goes on a second line, and nothing without the engine', () => {
-    expect(badgeDetail(state())).toBe('WebGPU · detector fp32 · embedder fp16 · decode 6 · detect 44.5 · embed 22.5 · track 8.2 · total 81.2 ms · layout la-rq');
+  it('says how fast and how it runs, and where a frame\'s time goes, on a second line, and nothing without the engine', () => {
+    expect(badgeDetail(state())).toBe('11.9 reads/s · WebGPU · detector fp32 · embedder fp16 · decode 6 · detect 44.5 · embed 22.5 · track 8.2 · total 81.2 ms · layout la-rq');
     expect(badgeDetail(state({ engine: { ...engine, runtime: 'wasm', embedder: 'fp32' } }))).toContain('WASM · detector fp32 · embedder fp32');
     // on WASM, why not WebGPU, at the end of the line
     expect(badgeDetail(state({ engine: { ...engine, runtime: 'wasm', note: 'this browser has no WebGPU adapter' } }))).toMatch(/ · layout la-rq · not WebGPU: this browser has no WebGPU adapter$/);

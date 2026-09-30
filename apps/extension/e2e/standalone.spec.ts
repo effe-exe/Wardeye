@@ -20,11 +20,15 @@ test('the engine in the extension reads the player: an offscreen document, WebGP
     // ... and then the board: the layout was found from the first seconds of the video, and both blocks are boxed
     const boxes = page.locator('polygon.rifteye-box');
     await expect(boxes).toHaveCount(2, { timeout: 90_000 });
-    await expect(page.locator('text.rifteye-label', { hasText: /\S/ })).toHaveText(['Test Unit']); // the other is unsure: no label
-    await expect(page.locator('.rifteye-badge-main')).toHaveText(/^Wardeye · 1 card named · \d+\.\d reads\/s$/);
+    await expect(page.locator('.rifteye-label', { hasText: /\S/ })).toHaveText(['Test Unit']); // the other is unsure: no label
+    await expect(page.locator('.rifteye-badge-main')).toHaveText('Wardeye · 1 card named');
     // it ran on WebGPU (SwiftShader has no shader-f16: both models in float32), and the badge's second line says where a frame's time goes
-    await expect(page.locator('.rifteye-badge-detail')).toHaveText(/^WebGPU · detector fp32 · embedder fp32 · decode [\d.]+ · detect [\d.]+ · embed [\d.]+ · track [\d.]+ · total [\d.]+ ms · layout standin$/);
-    // the timings line is in JetBrains Mono at the micro size, dim; the name and status above it in Space Grotesk and Inter
+    await expect(page.locator('.rifteye-badge-detail')).toHaveText(/^[\d.]+ reads\/s · WebGPU · detector fp32 · embedder fp32 · decode [\d.]+ · detect [\d.]+ · embed [\d.]+ · track [\d.]+ · total [\d.]+ ms · layout standin$/);
+    // the timings line shows when the badge is pointed at, in JetBrains Mono at the micro size, dim; the name and status above it in
+    // Space Grotesk and Inter
+    await expect(page.locator('.rifteye-badge-detail')).toBeHidden();
+    await page.locator('.rifteye-badge-text').hover();
+    await expect(page.locator('.rifteye-badge-detail')).toBeVisible();
     const detail = await styleOf(page, '.rifteye-badge-detail', ['font-family', 'font-size', 'color']);
     expect(detail).toMatchObject({ 'font-size': '10px', color: rgb('dim') });
     expect(detail['font-family']).toMatch(/^"?JetBrains Mono"?,/);
@@ -39,7 +43,7 @@ test('the engine in the extension reads the player: an offscreen document, WebGP
     await boxes.first().hover();
     const card = page.locator('.rifteye-card');
     await expect(card).toContainText('Test Unit');
-    await expect(card).toContainText(/Confidence [01]\.\d\d/);
+    await expect(card).toContainText(/\d+% sure/);
     const painted = () =>
       page.evaluate(() => {
         const c = document.querySelector('.rifteye-card canvas') as HTMLCanvasElement | null;
@@ -69,7 +73,7 @@ test("the plays panel lists the tab's plays and each player's side, and a play c
     const { context } = loaded;
     const page = await twitch(context);
     await page.goto('https://www.twitch.tv/videos/12345');
-    await expect(page.locator('text.rifteye-label', { hasText: /\S/ })).toHaveText(['Test Unit'], { timeout: 90_000 });
+    await expect(page.locator('.rifteye-label', { hasText: /\S/ })).toHaveText(['Test Unit'], { timeout: 90_000 });
     await expect(page.locator('button.rifteye-plays')).toHaveAttribute('aria-label', 'Open the plays panel');
 
     // the panel, as the side panel shows it, fixed to this tab (the side panel follows the active one)
@@ -98,7 +102,10 @@ test("the plays panel lists the tab's plays and each player's side, and a play c
 
     // a decklist pasted: the tab sends it with its next frame, and the engine says what it made of it (the stand-in gallery
     // has no legend, so this list counts for nobody, and the panel says so); a line it cannot read is named
-    // one box a player; the second one's list is read and shown in that box, the first stays empty to paste in
+    // one box a player, in the Decklists tab; the second one's list is read and shown in that box, the first stays empty to paste in
+    await panel.locator('#tab-decks').click();
+    await expect(panel.locator('#decks')).toBeVisible();
+    await expect(panel.locator('#match')).toBeHidden();
     const slots = panel.locator('#lists .wd-list');
     await expect(slots).toHaveCount(2);
     await expect(slots.nth(0)).toContainText("Player 1's list");
@@ -109,6 +116,7 @@ test("the plays panel lists the tab's plays and each player's side, and a play c
     await expect(slots.nth(0).locator('textarea')).toHaveCount(1);
     await slots.nth(1).locator('button', { hasText: 'Remove' }).click();
     await expect(slots.nth(1).locator('textarea')).toHaveCount(1);
+    await panel.locator('#tab-match').click();
 
     // a play clicked: the replay goes to just before it
     const when = await page.evaluate(() => {
@@ -136,6 +144,25 @@ test("the plays panel lists the tab's plays and each player's side, and a play c
     await panel.reload();
     await panel.locator('#tab-settings').click();
     await expect(panel.locator('#powers input:checked')).toHaveValue('light');
+
+    // what shows on the video: outlines and names until the viewer picks another view. Clean leaves nothing on the table, and
+    // pointing at a card still shows it, outlined, with its card preview
+    await page.keyboard.press('Alt+KeyR'); // on again in the tab
+    await expect(page.locator('.rifteye-label', { hasText: /\S/ })).toBeVisible();
+    await expect(panel.locator('#views input:checked')).toHaveValue('full');
+    await panel.locator('#views label', { hasText: 'Clean' }).click();
+    await expect.poll(() => worker.evaluate(async () => (await chrome.storage.local.get('view'))['view'])).toBe('clean');
+    await expect(page.locator('.rifteye-root')).toHaveClass(/rifteye-view-clean/);
+    await expect(page.locator('.rifteye-labels')).toBeHidden();
+    await expect(page.locator('.rifteye-ticks-layer')).toBeHidden();
+    await page.locator('polygon.rifteye-named').hover();
+    await expect(page.locator('.rifteye-card')).toContainText('Test Unit');
+    expect(await styleOf(page, 'polygon.rifteye-named', ['stroke'])).toEqual({ stroke: rgb('primary-light') });
+    // outlines only: the marks, no names
+    await panel.locator('#views label', { hasText: 'Outlines only' }).click();
+    await expect(page.locator('.rifteye-root')).toHaveClass(/rifteye-view-marks/);
+    await expect(page.locator('.rifteye-ticks-layer')).toBeVisible();
+    await expect(page.locator('.rifteye-labels')).toBeHidden();
     await panel.locator('#tab-match').click();
     await expect(panel.locator('#match')).toBeVisible();
   } finally {
@@ -175,7 +202,7 @@ test('a worker put to sleep and woken again goes on with the same engine documen
     await expect.poll(async () => boxes.nth(1).getAttribute('points'), { timeout: 20_000 }).not.toBe(at);
     await expect(boxes).toHaveCount(2);
     expect(await documentIds(context)).toEqual(before);
-    await expect(page.locator('text.rifteye-label', { hasText: /\S/ })).toHaveText(['Test Unit']);
+    await expect(page.locator('.rifteye-label', { hasText: /\S/ })).toHaveText(['Test Unit']);
   } finally {
     await unload(loaded);
   }
@@ -189,7 +216,7 @@ test('a package that says wasm runs the engine on plain WASM', async () => {
     const page = await twitch(loaded.context);
     await page.goto('https://www.twitch.tv/videos/12345');
     await expect(page.locator('polygon.rifteye-box')).toHaveCount(2, { timeout: 90_000 });
-    await expect(page.locator('.rifteye-badge-detail')).toHaveText(/^WASM · detector fp32 · embedder fp32 · /);
+    await expect(page.locator('.rifteye-badge-detail')).toHaveText(/^[\d.]+ reads\/s · WASM · detector fp32 · embedder fp32 · /);
   } finally {
     await unload(loaded);
   }
@@ -203,8 +230,8 @@ test('a float16 embedder on a GPU without shader-f16 runs on WASM, the detector 
     const page = await twitch(loaded.context);
     await page.goto('https://www.twitch.tv/videos/12345');
     await expect(page.locator('polygon.rifteye-box')).toHaveCount(2, { timeout: 90_000 });
-    await expect(page.locator('.rifteye-badge-detail')).toHaveText(/^WASM · detector fp32 · embedder fp16 · /);
-    await expect(page.locator('text.rifteye-label', { hasText: /\S/ })).toHaveText(['Test Unit']); // the float16 graph names the block as the float32 one does
+    await expect(page.locator('.rifteye-badge-detail')).toHaveText(/^[\d.]+ reads\/s · WASM · detector fp32 · embedder fp16 · /);
+    await expect(page.locator('.rifteye-label', { hasText: /\S/ })).toHaveText(['Test Unit']); // the float16 graph names the block as the float32 one does
   } finally {
     await unload(loaded);
   }

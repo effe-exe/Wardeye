@@ -31,6 +31,8 @@ You need desktop Chrome or Edge, version 137 or newer. A recent graphics chip (W
 2. The Wardeye badge on the player says what it is doing: finding the table, then how many cards it has named.
 3. Point at a card on the table. The hover card shows its name, its official image, how sure Wardeye is, and what lies under it, such as gear on a unit.
 
+On the video, each card Wardeye has named is marked at its corners, with its name above it; the card you point at is outlined. The badge shows the engine's timings when you point at it.
+
 **Turn it off** in a tab with any of these; the toolbar button or Alt+R turns it back on:
 
 - the power button on its badge;
@@ -39,15 +41,15 @@ You need desktop Chrome or Edge, version 137 or newer. A recent graphics chip (W
 
 Off, the overlay is hidden and nothing is read.
 
-**The plays panel** (from version 0.2): click the list button on the badge. A panel opens beside the page with:
+**The plays panel** (from version 0.2): click the list button on the badge. A panel opens beside the page, with three tabs:
 
-- each player's legend and the cards face up on their side;
-- the plays, newest first. Click one and the replay goes back to just before it;
-- a decklist box for each player. Paste the player's published deck code or a deckbuilder's export (text, tourney sheet or JSON) and click **Use this list**. The box says which legend the list names and any line it could not read. A list counts only for the player whose legend it names, whichever box it is in, and it helps name only the cards face up on the table.
+- **Match:** each player's legend and the cards face up on their side, and the plays, newest first. Click a play and the replay goes back to just before it.
+- **Decklists:** a box for each player. Paste the player's published deck code or a deckbuilder's export (text, tourney sheet or JSON) and click **Use this list**. The box says which legend the list names and any line it could not read. A list counts only for the player whose legend it names, whichever box it is in, and it helps name only the cards face up on the table.
+- **Settings:**
+  - **On the video:** **Outlines and names** (the default), **Outlines only**, or **Clean**, where nothing shows on the stream until you point at a card. Pointing at a card shows it in every view.
+  - **Performance:** how often Wardeye reads the video. **Full** reads up to 5 frames a second, **Balanced** 2 and **Light** 1, for a computer busy with other apps; the lighter levels name cards more slowly.
 
-**Performance**: the panel's **Settings** tab sets how often Wardeye reads the video. **Full** reads up to 5 frames a second, **Balanced** 2 and **Light** 1, for a computer busy with other apps; the lighter levels name cards more slowly.
-
-The plays and the lists stay in the tab and go when it closes. The performance level is the one thing the extension stores, in the browser. Nothing is sent anywhere.
+The plays and the lists stay in the tab and go when it closes. The two settings are the only things the extension stores, in the browser. Nothing is sent anywhere.
 
 ## Status: alpha
 

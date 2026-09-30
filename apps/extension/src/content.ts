@@ -3,17 +3,19 @@
 //
 // Wardeye on the player itself. While the video plays, this grabs its current frame a few times a
 // second and hands it to the extension's worker, which asks the live runner on this machine; the
-// board it answers with is drawn over the picture: each card's box, its name once Wardeye is sure,
-// and a hover card when you point at it. Paused, or turned off with Alt+R, nothing is read or sent and the board stays.
+// board it answers with is drawn over the picture: each card's corner marks, its name once Wardeye is sure (as much as the
+// viewer's view shows), and its outline and a hover card when you point at it. Paused, or turned off with Alt+R, nothing is
+// read or sent and the board stays.
 // The plays panel (panel.ts) connects here while it is open: this tab's board and plays (plays.ts) go to it, and a play
 // clicked there jumps the video to it.
 // How it looks is overlay.css (the brand book's section 8); this file makes the markup and never sets a colour.
 
-import { NAME, badge, badgeDetail, badgeParts, becameNamed, boxClass, captureSize, contentRect, drawn, frameInterval, hoverCard, label, labelAnchor, type State, type Track } from './geometry';
+import { NAME, badge, badgeDetail, badgeParts, becameNamed, belowAnchor, boxClass, captureSize, contentRect, corners, drawn, frameInterval, hoverCard, label, labelAnchor, ticksClass, type State, type Track, type Under } from './geometry';
 import { MARK_SHAPES, MARK_VIEWBOX } from './mark';
 import type { BoardEvent } from './parts';
 import { PlayLog, sidesOf, type Snapshot } from './plays';
 import { DEFAULT_POWER, asPower, paced, type Power } from './power';
+import { DEFAULT_VIEW, asView, type View } from './view';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const EVERY_MS = 250; // the live runner: at most four frames a second; a laptop reads about two. The engine in the extension sets its own pace
@@ -28,15 +30,28 @@ let video: HTMLVideoElement | null = null;
 const grab = document.createElement('canvas');
 const art = new Map<string, Promise<ImageBitmap | null>>();
 const waiting = new Map<string, (jpeg: string | null) => void>();
-// Keyed by track id, so a card that stays on the table keeps its box, and the hover under the pointer, across updates.
-const drawnBoxes = new Map<string, { poly: SVGPolygonElement; text: SVGTextElement; track: Track; pulsing: boolean }>();
+// Keyed by track id, so a card that stays on the table keeps its marks, its name, and the hover under the pointer, across updates.
+// Each card has its shape (what the pointer finds, outlined while it is pointed at), its corner marks and its name.
+interface Drawn {
+  poly: SVGPolygonElement;
+  ticks: SVGPathElement;
+  chip: HTMLDivElement;
+  track: Track;
+  pulsing: boolean;
+}
+const drawnBoxes = new Map<string, Drawn>();
 let hovered: string | null = null;
 let hoverAt: PointerEvent | null = null;
 const log = new PlayLog(); // this video's plays, for the plays panel
 let power: Power = DEFAULT_POWER; // how hard Wardeye works (the panel's settings), from the extension's storage
-chrome.storage.local.get('power').then((v) => (power = asPower(v['power'])), () => {});
+let view: View = DEFAULT_VIEW; // what stays on the video (the panel's settings)
+chrome.storage.local.get(['power', 'view']).then((v) => {
+  power = asPower(v['power']);
+  setView(asView(v['view']));
+}, () => {});
 chrome.storage.onChanged.addListener((changes) => {
   if (changes['power']) power = asPower(changes['power'].newValue);
+  if (changes['view']) setView(asView(changes['view'].newValue));
 });
 let lists: string[] = []; // the plays panel's decklist boxes for this video, one a player ('' for an empty one)
 let listsVideo = ''; // the video they were pasted for
@@ -98,6 +113,10 @@ const root = el('div', 'rifteye-root');
 const svg = document.createElementNS(SVG, 'svg');
 svg.setAttribute('class', 'rifteye-svg');
 svg.setAttribute('preserveAspectRatio', 'none');
+const ticksLayer = document.createElementNS(SVG, 'g'); // the corner marks, under the shapes the pointer finds
+ticksLayer.setAttribute('class', 'rifteye-ticks-layer');
+svg.append(ticksLayer);
+const chips = el('div', 'rifteye-labels'); // the names, over the cards
 const badgeEl = el('div', 'rifteye-badge');
 const badgeMain = el('div', 'rifteye-badge-main'); // the mark, then the name and the status in one run of text
 const badgeText = el('span', 'rifteye-badge-text');
@@ -120,7 +139,15 @@ badgeDetailEl.hidden = true;
 badgeEl.append(badgeMain, badgeDetailEl);
 const card = el('div', 'rifteye-card');
 card.hidden = true;
-root.append(svg, badgeEl, card);
+root.append(svg, chips, badgeEl, card);
+
+/** The view the viewer chose: the root says it, and the stylesheet hides what the view leaves out. */
+function setView(v: View): void {
+  view = v;
+  root.className = `rifteye-root rifteye-view-${v}`;
+  unclutter();
+}
+setView(view);
 
 /** The badge's text: the name in one typeface, what follows it in another (the text is the same). */
 function setBadge(text: string): void {
@@ -217,7 +244,13 @@ function place(): void {
   root.style.top = `${c.top}px`;
   root.style.width = `${c.width}px`;
   root.style.height = `${c.height}px`;
+  if (c.width !== placedSize[0] || c.height !== placedSize[1]) {
+    placedSize = [c.width, c.height];
+    root.style.setProperty('--rifteye-label-size', `${Math.min(13, Math.max(10, c.width * 0.0095)).toFixed(1)}px`); // the names grow with the player
+    unclutter(); // a bigger or smaller player: the names that fit are not the same
+  }
 }
+let placedSize: [number, number] = [0, 0];
 
 function draw(): void {
   setBadge(badge(online, state));
@@ -226,22 +259,25 @@ function draw(): void {
   badgeDetailEl.hidden = detail === '';
   const live = new Set<string>();
   if (state?.frame.width && state.frame.height) {
-    svg.setAttribute('viewBox', `0 0 ${state.frame.width} ${state.frame.height}`);
+    const { width: fw, height: fh } = state.frame;
+    svg.setAttribute('viewBox', `0 0 ${fw} ${fh}`);
     for (const tr of state.tracks) {
       if (!drawn(tr)) continue;
       live.add(tr.id);
       let d = drawnBoxes.get(tr.id);
-      const before = d?.track; // what this box drew last time; nothing, for a card that is new on the player
+      const before = d?.track; // what this card drew last time; nothing, for a card that is new on the player
       if (!d) {
         const poly = document.createElementNS(SVG, 'polygon');
-        const text = document.createElementNS(SVG, 'text');
-        text.setAttribute('class', 'rifteye-label');
+        const ticks = document.createElementNS(SVG, 'path');
+        const chip = el('div', 'rifteye-label');
         const id = tr.id;
         poly.addEventListener('pointerenter', (e) => {
           hovered = id;
           hoverAt = e;
           const cur = drawnBoxes.get(id);
-          if (cur) showCard(cur.track, e);
+          if (!cur) return;
+          if (cur.chip.textContent) cur.chip.classList.add('rifteye-label-on'); // its name, if it has one, is edged
+          showCard(cur.track, e);
         });
         poly.addEventListener('pointermove', (e) => {
           hoverAt = e;
@@ -249,9 +285,10 @@ function draw(): void {
         });
         poly.addEventListener('pointerleave', () => {
           if (hovered === id) hovered = null;
+          drawnBoxes.get(id)?.chip.classList.remove('rifteye-label-on');
           card.hidden = true;
         });
-        // the pulse of a card just named is one turn of the animation: when it ends, the box is as any other again
+        // the flash of a card just named is one turn of the animation: when it ends, the card is as any other again
         const endPulse = (): void => {
           const cur = drawnBoxes.get(id);
           if (cur) cur.pulsing = false;
@@ -259,31 +296,75 @@ function draw(): void {
         };
         poly.addEventListener('animationend', endPulse);
         poly.addEventListener('animationcancel', endPulse);
-        svg.append(poly, text);
-        d = { poly, text, track: tr, pulsing: false };
+        ticksLayer.append(ticks);
+        svg.append(poly);
+        chips.append(chip);
+        d = { poly, ticks, chip, track: tr, pulsing: false };
         drawnBoxes.set(tr.id, d);
       }
       const changed = d.track.state !== tr.state || d.track.name !== tr.name || d.track.under?.length !== tr.under?.length;
       d.track = tr;
-      d.pulsing = becameNamed(before, tr) || (d.pulsing && tr.state === 'named'); // one turn of the pulse, and only while it is named
+      // one flash when it is named, and only while it is named; a view with nothing on the table has no flash
+      d.pulsing = view !== 'clean' && (becameNamed(before, tr) || (d.pulsing && tr.state === 'named'));
       d.poly.setAttribute('points', tr.quad.map((p) => `${p[0]},${p[1]}`).join(' '));
       d.poly.setAttribute('class', d.pulsing ? `${boxClass(tr)} rifteye-pulse` : boxClass(tr));
+      d.ticks.setAttribute('d', corners(tr.quad));
+      d.ticks.setAttribute('class', ticksClass(tr));
       const [x, y] = labelAnchor(tr.quad);
-      d.text.setAttribute('x', String(x));
-      d.text.setAttribute('y', String(y - 8));
-      d.text.textContent = label(tr);
+      d.chip.textContent = label(tr);
+      d.chip.style.left = `${(x / fw) * 100}%`;
+      d.chip.style.top = `${(y / fh) * 100}%`;
       if (changed && hovered === tr.id && hoverAt) showCard(tr, hoverAt); // what it says under the pointer changed
     }
   }
   for (const [id, d] of drawnBoxes) {
     if (live.has(id)) continue;
     d.poly.remove();
-    d.text.remove();
+    d.ticks.remove();
+    d.chip.remove();
     drawnBoxes.delete(id);
     if (hovered === id) {
       hovered = null;
       card.hidden = true;
     }
+  }
+  unclutter();
+}
+
+const CHIP_GAP = 5; // px between a name and its card (overlay.css: the label's translate)
+
+/** Names that would cover one another: the one lower on the table moves under its card, or, if that is taken too, waits for
+ * the pointer (its hover card still names it). Read once (the names' sizes), decided, then written once. */
+function unclutter(): void {
+  if (view !== 'full' || !state?.frame.width || !state.frame.height) return;
+  const w = root.clientWidth;
+  const h = root.clientHeight;
+  if (!w || !h) return;
+  const sx = w / state.frame.width;
+  const sy = h / state.frame.height;
+  const named = [...drawnBoxes.values()].filter((d) => d.chip.textContent);
+  const sizes = named.map((d) => [d.chip.offsetWidth, d.chip.offsetHeight] as const);
+  const order = named.map((_, i) => i).sort((a, b) => labelAnchor(named[a]!.track.quad)[1] - labelAnchor(named[b]!.track.quad)[1]);
+  const taken: [number, number, number, number][] = [];
+  const free = (r: [number, number, number, number]): boolean =>
+    taken.every((t) => r[2] <= t[0] || r[0] >= t[2] || r[3] <= t[1] || r[1] >= t[3]);
+  const place = new Map<Drawn, 'above' | 'below' | 'none'>();
+  for (const i of order) {
+    const d = named[i]!;
+    const [cw, ch] = sizes[i]!;
+    const [ax, ay] = labelAnchor(d.track.quad);
+    const [bx, by] = belowAnchor(d.track.quad);
+    const above: [number, number, number, number] = [ax * sx - cw / 2, ay * sy - CHIP_GAP - ch, ax * sx + cw / 2, ay * sy - CHIP_GAP];
+    const below: [number, number, number, number] = [bx * sx - cw / 2, by * sy + CHIP_GAP, bx * sx + cw / 2, by * sy + CHIP_GAP + ch];
+    const where = free(above) ? 'above' : free(below) ? 'below' : 'none';
+    if (where !== 'none') taken.push(where === 'above' ? above : below);
+    place.set(d, where);
+  }
+  for (const [d, where] of place) {
+    d.chip.classList.toggle('rifteye-label-below', where === 'below');
+    d.chip.classList.toggle('rifteye-label-hidden', where === 'none');
+    const [, y] = where === 'below' ? belowAnchor(d.track.quad) : labelAnchor(d.track.quad); // back above when there is room again
+    d.chip.style.top = `${(y / state.frame.height) * 100}%`;
   }
 }
 
@@ -308,8 +389,8 @@ function picture(printingId: string | null): Promise<ImageBitmap | null> {
 }
 
 /** A card's picture on a canvas: pages may forbid outside images, never drawing on a canvas. */
-function artCanvas(printingId: string | null, width: number): HTMLCanvasElement {
-  const c = el('canvas', 'rifteye-art');
+function artCanvas(printingId: string | null, width: number, cls = 'rifteye-art'): HTMLCanvasElement {
+  const c = el('canvas', cls);
   c.width = width;
   c.height = Math.round(width * 1.4);
   void picture(printingId).then((bm) => {
@@ -320,28 +401,56 @@ function artCanvas(printingId: string | null, width: number): HTMLCanvasElement 
   return c;
 }
 
+const CARD_ART = 208; // the hover card's picture, as wide as the card's inside (overlay.css: 224 px, 8 px of padding)
+
+/** How sure a named read is: a thin meter in the primary, then the number in the mono face ("90% sure"). */
+function sureRow(sure: string, confidence: number): HTMLDivElement {
+  const row = el('div', 'rifteye-sure');
+  const meter = el('span', 'rifteye-meter');
+  const fill = el('span', 'rifteye-meter-fill');
+  fill.style.width = `${Math.round(Math.min(1, Math.max(0, confidence)) * 100)}%`;
+  meter.append(fill);
+  const [pct, ...rest] = sure.split(' ');
+  row.append(meter, el('span', 'rifteye-pct', pct ?? ''), document.createTextNode(` ${rest.join(' ')}`));
+  return row;
+}
+
+/** What lies under the card: a small picture and the name of each, counted when there are several of one. */
+function underRows(under: Under[]): HTMLDivElement {
+  const box = el('div', 'rifteye-under');
+  box.append(el('div', 'rifteye-under-head', 'Under it'));
+  for (const u of under) {
+    const row = el('div', 'rifteye-under-row');
+    row.append(artCanvas(u.printing_id, 20, 'rifteye-thumb'), el('span', 'rifteye-under-name', u.name));
+    if (u.count > 1) row.append(el('span', 'rifteye-count', `×${u.count}`));
+    box.append(row);
+  }
+  return box;
+}
+
 function showCard(tr: Track, e: PointerEvent): void {
   const hc = hoverCard(tr);
   if (!hc) return;
   card.replaceChildren();
+  card.className = hc.kind === 'unsure' ? 'rifteye-card rifteye-card-unsure' : 'rifteye-card';
   if (hc.kind === 'named') {
-    card.append(artCanvas(hc.printing_id, 200), el('div', 'rifteye-name', hc.name));
+    card.append(artCanvas(hc.printing_id, CARD_ART), el('div', 'rifteye-name', hc.name));
     if (hc.meta) card.append(el('div', 'rifteye-meta', hc.meta));
-    card.append(el('div', 'rifteye-sure', hc.sure));
+    card.append(sureRow(hc.sure, hc.confidence));
   } else if (hc.kind === 'unsure') {
     const row = el('div', 'rifteye-guesses');
     for (const g of hc.guesses) {
       const fig = el('figure', '');
       const caption = el('figcaption', '', `${g.name} · `);
       caption.append(el('span', 'rifteye-pct', `${Math.round(g.p * 100)}%`)); // the numbers in the mono face
-      fig.append(artCanvas(g.printing_id, 104), caption);
+      fig.append(artCanvas(g.printing_id, 64), caption);
       row.append(fig);
     }
     card.append(el('div', 'rifteye-note', 'Not sure yet. Best guesses:'), row);
   } else {
     card.append(el('div', 'rifteye-plain', hc.text));
   }
-  if (hc.kind !== 'text' && hc.under) card.append(el('div', 'rifteye-under', hc.under));
+  if (hc.kind !== 'text' && hc.under.length) card.append(underRows(hc.under));
   card.hidden = false;
   moveCard(e);
 }

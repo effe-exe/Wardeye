@@ -5,13 +5,16 @@
 // window of its own, and the tests), connects to its content script while it is open
 // (a port named 'plays'), and shows what that tab's overlay knows: each player's legend and what is face up on their side of
 // the table, and the plays as they happened, newest first, as the live runner's page does. A play clicked jumps the replay to
-// just before it. Card pictures are asked of the worker, over a port named 'panel', as the overlay asks them. Nothing is kept
-// here: the list lives in the tab (plays.ts). How it looks is panel.css; this file makes the markup and never sets a colour.
+// just before it. Its other tabs hold the decklists pasted for the video and the settings (what shows on the video, and how
+// often it is read), which the extension's storage keeps. Card pictures are asked of the worker, over a port named 'panel', as
+// the overlay asks them. Nothing else is kept here: the list lives in the tab (plays.ts). How it looks is panel.css; this file
+// makes the markup and never sets a colour.
 
 import { MARK_SHAPES, MARK_VIEWBOX } from './mark';
 import type { BoardEvent } from './parts';
 import { clock, isSnapshot, type Side, type Snapshot } from './plays';
-import { POWERS, POWER_TEXT, asPower, type Power } from './power';
+import { POWERS, POWER_TEXT, asPower } from './power';
+import { VIEWS, VIEW_TEXT, asView } from './view';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const RETRY_MS = 2000; // a tab whose page is loading has no content script yet: it is asked again, a few times
@@ -114,26 +117,39 @@ function thumb(printingId: string | null, cls: string): HTMLImageElement {
 function sideSection(s: Side): HTMLElement {
   const section = el('section', 'wd-player');
   section.append(el('h2', 'wd-eyebrow', s.label));
+  // the legend first, larger: the picture, its name in the display face, and what it is
   const legend = el('div', 'wd-legend');
-  if (s.legend) legend.append(thumb(s.legend.printing_id, 'wd-thumb'), el('span', '', s.legend.name));
-  else legend.append(el('span', 'wd-muted', 'Legend not seen yet'));
+  if (s.legend) {
+    const text = el('div', 'wd-legend-text');
+    text.append(el('span', 'wd-legend-name', s.legend.name), el('span', 'wd-legend-kind', 'Legend'));
+    legend.append(thumb(s.legend.printing_id, 'wd-thumb'), text);
+  } else legend.append(el('span', 'wd-muted', 'Legend not seen yet'));
   section.append(legend);
+  // then the cards face up on the side, one row a printing, with what lies under each on a line of its own
   const list = el('ul', 'wd-cards');
   for (const g of s.cards) {
     const li = el('li', '');
-    const text = el('span', 'wd-card-text', g.count > 1 ? `${g.name} ×${g.count}` : g.name); // what lies under it follows in the same run
-    if (g.under.length) text.append(el('span', 'wd-with', ` + ${g.under.join(', ')}`));
+    const text = el('span', 'wd-card-text');
+    const name = el('span', 'wd-card-name', g.name);
+    text.append(name);
+    if (g.count > 1) name.append(el('span', 'wd-count', `×${g.count}`));
+    if (g.under.length) text.append(el('span', 'wd-with', `+ ${g.under.join(', ')}`));
     li.append(thumb(g.printing_id, 'wd-thumb-sm'), text);
     list.append(li);
   }
+  if (!s.cards.length) list.append(el('li', 'wd-muted', 'Nothing named on the table yet'));
+  section.append(list);
+  // and what is there but not named: runes, unsure reads, face-down cards, counted
   const bits = [
     s.runes ? `${s.runes} ${s.runes > 1 ? 'runes' : 'rune'}` : '',
     s.unsure ? `${s.unsure} unsure` : '',
     s.facedown ? `${s.facedown} face down` : '',
   ].filter(Boolean);
-  if (!s.cards.length && !bits.length) list.append(el('li', 'wd-muted', 'Nothing on the table yet'));
-  if (bits.length) list.append(el('li', 'wd-muted', bits.join(', ')));
-  section.append(list);
+  if (bits.length) {
+    const counts = el('div', 'wd-counts');
+    counts.append(...bits.map((b) => el('span', 'wd-chip', b)));
+    section.append(counts);
+  }
   return section;
 }
 
@@ -274,42 +290,51 @@ async function follow(force = false): Promise<void> {
   line = p;
 }
 
-// --- the tabs: the match, and the settings -----------------------------------------------------------------------
+// --- the tabs: the match, the decklists, and the settings ------------------------------------------------------------
 
-const tabs = { match: document.getElementById('tab-match')!, settings: document.getElementById('tab-settings')! };
-const panes = { match: document.getElementById('match')!, settings: document.getElementById('settings')! };
-function show(which: 'match' | 'settings'): void {
-  for (const k of ['match', 'settings'] as const) {
+const PANES = ['match', 'decks', 'settings'] as const;
+type Pane = (typeof PANES)[number];
+const tabs = Object.fromEntries(PANES.map((k) => [k, document.getElementById(`tab-${k}`)!])) as Record<Pane, HTMLElement>;
+const panes = Object.fromEntries(PANES.map((k) => [k, document.getElementById(k)!])) as Record<Pane, HTMLElement>;
+function show(which: Pane): void {
+  for (const k of PANES) {
     tabs[k].setAttribute('aria-selected', String(k === which));
     panes[k].hidden = k !== which;
   }
 }
-tabs.match.addEventListener('click', () => show('match'));
-tabs.settings.addEventListener('click', () => show('settings'));
+for (const k of PANES) tabs[k].addEventListener('click', () => show(k));
 
-/** The performance levels, one to choose; the choice is kept in the extension's storage, and every tab follows it at once. */
-const powersEl = document.getElementById('powers')!;
-function drawPowers(chosen: Power): void {
-  powersEl.replaceChildren(
-    ...POWERS.map((p) => {
-      const label = el('label', 'wd-power');
+/** A setting: its choices, one to pick; the pick is kept in the extension's storage under `key`, and every tab follows it at once. */
+function drawChoices<T extends string>(box: HTMLElement, key: string, choices: readonly T[], text: Readonly<Record<T, { name: string; about: string }>>, chosen: T): void {
+  box.replaceChildren(
+    ...choices.map((c) => {
+      const label = el('label', 'wd-choice');
       const input = el('input', '');
       input.type = 'radio';
-      input.name = 'power';
-      input.value = p;
-      input.checked = p === chosen;
-      input.addEventListener('change', () => void chrome.storage.local.set({ power: p }).catch(() => {}));
-      const text = el('span', 'wd-power-text');
-      text.append(el('span', 'wd-power-name', POWER_TEXT[p].name), el('span', 'wd-power-about', POWER_TEXT[p].about));
-      label.append(input, text);
+      input.name = key;
+      input.value = c;
+      input.checked = c === chosen;
+      input.addEventListener('change', () => void chrome.storage.local.set({ [key]: c }).catch(() => {}));
+      const words = el('span', 'wd-choice-text');
+      words.append(el('span', 'wd-choice-name', text[c].name), el('span', 'wd-choice-about', text[c].about));
+      label.append(input, words);
       return label;
     }),
   );
 }
-drawPowers(asPower(undefined));
-chrome.storage.local.get('power').then((v) => drawPowers(asPower(v['power'])), () => {});
+const viewsEl = document.getElementById('views')!; // what Wardeye draws over the stream (view.ts)
+const powersEl = document.getElementById('powers')!; // how often it reads the video (power.ts)
+const drawViews = (v: unknown): void => drawChoices(viewsEl, 'view', VIEWS, VIEW_TEXT, asView(v));
+const drawPowers = (v: unknown): void => drawChoices(powersEl, 'power', POWERS, POWER_TEXT, asPower(v));
+drawViews(undefined);
+drawPowers(undefined);
+chrome.storage.local.get(['view', 'power']).then((v) => {
+  drawViews(v['view']);
+  drawPowers(v['power']);
+}, () => {});
 chrome.storage.onChanged.addListener((changes) => {
-  if (changes['power']) drawPowers(asPower(changes['power'].newValue));
+  if (changes['view']) drawViews(changes['view'].newValue);
+  if (changes['power']) drawPowers(changes['power'].newValue);
 });
 
 chrome.tabs.onActivated.addListener(() => void follow());

@@ -1,8 +1,9 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <!-- Copyright (C) 2026 Federico Vietti and Wardeye contributors -->
-<!-- The plays panel, in the browser's side panel beside the Twitch page: each player's legend and what is face up on their side
-     of the table, and the plays as they happened, newest first; a play clicked jumps the replay to it. panel.ts fills it. -->
+<!-- The plays panel, in the browser's side panel beside the Twitch page. Three tabs: the match (each player's legend and what is
+     face up on their side of the table, and the plays as they happened, newest first; a play clicked jumps the replay to it),
+     the decklists pasted for it, and the settings. panel.ts fills it. -->
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -12,34 +13,46 @@
     <script type="module" src="panel.js"></script>
   </head>
   <body>
-    <header class="wd-head">
-      <span id="mark" class="wd-mark-slot"></span>
-      <div>
-        <h1 class="wd-title">Wardeye</h1>
-        <p id="status" class="wd-status">Looking for the Twitch tab</p>
-      </div>
-    </header>
-    <nav class="wd-tabs" role="tablist" aria-label="Panel">
-      <button id="tab-match" class="wd-tab" type="button" role="tab" aria-selected="true" aria-controls="match">Match</button>
-      <button id="tab-settings" class="wd-tab" type="button" role="tab" aria-selected="false" aria-controls="settings">Settings</button>
-    </nav>
-    <main id="match" role="tabpanel" aria-labelledby="tab-match">
+    <div class="wd-top">
+      <header class="wd-head">
+        <span id="mark" class="wd-mark-slot"></span>
+        <div class="wd-head-text">
+          <h1 class="wd-title">Wardeye</h1>
+          <p id="status" class="wd-status">Looking for the Twitch tab</p>
+        </div>
+      </header>
+      <nav class="wd-tabs" role="tablist" aria-label="Panel">
+        <button id="tab-match" class="wd-tab" type="button" role="tab" aria-selected="true" aria-controls="match">Match</button>
+        <button id="tab-decks" class="wd-tab" type="button" role="tab" aria-selected="false" aria-controls="decks">Decklists</button>
+        <button id="tab-settings" class="wd-tab" type="button" role="tab" aria-selected="false" aria-controls="settings">Settings</button>
+      </nav>
+    </div>
+    <main id="match" class="wd-pane" role="tabpanel" aria-labelledby="tab-match">
       <section id="players" class="wd-players" aria-label="Players"></section>
-      <section class="wd-section" aria-labelledby="lists-head">
-        <h2 id="lists-head" class="wd-eyebrow">Decklists</h2>
-        <p class="wd-note">Paste each player's published list: a deck code or a deckbuilder's export. A list counts only for the player whose legend it names, whichever box it is in. Wardeye fetches no list.</p>
-        <div id="lists" class="wd-lists"></div>
-      </section>
       <section class="wd-section" aria-labelledby="plays-head">
         <h2 id="plays-head" class="wd-eyebrow">Plays</h2>
         <p id="plays-note" class="wd-note" hidden></p>
         <ol id="plays" class="wd-plays"></ol>
       </section>
     </main>
-    <section id="settings" class="wd-settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
-      <h2 class="wd-eyebrow">Performance</h2>
-      <p class="wd-note">How often Wardeye reads the video. Less often uses less of your computer, for other apps; cards are named more slowly.</p>
-      <div id="powers" class="wd-powers" role="radiogroup" aria-label="Performance"></div>
+    <section id="decks" class="wd-pane" role="tabpanel" aria-labelledby="tab-decks" hidden>
+      <div class="wd-section">
+        <h2 id="lists-head" class="wd-eyebrow">Decklists</h2>
+        <p class="wd-note">Paste each player's published list: a deck code or a deckbuilder's export. Wardeye then looks only among the cards on it. A list counts only for the player whose legend it names, whichever box it is in. Wardeye fetches no list.</p>
+        <div id="lists" class="wd-lists"></div>
+      </div>
+    </section>
+    <section id="settings" class="wd-pane" role="tabpanel" aria-labelledby="tab-settings" hidden>
+      <div class="wd-section">
+        <h2 class="wd-eyebrow">On the video</h2>
+        <p class="wd-note">What Wardeye draws over the stream. In every view, pointing at a card shows it.</p>
+        <div id="views" class="wd-choices" role="radiogroup" aria-label="On the video"></div>
+      </div>
+      <div class="wd-section">
+        <h2 class="wd-eyebrow">Performance</h2>
+        <p class="wd-note">How often Wardeye reads the video. Less often uses less of your computer, for other apps; cards are named more slowly.</p>
+        <div id="powers" class="wd-choices" role="radiogroup" aria-label="Performance"></div>
+      </div>
     </section>
     <footer class="wd-foot">Read on this computer, from the video alone. The plays and the lists stay in the tab, and go when it closes.</footer>
   </body>

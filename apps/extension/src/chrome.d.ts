@@ -55,7 +55,7 @@ declare namespace chrome.sidePanel {
 }
 
 declare namespace chrome.storage {
-  /** The viewer's settings (the plays panel's performance level): the only thing Wardeye keeps. */
-  const local: { get(key: string): Promise<Record<string, unknown>>; set(items: Record<string, unknown>): Promise<void> };
+  /** The viewer's settings (the plays panel's performance level and view): the only things Wardeye keeps. */
+  const local: { get(keys: string | string[]): Promise<Record<string, unknown>>; set(items: Record<string, unknown>): Promise<void> };
   const onChanged: { addListener(cb: (changes: Record<string, { newValue?: unknown }>, area: string) => void): void };
 }

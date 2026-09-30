@@ -136,7 +136,7 @@ test('frames from the Twitch player reach the runner and its board is drawn on t
 
     const boxes = page.locator('polygon.rifteye-box');
     await expect(boxes).toHaveCount(2);
-    await expect(page.locator('text.rifteye-label', { hasText: /\S/ })).toHaveText(['Test Unit']); // unsure: no label
+    await expect(page.locator('.rifteye-label', { hasText: /\S/ })).toHaveText(['Test Unit']); // unsure: no label
     await expect(page.locator('.rifteye-badge')).toHaveText('Wardeye · 1 card named');
 
     // the overlay sits on the picture: the named box, centred at (130, 142) of 640 x 360, is at (195, 213) of the
@@ -151,16 +151,21 @@ test('frames from the Twitch player reach the runner and its board is drawn on t
     expect(await page.evaluate(() => getComputedStyle(document.body).getPropertyValue('--wd-primary'))).toBe('');
     expect(await styleOf(page, '.rifteye-root', ['--wd-primary'])).toEqual({ '--wd-primary': hex('primary') });
     await expect.poll(() => loadedFonts(page)).toEqual(expect.arrayContaining(['Inter', 'Space Grotesk']));
-    // boxes: a named card is outlined in the primary (once its pulse is over), an unsure read dashed in the warning colour
+    // at rest a card is marked at its corners, not boxed (once its flash is over): the primary for a named card, the warning colour for
+    // an unsure read, 2 px, one stroke along each edge at each of the four corners; the shape the pointer finds shows nothing
     await expect.poll(() => boxes.first().evaluate((e) => e.getAnimations().length)).toBe(0);
-    expect(await styleOf(page, 'polygon.rifteye-named', ['stroke', 'stroke-width', 'stroke-dasharray'])).toEqual({ stroke: rgb('primary'), 'stroke-width': '2px', 'stroke-dasharray': 'none' });
-    const unsure = await styleOf(page, 'polygon.rifteye-unsure', ['stroke', 'stroke-dasharray']);
-    expect(unsure.stroke).toBe(rgb('warning'));
-    expect(unsure['stroke-dasharray']).not.toBe('none');
-    // a label: Inter SemiBold, with a dark halo so it reads on video
-    const named = await styleOf(page, 'text.rifteye-label', ['font-family', 'font-weight', 'fill', 'stroke', 'paint-order']);
-    expect(named).toMatchObject({ 'font-weight': '600', fill: rgb('text'), stroke: rgb('bg'), 'paint-order': 'stroke' });
+    const clear = 'rgba(0, 0, 0, 0)';
+    expect(await styleOf(page, 'polygon.rifteye-named', ['stroke', 'stroke-width'])).toEqual({ stroke: clear, 'stroke-width': '2px' });
+    expect(await styleOf(page, 'path.rifteye-ticks-named', ['stroke', 'stroke-width', 'fill'])).toEqual({ stroke: rgb('primary'), 'stroke-width': '2px', fill: 'none' });
+    expect(await styleOf(page, 'path.rifteye-ticks-unsure', ['stroke'])).toEqual({ stroke: rgb('warning') });
+    expect(await page.locator('path.rifteye-ticks-named').getAttribute('d')).toMatch(/^(M[\d.]+,[\d.]+L[\d.]+,[\d.]+L[\d.]+,[\d.]+){4}$/);
+    // a name: a chip of the surface over the middle of its card's top edge, in Inter SemiBold
+    const named = await styleOf(page, '.rifteye-label', ['font-family', 'font-weight', 'color', 'border-top-left-radius', 'white-space']);
+    expect(named).toMatchObject({ 'font-weight': '600', color: rgb('text'), 'border-top-left-radius': '6px', 'white-space': 'nowrap' });
     expect(named['font-family']).toMatch(/^"?Inter"?,/);
+    const chip = (await page.locator('.rifteye-label', { hasText: /\S/ }).boundingBox())!;
+    expect(Math.abs(chip.x + chip.width / 2 - (b.x + b.width / 2))).toBeLessThan(2);
+    expect(Math.abs(chip.y + chip.height + 5 - b.y)).toBeLessThan(3);
     // the badge: a translucent surface (the surface colour at 85%), a hairline border, 8 px corners, a blur behind it, the mark (14 px tall)
     // and the name in Space Grotesk, then the status in Inter
     expect(await styleOf(page, '.rifteye-badge', ['border-top-width', 'border-top-color', 'border-top-left-radius'])).toEqual({
@@ -190,9 +195,11 @@ test('frames from the Twitch player reach the runner and its board is drawn on t
     const card = page.locator('.rifteye-card');
     await expect(card).toBeVisible();
     await expect(card).toContainText('Test Unit');
-    await expect(card).toContainText('Confidence 0.90');
-    await expect(card).toContainText('Under it: Test Gear');
+    await expect(card).toContainText('90% sure');
+    await expect(card.locator('.rifteye-under-head')).toHaveText('Under it');
+    await expect(card.locator('.rifteye-under-name')).toHaveText(['Test Gear']);
     await expect.poll(() => artAsked).toContain('/art/TST-001.jpg');
+    await expect.poll(() => artAsked).toContain('/art/TST-003.jpg'); // the small picture of the card under it
     const painted = () =>
       page.evaluate(() => {
         const c = document.querySelector('.rifteye-card canvas') as HTMLCanvasElement | null;
@@ -200,9 +207,9 @@ test('frames from the Twitch player reach the runner and its board is drawn on t
       });
     await expect.poll(painted, { timeout: 5000 }).toBe(255); // the card's picture is drawn
 
-    // the card preview: a surface panel with a primary border and 8 px corners, the picture on top, then the name (Inter SemiBold), the
-    // confidence (primary, at the caption size) and what lies under it (muted). This card has no type to show, so no meta line. The box
-    // under the pointer takes the lighter primary, with a faint fill of it.
+    // the card preview: a surface panel 224 px wide with a primary border and 8 px corners, the picture on top, then the name (Inter
+    // SemiBold), how sure (a meter and the number: primary, at the caption size) and what lies under it (muted). This card has no type to
+    // show, so no meta line. The card under the pointer is outlined in the lighter primary, with a faint fill of it.
     expect(await card.evaluate((c) => [...c.children].map((e) => e.className))).toEqual(['rifteye-art', 'rifteye-name', 'rifteye-sure', 'rifteye-under']);
     expect(await styleOf(page, '.rifteye-card', ['background-color', 'border-top-color', 'border-top-left-radius'])).toEqual({
       'background-color': rgb('surface'), 'border-top-color': rgb('primary'), 'border-top-left-radius': '8px',
@@ -211,17 +218,21 @@ test('frames from the Twitch player reach the runner and its board is drawn on t
     expect((await styleOf(page, '.rifteye-name', ['font-family']))['font-family']).toMatch(/^"?Inter"?,/);
     expect(await styleOf(page, '.rifteye-sure', ['color', 'font-size'])).toEqual({ color: rgb('primary'), 'font-size': '11px' });
     expect(await styleOf(page, '.rifteye-under', ['color'])).toEqual({ color: rgb('muted') });
+    expect(await styleOf(page, '.rifteye-card', ['width'])).toEqual({ width: '224px' });
+    expect(await styleOf(page, '.rifteye-meter-fill', ['background-color', 'width'])).toMatchObject({ 'background-color': rgb('primary') });
+    expect(await page.locator('.rifteye-sure .rifteye-pct').textContent()).toBe('90%');
+    await expect(page.locator('.rifteye-label-on')).toHaveText('Test Unit'); // its name is edged in the primary
     expect(await styleOf(page, 'polygon.rifteye-named', ['stroke', 'fill', 'fill-opacity'])).toEqual({ stroke: rgb('primary-light'), fill: rgb('primary-light'), 'fill-opacity': '0.14' });
 
     await boxes.nth(1).hover();
     await expect(card).toContainText('Not sure yet. Best guesses:');
     await expect(card).toContainText('Guess Two · 40%');
-    // the box under the pointer is the lighter primary, still dashed while it is unsure; the first box is back to its own colour; the
-    // percentages are in JetBrains Mono, the note in the warning colour
-    const hovered = await styleOf(page, 'polygon.rifteye-unsure', ['stroke', 'stroke-dasharray']);
-    expect(hovered.stroke).toBe(rgb('primary-light'));
-    expect(hovered['stroke-dasharray']).not.toBe('none');
-    expect(await styleOf(page, 'polygon.rifteye-named', ['stroke', 'fill-opacity'])).toEqual({ stroke: rgb('primary'), 'fill-opacity': '1' });
+    // the unsure card under the pointer is outlined in the warning colour, and so is its card preview; the first card shows nothing but
+    // its marks again; the percentages are in JetBrains Mono, the note in the warning colour
+    expect(await styleOf(page, 'polygon.rifteye-unsure', ['stroke'])).toEqual({ stroke: rgb('warning') });
+    expect(await styleOf(page, '.rifteye-card', ['border-top-color'])).toEqual({ 'border-top-color': rgb('warning') });
+    expect(await styleOf(page, 'polygon.rifteye-named', ['stroke', 'fill-opacity'])).toEqual({ stroke: clear, 'fill-opacity': '1' });
+    await expect(page.locator('.rifteye-label-on')).toHaveCount(0); // an unsure card has no name to edge
     expect(await page.locator('.rifteye-pct').allTextContents()).toEqual(['40%']);
     expect((await styleOf(page, '.rifteye-pct', ['font-family']))['font-family']).toMatch(/^"?JetBrains Mono"?,/);
     expect(await styleOf(page, '.rifteye-note', ['color'])).toEqual({ color: rgb('warning') });
@@ -312,7 +323,7 @@ test('a card that is named later gets a pulse of its own, and only one', async (
     const page = await twitch(loaded.context);
     await logAnimations(page);
     await page.goto('https://www.twitch.tv/videos/12345');
-    const labels = page.locator('text.rifteye-label', { hasText: /\S/ });
+    const labels = page.locator('.rifteye-label', { hasText: /\S/ });
     await expect(page.locator('polygon.rifteye-box')).toHaveCount(2, { timeout: 30_000 });
     await expect(labels).toHaveText(['Test Unit'], { timeout: 30_000 }); // the second is unsure: no label yet
     await expect(labels).toHaveText(['Test Unit', 'Guess Two'], { timeout: 30_000 }); // ... and now it is named
@@ -329,7 +340,7 @@ test('a card that is named later gets a pulse of its own, and only one', async (
   }
 });
 
-test('a legend says its type on its card preview, and a face-down card is dim, dotted and never identified', async () => {
+test('a legend says its type on its card preview, and a face-down card has no mark and is never identified', async () => {
   test.setTimeout(120_000);
   const runner = await fakeRunner([], [], Infinity, [
     { id: 't4', quad: [[430, 50], [490, 50], [490, 134], [430, 134]], side: 'right', state: 'named', printing_id: 'TST-004',
@@ -344,12 +355,10 @@ test('a legend says its type on its card preview, and a face-down card is dim, d
     await page.goto('https://www.twitch.tv/videos/12345');
     const boxes = page.locator('polygon.rifteye-box');
     await expect(boxes).toHaveCount(4, { timeout: 30_000 });
-    await expect(page.locator('text.rifteye-label', { hasText: /\S/ })).toHaveText(['Test Unit', 'Test Legend']); // the face-down card has no name
-    // a face-down card: the dim token, dotted (zero-length dashes with round caps)
-    const facedown = await styleOf(page, 'polygon.rifteye-facedown', ['stroke', 'stroke-dasharray', 'stroke-linecap']);
-    expect(facedown.stroke).toBe(rgb('dim'));
-    expect(facedown['stroke-dasharray']).toMatch(/^0(px)?[ ,]/);
-    expect(facedown['stroke-linecap']).toBe('round');
+    await expect(page.locator('.rifteye-label', { hasText: /\S/ })).toHaveText(['Test Unit', 'Test Legend']); // the face-down card has no name
+    // a face-down card: no mark at all, but the pointer still finds it
+    expect(await styleOf(page, 'path.rifteye-ticks-facedown', ['display'])).toEqual({ display: 'none' });
+    expect(await styleOf(page, 'polygon.rifteye-facedown', ['stroke'])).toEqual({ stroke: 'rgba(0, 0, 0, 0)' });
     // pointing at it says only what is true (D-005), in the muted colour, with no picture
     const card = page.locator('.rifteye-card');
     await page.locator('polygon.rifteye-facedown').hover();
@@ -362,7 +371,10 @@ test('a legend says its type on its card preview, and a face-down card is dim, d
     expect(await card.evaluate((c) => [...c.children].map((e) => e.className))).toEqual(['rifteye-art', 'rifteye-name', 'rifteye-meta', 'rifteye-sure']);
     await expect(page.locator('.rifteye-meta')).toHaveText('Legend');
     expect(await styleOf(page, '.rifteye-meta', ['color', 'font-size'])).toEqual({ color: rgb('muted'), 'font-size': '11px' });
-    await expect(page.locator('.rifteye-sure')).toHaveText('Confidence 0.97');
+    await expect(page.locator('.rifteye-sure')).toHaveText('97% sure');
+    expect(await styleOf(page, 'polygon.rifteye-facedown', ['stroke'])).toEqual({ stroke: 'rgba(0, 0, 0, 0)' });
+    await page.locator('polygon.rifteye-facedown').hover();
+    expect(await styleOf(page, 'polygon.rifteye-facedown', ['stroke'])).toEqual({ stroke: rgb('muted') }); // pointed at, it is outlined
   } finally {
     await unload(loaded);
     runner.close();

@@ -7,14 +7,18 @@
 
 html { background: var(--wd-bg); color-scheme: dark; }
 body {
-  margin: 0; padding: 14px 14px 20px; background: var(--wd-bg); color: var(--wd-text); font: var(--wd-type-body);
+  margin: 0; padding: 0 14px 20px; background: var(--wd-bg); color: var(--wd-text); font: var(--wd-type-body);
   -webkit-font-smoothing: antialiased;
 }
-main { display: flex; flex-direction: column; gap: 16px; }
+.wd-pane { display: flex; flex-direction: column; gap: 18px; }
+.wd-pane[hidden] { display: none; }
 .wd-section { min-width: 0; }
 
-/* The head: the mark, the name in Space Grotesk, what Wardeye is doing in the tab in Inter, muted. */
-.wd-head { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 14px; }
+/* The top stays in sight while the panel scrolls: the mark, the name in Space Grotesk, what Wardeye is doing in the tab in Inter,
+   muted, then the tabs. */
+.wd-top { position: sticky; top: 0; z-index: 1; margin: 0 -14px 16px; padding: 14px 14px 0; background: var(--wd-bg); }
+.wd-head { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; }
+.wd-head-text { min-width: 0; }
 .wd-mark-slot { flex: none; padding-top: 2px; }
 .wd-mark { display: block; width: 12px; height: 22px; }
 .wd-mark-ward { fill: var(--wd-primary); }
@@ -22,28 +26,52 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .wd-mark-pupil { fill: var(--wd-bg); }
 .wd-mark-glint { fill: var(--wd-text); }
 .wd-title { margin: 0; font: var(--wd-type-h2); font-weight: 600; }
-.wd-status { margin: 2px 0 0; color: var(--wd-muted); font: var(--wd-type-caption); }
+.wd-status { margin: 2px 0 0; color: var(--wd-muted); font: var(--wd-type-caption); overflow-wrap: anywhere; }
+
+/* The tabs: a hairline under them, the chosen one in the primary. */
+.wd-tabs { display: flex; gap: 2px; border-bottom: var(--wd-hairline) solid var(--wd-border); }
+.wd-tab {
+  padding: 7px 10px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: transparent;
+  color: var(--wd-muted); font: 600 12px/1.3 var(--wd-font-ui); cursor: pointer;
+}
+.wd-tab:hover { color: var(--wd-text); }
+.wd-tab[aria-selected="true"] { color: var(--wd-primary); border-bottom-color: var(--wd-primary); }
+.wd-tab:focus-visible { outline: 2px solid var(--wd-primary); outline-offset: -2px; }
 
 /* Section labels: Inter SemiBold, 11 px, in capitals and the primary. */
 .wd-eyebrow { margin: 0 0 8px; color: var(--wd-primary); font: 600 11px/1.4 var(--wd-font-ui); letter-spacing: 0.06em; text-transform: uppercase; }
 .wd-muted { color: var(--wd-muted); }
-.wd-note { margin: 0 0 8px; color: var(--wd-muted); font: var(--wd-type-caption); }
+.wd-note { margin: 0 0 10px; color: var(--wd-muted); font: var(--wd-type-caption); line-height: 1.5; }
 .wd-note[hidden] { display: none; }
 
-/* Each player: a surface panel with a hairline border, the legend first, then what is on their side of the table. */
+/* Each player: a surface panel with a hairline border. The legend first, larger, then the cards face up on their side, one row a
+   printing with what lies under it on a line of its own, then what is there but not named, as small chips. */
 .wd-players { display: flex; flex-direction: column; gap: 10px; }
 .wd-players:empty { display: none; }
-.wd-player { padding: 10px; background: var(--wd-surface); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius); }
-.wd-legend { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; font-weight: 500; }
-.wd-cards { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; font: var(--wd-type-caption); font-size: 12px; }
-.wd-cards li { display: flex; gap: 6px; align-items: center; min-width: 0; }
-.wd-card-text { min-width: 0; overflow-wrap: anywhere; }
-.wd-with { color: var(--wd-muted); }
+.wd-player { padding: 12px; background: var(--wd-surface); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius-lg); }
+.wd-legend {
+  display: flex; gap: 10px; align-items: center; margin-bottom: 10px; padding-bottom: 10px;
+  border-bottom: var(--wd-hairline) solid var(--wd-border);
+}
+.wd-legend-text { display: flex; flex-direction: column; min-width: 0; }
+.wd-legend-name { font: 500 16px/1.25 var(--wd-font-display); overflow-wrap: anywhere; }
+.wd-legend-kind { color: var(--wd-muted); font: var(--wd-type-caption); }
+.wd-cards { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; font: var(--wd-type-caption); font-size: 12px; }
+.wd-cards li { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.wd-card-text { display: flex; flex-direction: column; min-width: 0; }
+.wd-card-name { color: var(--wd-text); font-weight: 500; overflow-wrap: anywhere; }
+.wd-count { margin-left: 5px; color: var(--wd-muted); font-family: var(--wd-font-mono); font-weight: 400; }
+.wd-with { color: var(--wd-muted); font-size: 11px; overflow-wrap: anywhere; }
+.wd-counts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+.wd-chip {
+  padding: 1px 8px; border: var(--wd-hairline) solid var(--wd-border); border-radius: 999px; background: var(--wd-surface-2);
+  color: var(--wd-muted); font: 500 11px/1.5 var(--wd-font-ui);
+}
 
 /* Card pictures: small, rounded, on the raised surface until the picture comes. */
 .wd-thumb, .wd-thumb-sm { flex: none; object-fit: cover; border-radius: 3px; background: var(--wd-surface-2); }
-.wd-thumb { width: 28px; height: 39px; }
-.wd-thumb-sm { width: 20px; height: 28px; }
+.wd-thumb { width: 32px; height: 45px; border-radius: 4px; }
+.wd-thumb-sm { width: 22px; height: 31px; }
 .wd-thumb:not([src]), .wd-thumb-sm:not([src]) { visibility: hidden; }
 
 /* The plays, newest first: a primary dot on a hairline for each, its time in JetBrains Mono, the card, what happened. A play on a
@@ -52,7 +80,7 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .wd-plays::before { content: ''; position: absolute; left: 4px; top: 4px; bottom: 4px; border-left: var(--wd-hairline) solid var(--wd-border); }
 .wd-play { position: relative; }
 .wd-play::before {
-  content: ''; position: absolute; left: -13px; top: 13px; width: 7px; height: 7px; border-radius: 50%; background: var(--wd-primary);
+  content: ''; position: absolute; left: -13px; top: 17px; width: 7px; height: 7px; border-radius: 50%; background: var(--wd-primary);
 }
 .wd-play-left::before { background: var(--wd-dim); }
 .wd-play-changed::before { background: var(--wd-accent); }
@@ -64,18 +92,19 @@ main { display: flex; flex-direction: column; gap: 16px; }
 button.wd-play-row { cursor: pointer; }
 button.wd-play-row:hover { background: var(--wd-surface-2); }
 button.wd-play-row:focus-visible { outline: 2px solid var(--wd-primary); outline-offset: 1px; }
-.wd-time { flex: none; min-width: 44px; color: var(--wd-dim); font: var(--wd-type-micro); font-family: var(--wd-font-mono); }
+.wd-time { flex: none; min-width: 48px; color: var(--wd-dim); font: var(--wd-type-micro); font-family: var(--wd-font-mono); }
 .wd-play-text { min-width: 0; overflow-wrap: anywhere; }
 .wd-play-left .wd-play-text { color: var(--wd-muted); }
 
-/* The decklists: each one read, on the surface, with a quiet remove; the paste box below, and the primary button. */
-.wd-lists { display: flex; flex-direction: column; gap: 6px; margin: 0 0 8px; padding: 0; list-style: none; }
+/* The decklists: one box a player, on the surface. A list read shows what was made of it, with a quiet remove; an empty box has
+   the paste field and the primary button. */
+.wd-lists { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .wd-list {
-  display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; padding: 6px 8px;
-  background: var(--wd-surface); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius-sm);
+  display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: baseline; padding: 10px 12px;
+  background: var(--wd-surface); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius-lg);
   font: var(--wd-type-caption); font-size: 12px;
 }
-.wd-list-label { flex: 1 1 100%; color: var(--wd-muted); font: 600 11px/1.4 var(--wd-font-ui); }
+.wd-list-label { flex: 1 1 100%; color: var(--wd-text); font: 600 12px/1.4 var(--wd-font-ui); }
 .wd-list-what { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .wd-list-bad { color: var(--wd-warning); }
 .wd-list-meta { flex: 1 1 100%; color: var(--wd-muted); overflow-wrap: anywhere; }
@@ -85,39 +114,29 @@ button.wd-play-row:focus-visible { outline: 2px solid var(--wd-primary); outline
 .wd-list-remove:hover { color: var(--wd-primary-light); }
 .wd-list-remove:focus-visible, .wd-button:focus-visible, .wd-paste:focus-visible { outline: 2px solid var(--wd-primary); outline-offset: 1px; }
 .wd-paste {
-  display: block; box-sizing: border-box; width: 100%; min-height: 56px; padding: 6px 8px; resize: vertical;
+  display: block; box-sizing: border-box; width: 100%; min-height: 64px; padding: 7px 9px; resize: vertical;
   background: var(--wd-surface-2); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius-sm);
   color: var(--wd-text); font: var(--wd-type-data); font-size: 11px;
 }
 .wd-paste::placeholder { color: var(--wd-dim); }
 .wd-button {
-  flex: none; padding: 5px 10px; border: 0; border-radius: var(--wd-radius-sm); background: var(--wd-primary); color: var(--wd-bg);
+  flex: none; padding: 6px 12px; border: 0; border-radius: var(--wd-radius-sm); background: var(--wd-primary); color: var(--wd-bg);
   font: 600 12px/1.3 var(--wd-font-ui); cursor: pointer;
 }
 .wd-button:hover { background: var(--wd-primary-light); }
 .wd-button:disabled { background: var(--wd-surface-2); color: var(--wd-dim); cursor: default; }
 
-/* The tabs: the match and the settings, a hairline under them, the chosen one in the primary. */
-.wd-tabs { display: flex; gap: 4px; margin: 0 0 14px; border-bottom: var(--wd-hairline) solid var(--wd-border); }
-.wd-tab {
-  padding: 6px 10px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: transparent;
-  color: var(--wd-muted); font: 600 12px/1.3 var(--wd-font-ui); cursor: pointer;
+/* The settings: one row a choice on the surface, the chosen one bordered in the primary. */
+.wd-choices { display: flex; flex-direction: column; gap: 6px; }
+.wd-choice {
+  display: flex; gap: 10px; align-items: flex-start; padding: 10px; cursor: pointer;
+  background: var(--wd-surface); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius);
 }
-.wd-tab:hover { color: var(--wd-text); }
-.wd-tab[aria-selected="true"] { color: var(--wd-primary); border-bottom-color: var(--wd-primary); }
-.wd-tab:focus-visible { outline: 2px solid var(--wd-primary); outline-offset: 1px; }
-main[hidden], .wd-settings[hidden] { display: none; }
+.wd-choice:hover { border-color: var(--wd-dim); }
+.wd-choice:has(input:checked) { border-color: var(--wd-primary); }
+.wd-choice input { margin: 2px 0 0; accent-color: var(--wd-primary); }
+.wd-choice-text { display: flex; flex-direction: column; gap: 2px; }
+.wd-choice-name { font: 600 12px/1.3 var(--wd-font-ui); }
+.wd-choice-about { color: var(--wd-muted); font: var(--wd-type-caption); line-height: 1.45; }
 
-/* The performance levels: one row each on the surface, the chosen one bordered in the primary. */
-.wd-powers { display: flex; flex-direction: column; gap: 6px; }
-.wd-power {
-  display: flex; gap: 8px; align-items: flex-start; padding: 8px; cursor: pointer;
-  background: var(--wd-surface); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius-sm);
-}
-.wd-power:has(input:checked) { border-color: var(--wd-primary); }
-.wd-power input { margin: 2px 0 0; accent-color: var(--wd-primary); }
-.wd-power-text { display: flex; flex-direction: column; gap: 2px; }
-.wd-power-name { font: 600 12px/1.3 var(--wd-font-ui); }
-.wd-power-about { color: var(--wd-muted); font: var(--wd-type-caption); }
-
-.wd-foot { margin-top: 20px; color: var(--wd-dim); font: var(--wd-type-caption); }
+.wd-foot { margin-top: 24px; color: var(--wd-dim); font: var(--wd-type-caption); line-height: 1.5; }

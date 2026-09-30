@@ -71,21 +71,21 @@ test("the store build names the cards from Riot's gallery, and draws the picture
     // the engine's rows are the gallery's, named by the list: the gold block is TST-001, "Fed Unit, The Golden"
     const boxes = page.locator('polygon.rifteye-box');
     await expect(boxes).toHaveCount(2, { timeout: 90_000 });
-    await expect(page.locator('text.rifteye-label', { hasText: /\S/ })).toHaveText([FED]); // the other block is unsure: no label
-    await expect(page.locator('.rifteye-badge-main')).toHaveText(/^Wardeye · 1 card named · \d+\.\d reads\/s$/);
-    await expect(page.locator('.rifteye-badge-detail')).toHaveText(/^WebGPU · detector fp32 · embedder fp32 · /);
+    await expect(page.locator('.rifteye-label', { hasText: /\S/ })).toHaveText([FED]); // the other block is unsure: no label
+    await expect(page.locator('.rifteye-badge-main')).toHaveText('Wardeye · 1 card named');
+    await expect(page.locator('.rifteye-badge-detail')).toHaveText(/^[\d.]+ reads\/s · WebGPU · detector fp32 · embedder fp32 · /);
 
     // the list was read in one request, all of it at once
     expect(feedRequests(riot)).toEqual(['/publishing-content/v2.0/public/channel/riftbound_website/list/riftbound_gallery_cards?locale=en_US&from=0&limit=2000']);
 
-    // the hover card: the name, and the picture the gallery gives (400 x 559: the card is drawn 200 x 280, not the 16 x 16 of a package's)
+    // the hover card: the name, and the picture the gallery gives (400 x 559: the card is drawn 208 x 291, not the 16 x 16 of a package's)
     await boxes.first().hover();
     const card = page.locator('.rifteye-card');
     await expect(card).toContainText(FED);
-    await expect(card).toContainText(/Confidence [01]\.\d\d/);
+    await expect(card).toContainText(/\d+% sure/);
     const art = card.locator('canvas.rifteye-art').first();
     await expect.poll(async () => near(await middle(art), MAGENTA), { timeout: 10_000 }).toBe(true);
-    expect(await art.evaluate((c) => [(c as HTMLCanvasElement).width, (c as HTMLCanvasElement).height])).toEqual([200, 280]);
+    expect(await art.evaluate((c) => [(c as HTMLCanvasElement).width, (c as HTMLCanvasElement).height])).toEqual([208, 291]);
 
     // the guesses of the unsure block: TST-002 by the list's name, with its picture, and TST-003, which the list does not name, by its id
     await boxes.nth(1).hover();
@@ -132,8 +132,8 @@ test('with the card list down, recognition still runs and the overlay shows prin
     // no names: each printing by its id, and the engine reads the table all the same
     const boxes = page.locator('polygon.rifteye-box');
     await expect(boxes).toHaveCount(2, { timeout: 90_000 });
-    await expect(page.locator('text.rifteye-label', { hasText: /\S/ })).toHaveText(['TST-001']);
-    await expect(page.locator('.rifteye-badge-main')).toHaveText(/^Wardeye · 1 card named · /);
+    await expect(page.locator('.rifteye-label', { hasText: /\S/ })).toHaveText(['TST-001']);
+    await expect(page.locator('.rifteye-badge-main')).toHaveText(/^Wardeye · 1 card named( · on the processor)?$/);
     await boxes.first().hover();
     const card = page.locator('.rifteye-card');
     await expect(card).toContainText('TST-001');
@@ -144,7 +144,7 @@ test('with the card list down, recognition still runs and the overlay shows prin
 
     // the gallery comes back; a minute after the first try it is asked again, and the engine starts afresh with the names
     riot.down = false;
-    await expect(page.locator('text.rifteye-label', { hasText: /\S/ })).toHaveText([FED], { timeout: 200_000 });
+    await expect(page.locator('.rifteye-label', { hasText: /\S/ })).toHaveText([FED], { timeout: 200_000 });
     const asked = feedRequests(riot);
     expect(asked.filter((u) => u.includes('from=0')).length).toBeGreaterThanOrEqual(2); // the first try, and the one that worked
     expect(asked.every((u) => u.endsWith('?locale=en_US&from=0&limit=2000'))).toBe(true); // every try asked for the whole list at once
@@ -167,8 +167,8 @@ test('a browser with no WebGPU adapter runs the store build on plain WASM, where
     loaded = await load({ store: true, gpu: false, args: riot.args });
     const page = await open(loaded, riot);
     await expect(page.locator('polygon.rifteye-box')).toHaveCount(2, { timeout: 120_000 });
-    await expect(page.locator('.rifteye-badge-detail')).toHaveText(/^WASM · detector fp32 · embedder fp32 · /);
-    await expect(page.locator('text.rifteye-label', { hasText: /\S/ })).toHaveText([FED]);
+    await expect(page.locator('.rifteye-badge-detail')).toHaveText(/^[\d.]+ reads\/s · WASM · detector fp32 · embedder fp32 · /);
+    await expect(page.locator('.rifteye-label', { hasText: /\S/ })).toHaveText([FED]);
   } finally {
     await unload(loaded);
     await riot?.close();

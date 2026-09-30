@@ -156,6 +156,8 @@ describe('the build of the extension', () => {
       ...readFileSync(join(EXT, 'src', 'content.ts'), 'utf8').matchAll(/'(rifteye-[\w-]+)'/g),
     ].map((m) => m[1]!));
     for (const c of ['rifteye-box', 'rifteye-named', 'rifteye-unsure', 'rifteye-facedown', 'rifteye-new', 'rifteye-rune', 'rifteye-pulse']) made.add(c); // geometry.ts's boxClass, and the pulse
+    for (const c of ['rifteye-ticks', 'rifteye-ticks-named', 'rifteye-ticks-unsure', 'rifteye-ticks-new', 'rifteye-ticks-facedown', 'rifteye-ticks-rune']) made.add(c); // its ticksClass
+    for (const c of ['rifteye-card-unsure', 'rifteye-view-marks', 'rifteye-view-clean']) made.add(c); // the unsure card, and the views that hide something
     for (const shape of MARK_SHAPES) made.add(shape.cls);
     expect(made.size).toBeGreaterThan(25);
     for (const c of made) expect(rules, c).toMatch(new RegExp(`\\.${c}(?![\\w-])`));
