@@ -137,7 +137,7 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 
 ### D-021: Apply to Riot for a Riftbound app key
 
-- **Date:** 2026-09-29. **Status:** proposed. The application is drafted in [riot-application.md](riot-application.md). Amended by [D-024](#d-024-wardeye-has-its-own-brand-book): Wardeye is never presented as Gradeon's, key or no key. Amended by [D-025](#d-025-release-on-the-chrome-web-store-now-and-apply-to-riot-in-parallel): the release no longer waits for the answer.
+- **Date:** 2026-09-29. **Status:** accepted; the application was sent on 2026-09-30 and is in Riot's review ([riot-application.md](riot-application.md)). Amended by [D-024](#d-024-wardeye-has-its-own-brand-book): Wardeye is never presented as Gradeon's, key or no key. Amended by [D-025](#d-025-release-on-the-chrome-web-store-now-and-apply-to-riot-in-parallel): the release no longer waits for the answer.
 - **Decision:** Apply as a free spectator companion. Once a key is approved:
   - it supersedes [D-015](#d-015-no-riot-api-no-riot-assets-distributed): card data and art come from the Riot API, through a small server that holds the key (as [D-011](#d-011-card-data-and-art-come-only-from-the-riot-api) had it);
   - the extension may be presented as Gradeon's.
@@ -182,10 +182,18 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 
 ### D-026: Legends and published decklists narrow the search, and never reveal anything
 
-- **Date:** 2026-09-29. **Status:** accepted; the Maintainer asked for the feature. Measured in the [decklist report](reports/m2-decklist-prior.md). The legend rule is in the live runner and the engine, on by default, and ships with the extension's next update; decklist import is not built yet. Clarifies [D-005](#d-005-public-information-only).
+- **Date:** 2026-09-29. **Status:** accepted; the Maintainer asked for the feature. Measured in the [decklist report](reports/m2-decklist-prior.md). The legend rule is in the live runner and the engine, on by default. Decklist import is built too: a box for each player in the extension's plays panel. Both ship with the extension's 0.2. Clarifies [D-005](#d-005-public-information-only).
 - **Decision:**
   - **The legend rule, on by default.** Once a player's legend is pinned, the cards on that player's half compete only with the printings that fit the legend's domains, runes included. Battlefields and tokens are always allowed.
   - **Decklists, opt-in.** The viewer may paste a player's published list: a deck code, or a deckbuilder's text, tourney or JSON export. Wardeye fetches no list from any site.
   - **How a list is used.** A list is used only on the half whose pinned legend it names. Each listed card stands for all its printings, tokens are always allowed, and both lists' battlefields are allowed on both halves.
   - **What a list is for.** It only helps name cards already face up on the table. It is never shown, it is kept only for the match being watched, and it is never used to guess or reveal a hand, a face-down card or the rest of the list.
 - **Why:** on Barcelona's hardest match, the legend rule names 97.8% of the cards on the table, against 91.8%. Players often play a printing other than the one listed (35% of the crops in the final). A wrong list used as a hard filter names 8.4%, and the legend guard removes that failure. A published list is public information. [D-005](#d-005-public-information-only) forbids hidden information: hands, face-down cards and what lies in a player's deck. The "deck contents" of the principles are those hidden cards, not a published list.
+
+### D-027: Wardeye's own page at effe-exe.github.io
+
+- **Date:** 2026-09-30. **Status:** accepted; the Maintainer's decision. The product URL of the Riot application ([D-021](#d-021-apply-to-riot-for-a-riftbound-app-key)).
+- **Decision:** Wardeye's page is [effe-exe.github.io](https://effe-exe.github.io), a GitHub Pages site built from the repository [effe-exe/effe-exe.github.io](https://github.com/effe-exe/effe-exe.github.io). It is the product URL registered with Riot, and Riot's `riot.txt` check file lives at its root.
+  - **What it is:** plain HTML in the brand book's look ([D-024](#d-024-wardeye-has-its-own-brand-book)), with no scripts and no trackers. Its illustration is drawn: no broadcast footage, card art or Riot logos ([D-006](#d-006-no-third-party-media-in-git)). Riot's notice is in the footer.
+  - **The page at gradeon.ai/wardeye** stays the maker's other page about Wardeye ([brief](wardeye-page-brief.md)). Like everything else, it presents Wardeye as a community project, not a Gradeon product.
+- **Why:** Riot checks that a product's site is the applicant's with a `riot.txt` file at the root of its domain. A GitHub Pages user site takes that file for free, where the Framer site needs a paid plan. It also keeps the registered URL off a company's site, as [D-024](#d-024-wardeye-has-its-own-brand-book) and the LJJ's business rule ask.

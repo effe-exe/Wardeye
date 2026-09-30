@@ -7,7 +7,7 @@
 
 <h3 align="center">Place the ward. See the table.</h3>
 
-<p align="center">A free browser extension for Riftbound streams on Twitch.<br><sub>Alpha · AGPL-3.0 · a community project by Federico Vietti</sub></p>
+<p align="center">A free browser extension for Riftbound streams on Twitch.<br><sub>Alpha · AGPL-3.0 · a community project by Federico Vietti · <a href="https://effe-exe.github.io">effe-exe.github.io</a></sub></p>
 
 Wardeye is the ward you place on a Riftbound stream. Point at any card on the table to see its name and official image, as the video plays, live or on replay. It works from the video alone, in your browser: no video leaves your computer.
 

@@ -2,6 +2,8 @@
 
 **For:** whoever builds the page in Framer, and their agent. **URL:** `https://gradeon.ai/wardeye`. **Language:** English.
 
+**Since 30 September 2026** the product URL registered with Riot is Wardeye's own page, [effe-exe.github.io](https://effe-exe.github.io) ([D-027](decisions.md#d-027-wardeyes-own-page-at-effe-exegithubio)). This brief is for the page at gradeon.ai/wardeye, which stays the maker's other page about Wardeye: its rules below still apply.
+
 **Read first:** the brand book, [assets/brand/README.md](../assets/brand/README.md). It holds the logo files, colour tokens, fonts, voice and visual language this brief uses. Everything here follows it.
 
 **What Wardeye is.** A free browser extension for people watching Riftbound on Twitch, live or on replay. While the video plays, it recognises the cards lying on the table and names them: point at a card to see its official image and name. It is a community project by Federico Vietti, who also makes Gradeon. It is not a Gradeon product, and it is not out yet.
