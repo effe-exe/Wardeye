@@ -32,9 +32,9 @@ const drawnBoxes = new Map<string, { poly: SVGPolygonElement; text: SVGTextEleme
 let hovered: string | null = null;
 let hoverAt: PointerEvent | null = null;
 const log = new PlayLog(); // this video's plays, for the plays panel
-let lists: string[] = []; // the decklists pasted in the plays panel for this video, sent with every frame
+let lists: string[] = []; // the plays panel's decklist boxes for this video, one a player ('' for an empty one)
 let listsVideo = ''; // the video they were pasted for
-const MAX_LISTS = 4; // two players, and a list or two more of a bracket
+const LIST_SLOTS = 2; // a box for each player
 const panels = new Set<chrome.runtime.Port>(); // the plays panels open on this tab
 let boardSent = 0;
 const BOARD_EVERY_MS = 1000; // the panel's board, at most once a second; a new play at once
@@ -188,7 +188,7 @@ function tick(): void {
   capture(video)
     .then((jpeg) => {
       if (!jpeg || !port) inFlight = false;
-      else port.postMessage({ kind: 'frame', t, video: location.pathname, jpeg, ...(listsNow().length ? { lists: listsNow() } : {}) });
+      else port.postMessage({ kind: 'frame', t, video: location.pathname, jpeg, ...(filledLists().length ? { lists: filledLists() } : {}) });
     })
     .catch(() => {
       inFlight = false; // a player whose picture cannot be read (a protected stream): nothing to send
@@ -349,10 +349,15 @@ function moveCard(e: PointerEvent): void {
   card.style.top = `${y}px`;
 }
 
-/** The lists pasted for this video: another video starts without them, as its plays do. */
+/** The boxes' lists for this video: another video starts without them, as its plays do. */
 function listsNow(): string[] {
   if (listsVideo !== location.pathname) lists = [];
   return lists;
+}
+
+/** The lists the engine is given with each frame: the boxes that hold one. */
+function filledLists(): string[] {
+  return listsNow().filter((x) => x !== '');
 }
 
 /** What the plays panel shows of this tab. */
@@ -369,7 +374,11 @@ function snapshot(): Snapshot {
     message: state?.message ?? '',
     sides: sidesOf(state),
     plays: [...log.plays],
-    lists: listsNow().map((text, i) => ({ text, read: Array.isArray(read) ? ((read[i] as Snapshot['lists'][number]['read']) ?? null) : null })),
+    // each box, with what the engine made of its list (the engine reads the filled boxes, in order)
+    lists: listsNow().map((text, i) => {
+      const k = listsNow().slice(0, i).filter((x) => x !== '').length;
+      return { text, read: text && Array.isArray(read) ? ((read[k] as Snapshot['lists'][number]['read']) ?? null) : null };
+    }),
   };
 }
 
@@ -401,7 +410,7 @@ chrome.runtime.onConnect.addListener((p) => {
     if (msg?.kind === 'seek' && typeof msg.t === 'number') seek(msg.t);
     else if (msg?.kind === 'lists' && Array.isArray(msg.texts)) {
       // the decklists pasted in the panel, for this video: they go with the next frame, and the panel hears what was made of them
-      lists = msg.texts.filter((x): x is string => typeof x === 'string' && x.trim() !== '').slice(0, MAX_LISTS).map((x) => x.slice(0, 20_000));
+      lists = msg.texts.slice(0, LIST_SLOTS).map((x) => (typeof x === 'string' ? x.trim().slice(0, 20_000) : ''));
       listsVideo = location.pathname;
       sendBoard(true);
     }

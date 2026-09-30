@@ -22,9 +22,7 @@ const playersEl = document.getElementById('players')!;
 const playsEl = document.getElementById('plays')!;
 const noteEl = document.getElementById('plays-note')!;
 const listsEl = document.getElementById('lists')!;
-const pasteEl = document.getElementById('paste') as HTMLTextAreaElement;
-const addEl = document.getElementById('add-list') as HTMLButtonElement;
-const MAX_LISTS = 4; // the content script keeps as many
+const SLOTS = 2; // a box for each player, as the content script keeps them
 
 let tabId: number | null = null;
 let line: chrome.runtime.Port | null = null;
@@ -151,9 +149,8 @@ function playItem(e: BoardEvent, live: boolean): HTMLLIElement {
   return li;
 }
 
-/** A pasted list, as the engine read it: the legend it names and how many cards, or what went wrong. */
-function listItem(text: string, read: Snapshot['lists'][number]['read'], i: number): HTMLLIElement {
-  const li = el('li', 'wd-list');
+/** What the engine made of a box's list: the legend it names and how many cards, or what went wrong. */
+function listRead(read: Snapshot['lists'][number]['read']): HTMLElement[] {
   const what = el('span', 'wd-list-what');
   if (!read) what.textContent = 'Read with the next frame';
   else if (read.error) {
@@ -164,35 +161,66 @@ function listItem(text: string, read: Snapshot['lists'][number]['read'], i: numb
     what.textContent = `${legend} · ${read.cards} ${read.cards === 1 ? 'card' : 'cards'}`;
     if (!read.legends.length) what.classList.add('wd-list-bad'); // a list counts only for the legend it names: this one, for none
   }
-  li.append(what);
-  if (read?.unmapped.length) li.append(el('span', 'wd-list-meta', `${read.unmapped.length} ${read.unmapped.length === 1 ? 'line' : 'lines'} not read: ${read.unmapped.slice(0, 3).join('; ')}`));
-  const remove = el('button', 'wd-list-remove', 'Remove');
-  remove.type = 'button';
-  remove.setAttribute('aria-label', `Remove the list ${i + 1}`);
-  remove.addEventListener('click', () => sendLists(texts.filter((_, k) => k !== i)));
-  li.append(remove);
-  li.title = text.slice(0, 400);
-  return li;
+  const out: HTMLElement[] = [what];
+  if (read?.unmapped.length) out.push(el('span', 'wd-list-meta', `${read.unmapped.length} ${read.unmapped.length === 1 ? 'line' : 'lines'} not read: ${read.unmapped.slice(0, 3).join('; ')}`));
+  return out;
 }
 
-/** The tab's lists, sent to it: they go with its next frame. */
-function sendLists(next: string[]): void {
-  texts = next.slice(0, MAX_LISTS);
+/** One player's box: its list as read, with a way to take it out, or a place to paste one. */
+function listSlot(i: number, label: string, text: string, read: Snapshot['lists'][number]['read'], draft: string): HTMLElement {
+  const box = el('div', 'wd-list');
+  box.dataset['slot'] = String(i);
+  box.append(el('span', 'wd-list-label', `${label}'s list`));
+  if (text) {
+    box.append(...listRead(read));
+    const remove = el('button', 'wd-list-remove', 'Remove');
+    remove.type = 'button';
+    remove.setAttribute('aria-label', `Remove ${label}'s list`);
+    remove.addEventListener('click', () => sendSlot(i, ''));
+    box.append(remove);
+    box.title = text.slice(0, 400);
+    return box;
+  }
+  const paste = el('textarea', 'wd-paste');
+  paste.rows = 3;
+  paste.spellcheck = false;
+  paste.placeholder = 'Paste a deck code or a deckbuilder\'s export';
+  paste.setAttribute('aria-label', `${label}'s decklist`);
+  paste.value = draft;
+  const use = el('button', 'wd-button', 'Use this list');
+  use.type = 'button';
+  use.disabled = !line;
+  use.addEventListener('click', () => {
+    if (paste.value.trim()) sendSlot(i, paste.value.trim());
+  });
+  box.append(paste, use);
+  return box;
+}
+
+/** A box's list, sent to the tab: it goes with its next frame. */
+function sendSlot(i: number, text: string): void {
+  const next = Array.from({ length: SLOTS }, (_, k) => texts[k] ?? '');
+  next[i] = text;
+  texts = next;
   line?.postMessage({ kind: 'lists', texts });
 }
 
-addEl.addEventListener('click', () => {
-  const text = pasteEl.value.trim();
-  if (!text || !line) return;
-  sendLists([...texts, text]);
-  pasteEl.value = '';
-});
+/** The boxes, drawn again: what is typed in an empty one stays. */
+function drawSlots(s: Snapshot | null): void {
+  const drafts = new Map<string, string>();
+  for (const t of listsEl.querySelectorAll<HTMLTextAreaElement>('[data-slot] textarea')) drafts.set(t.closest<HTMLElement>('[data-slot]')!.dataset['slot']!, t.value);
+  const lists = s?.lists ?? [];
+  listsEl.replaceChildren(
+    ...Array.from({ length: SLOTS }, (_, i) =>
+      listSlot(i, s?.sides[i]?.label ?? `Player ${i + 1}`, lists[i]?.text ?? '', lists[i]?.read ?? null, drafts.get(String(i)) ?? ''),
+    ),
+  );
+}
 
 function render(s: Snapshot | null): void {
-  addEl.disabled = !s || (s.lists?.length ?? 0) >= MAX_LISTS;
   if (!s) {
-    listsEl.replaceChildren();
-    shownLists = '';
+    if (shownLists !== 'none') drawSlots(null);
+    shownLists = 'none';
     statusEl.textContent = 'Open a Riftbound video on Twitch: its plays are listed here as Wardeye reads the table.';
     playersEl.replaceChildren();
     playsEl.replaceChildren();
@@ -203,11 +231,11 @@ function render(s: Snapshot | null): void {
   statusEl.textContent = !s.on ? 'Off in this tab: nothing is read. Turn it on from the badge, the toolbar button or Alt+R.' : s.message || 'Reading the table';
   playersEl.replaceChildren(...s.sides.map(sideSection));
   const lists = s.lists ?? [];
-  texts = lists.map((l) => l.text);
-  const listKey = JSON.stringify(lists);
+  texts = Array.from({ length: SLOTS }, (_, i) => lists[i]?.text ?? '');
+  const listKey = JSON.stringify([lists, s.sides.map((x) => x.label)]);
   if (listKey !== shownLists) {
     shownLists = listKey;
-    listsEl.replaceChildren(...lists.map((l, i) => listItem(l.text, l.read, i)));
+    drawSlots(s);
   }
   const key = `${s.video}|${s.live}|${s.plays.length}|${s.plays.map((p) => `${p.t}:${p.track}`).join(',')}`;
   if (key === shownPlays) return; // the same plays: the list, and whatever has the focus in it, stays

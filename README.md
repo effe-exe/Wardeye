@@ -15,24 +15,37 @@ It is made by Federico Vietti, who also makes [Gradeon](https://gradeon.ai), the
 
 ## Install
 
-**Chrome Web Store: coming soon.** Until then, watch this page.
+Wardeye comes from the Chrome Web Store. The first version is **in the store's review now**; the link goes here as soon as it is live.
 
-- Desktop Chrome or Edge, version 137 or newer.
-- A recent graphics chip (WebGPU) makes it fast. Without one it runs on the processor, much more slowly.
+- **Chrome:** open Wardeye's page in the Chrome Web Store and click **Add to Chrome**.
+- **Edge:** open the same page in Edge. Edge asks once to **Allow extensions from other stores**; allow it, then click **Get**.
+- **Pin it** (optional): click the puzzle-piece icon in the toolbar, then the pin next to Wardeye. Its toolbar button turns it off and on.
+
+You need desktop Chrome or Edge, version 137 or newer. A recent graphics chip (WebGPU) makes it fast; without one it runs on the processor, much more slowly. The second line of its badge says which.
+
+**From source?** A build from this repository has the whole extension but not the trained models, which ship only inside the store version ([D-022](docs/decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)). On its own it cannot read a table; see [For developers](#for-developers).
 
 ## Use it
 
-1. Open a Riftbound stream or replay on twitch.tv.
+1. Open a Riftbound stream or replay on twitch.tv. Theatre mode and fullscreen work too.
 2. The Wardeye badge on the player says what it is doing: finding the table, then how many cards it has named.
 3. Point at a card on the table. The hover card shows its name, its official image, how sure Wardeye is, and what lies under it, such as gear on a unit.
 
-It works in theatre mode and fullscreen. To turn Wardeye off in a tab, use any of these:
+**Turn it off** in a tab with any of these; the toolbar button or Alt+R turns it back on:
 
 - the power button on its badge;
-- the Wardeye button in Chrome's toolbar (pin it from the puzzle-piece menu);
+- the Wardeye button in the toolbar (it says OFF while it is off);
 - **Alt+R** (Option+R on a Mac).
 
-Off, the overlay is hidden and it reads nothing, and the toolbar button says OFF. The toolbar button or Alt+R turns it back on.
+Off, the overlay is hidden and nothing is read.
+
+**The plays panel** (from version 0.2): click the list button on the badge. A panel opens beside the page with:
+
+- each player's legend and the cards face up on their side;
+- the plays, newest first. Click one and the replay goes back to just before it;
+- a decklist box for each player. Paste the player's published deck code or a deckbuilder's export (text, tourney sheet or JSON) and click **Use this list**. The box says which legend the list names and any line it could not read. A list counts only for the player whose legend it names, whichever box it is in, and it helps name only the cards face up on the table.
+
+The plays and the lists stay in the tab and go when it closes. Nothing is stored or sent anywhere.
 
 ## Status: alpha
 
@@ -63,7 +76,7 @@ The plays panel, the legend rule and pasted decklists are built and come with th
   - Once Wardeye has read a player's legend, it compares a card on that player's half only with the cards the legend allows, about a third of the gallery.
   - On the hardest match measured, a Swiss round at Barcelona, the share of cards named right rises from **91.8% to 97.8%**, and every confident read is right.
 - **Paste the decklists, when they are published.**
-  - Paste each player's deck code, or a deckbuilder's export (text, tourney sheet or JSON), in the plays panel, and Wardeye looks only among the cards on the list. The panel says which legend each list names and any line it could not read.
+  - Paste each player's deck code, or a deckbuilder's export (text, tourney sheet or JSON), in that player's box in the plays panel, and Wardeye looks only among the cards on the list. The box says which legend the list names and any line it could not read.
   - A listed card counts in every printing, because players often use an alternate art or a reprint instead of the printing on the list. In the Barcelona final, 35% of the card sightings on the table were one of those.
   - Wardeye fetches no list from anywhere; it uses only what you paste.
 - **A wrong list can't wreck it.** A list is used only for the player whose legend it names; the other player stays on the legend rule. Applied blindly, another match's lists would name only 8.4% of the cards right.

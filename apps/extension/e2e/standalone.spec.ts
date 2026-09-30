@@ -98,13 +98,17 @@ test("the plays panel lists the tab's plays and each player's side, and a play c
 
     // a decklist pasted: the tab sends it with its next frame, and the engine says what it made of it (the stand-in gallery
     // has no legend, so this list counts for nobody, and the panel says so); a line it cannot read is named
-    await panel.locator('#paste').fill('1 Test Unit (TST-001)\n2 No Such Card');
-    await panel.locator('#add-list').click();
-    await expect(panel.locator('#lists li')).toHaveCount(1);
-    await expect(panel.locator('#lists li')).toContainText('no legend named · 1 card', { timeout: 15_000 });
-    await expect(panel.locator('#lists li')).toContainText('1 line not read: 2 No Such Card');
-    await panel.locator('#lists li button').click();
-    await expect(panel.locator('#lists li')).toHaveCount(0);
+    // one box a player; the second one's list is read and shown in that box, the first stays empty to paste in
+    const slots = panel.locator('#lists .wd-list');
+    await expect(slots).toHaveCount(2);
+    await expect(slots.nth(0)).toContainText("Player 1's list");
+    await slots.nth(1).locator('textarea').fill('1 Test Unit (TST-001)\n2 No Such Card');
+    await slots.nth(1).locator('button').click();
+    await expect(slots.nth(1)).toContainText('no legend named · 1 card', { timeout: 15_000 });
+    await expect(slots.nth(1)).toContainText('1 line not read: 2 No Such Card');
+    await expect(slots.nth(0).locator('textarea')).toHaveCount(1);
+    await slots.nth(1).locator('button', { hasText: 'Remove' }).click();
+    await expect(slots.nth(1).locator('textarea')).toHaveCount(1);
 
     // a play clicked: the replay goes to just before it
     const when = await page.evaluate(() => {

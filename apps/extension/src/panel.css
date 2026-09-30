@@ -70,12 +70,12 @@ button.wd-play-row:focus-visible { outline: 2px solid var(--wd-primary); outline
 
 /* The decklists: each one read, on the surface, with a quiet remove; the paste box below, and the primary button. */
 .wd-lists { display: flex; flex-direction: column; gap: 6px; margin: 0 0 8px; padding: 0; list-style: none; }
-.wd-lists:empty { display: none; }
 .wd-list {
   display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; padding: 6px 8px;
   background: var(--wd-surface); border: var(--wd-hairline) solid var(--wd-border); border-radius: var(--wd-radius-sm);
   font: var(--wd-type-caption); font-size: 12px;
 }
+.wd-list-label { flex: 1 1 100%; color: var(--wd-muted); font: 600 11px/1.4 var(--wd-font-ui); }
 .wd-list-what { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .wd-list-bad { color: var(--wd-warning); }
 .wd-list-meta { flex: 1 1 100%; color: var(--wd-muted); overflow-wrap: anywhere; }
@@ -90,8 +90,6 @@ button.wd-play-row:focus-visible { outline: 2px solid var(--wd-primary); outline
   color: var(--wd-text); font: var(--wd-type-data); font-size: 11px;
 }
 .wd-paste::placeholder { color: var(--wd-dim); }
-.wd-paste-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
-.wd-paste-row .wd-note { margin: 0; }
 .wd-button {
   flex: none; padding: 5px 10px; border: 0; border-radius: var(--wd-radius-sm); background: var(--wd-primary); color: var(--wd-bg);
   font: 600 12px/1.3 var(--wd-font-ui); cursor: pointer;
