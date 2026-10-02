@@ -15,9 +15,9 @@ It is made by Federico Vietti, who also makes [Gradeon](https://gradeon.ai), the
 
 ## Install
 
-Wardeye comes from the Chrome Web Store. The first version is **in the store's review now**; the link goes here as soon as it is live.
+Wardeye comes from the Chrome Web Store: **[Add Wardeye to Chrome](https://chromewebstore.google.com/detail/wardeye/hjglackjofehdfecoeehbdmbobafbjhn)**. The store has version 0.1.2; 0.2, with the plays panel and the settings below, is next.
 
-- **Chrome:** open Wardeye's page in the Chrome Web Store and click **Add to Chrome**.
+- **Chrome:** open [Wardeye's page in the Chrome Web Store](https://chromewebstore.google.com/detail/wardeye/hjglackjofehdfecoeehbdmbobafbjhn) and click **Add to Chrome**.
 - **Edge:** open the same page in Edge. Edge asks once to **Allow extensions from other stores**; allow it, then click **Get**.
 - **Pin it** (optional): click the puzzle-piece icon in the toolbar, then the pin next to Wardeye. Its toolbar button turns it off and on.
 

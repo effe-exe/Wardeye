@@ -24,6 +24,8 @@ Then, on GitHub:
 
 ## B. The Chrome Web Store release
 
+**Live:** [Wardeye on the Chrome Web Store](https://chromewebstore.google.com/detail/wardeye/hjglackjofehdfecoeehbdmbobafbjhn), item `hjglackjofehdfecoeehbdmbobafbjhn`. Version 0.1.2 passed its first review; 0.2.0 is the first update (below).
+
 Now, while Riot reviews the application ([D-025](decisions.md#d-025-release-on-the-chrome-web-store-now-and-apply-to-riot-in-parallel)). The store build:
 - is standalone only: no companion mode and no access to `127.0.0.1`;
 - carries the models ([D-022](decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)) and the embedding index keyed by printing id, and no card image or card text ([D-015](decisions.md#d-015-no-riot-api-no-riot-assets-distributed)): names, types and images load from Riot's public card gallery as the viewer watches;
@@ -61,4 +63,31 @@ Now, while Riot reviews the application ([D-025](decisions.md#d-025-release-on-t
   - `store-promo-small.png`, 440 × 280: the lockup and the one-liner. Required; listings without it are shown after those with one.
   - `store-marquee.png`, 1400 × 560: optional.
   - Screenshots, 1 to 5, at 1280 × 800: the overlay on a table, a hover card open, the badge. Take them from the real extension on a real replay. Crop or blur the broadcast's logos, and credit the broadcast in the description.
-- **Links:** the web page once it is live; until then, the public repository as the homepage and its issues page for support. The privacy policy has a field of its own: [PRIVACY.md](PRIVACY.md) at its public URL.
+- **Links:** the web page, [effe-exe.github.io](https://effe-exe.github.io) ([D-027](decisions.md#d-027-wardeyes-own-page-at-effe-exegithubio)), as the homepage, and the repository's issues page for support. The privacy policy has a field of its own: [PRIVACY.md](PRIVACY.md) at its public URL.
+
+### The 0.2.0 update
+
+The same listing, with these changes:
+
+- **Package:** the 0.2.0 store zip, built and checked as above. The version must be higher than the one live.
+- **Description**, for the new panel and settings:
+
+  > Wardeye is the ward you place on a Riftbound stream. Point at any card on the table to see its name and official image, as the video plays, live or on replay.
+  >
+  > - Marks the cards face up on the table and names them as they are played.
+  > - Shows the card when you point at it, how sure it is, and what lies under it, such as gear on a unit.
+  > - A panel beside the video: each player's legend and the cards on their side, and the plays of the match. On a replay, click a play to jump to it.
+  > - Paste a player's published decklist, and Wardeye looks only among those cards.
+  > - Choose what stays on the video: outlines and names, outlines only, or a clean view that shows a card only when you point at it. Choose how hard it works, for a computer busy with other apps.
+  > - Works in theatre mode and fullscreen. Turn it off and on with the power button on its badge, its toolbar button, or Alt+R (Option+R on a Mac).
+  >
+  > Private by design. The recognition runs on your computer, in your browser. No video leaves it, and Wardeye keeps no history: it stores only your two settings. Card names and images load from Riot's public card gallery. It reads only the table camera, never hand cams, face-down cards or the broadcast's hand lists. It is for watching, not playing: no player stats, no win rates.
+  >
+  > Free for everyone: no ads, no paid features, no account. Open source (AGPL). Alpha: results are published with every model.
+  >
+  > Wardeye is a community project by Federico Vietti. Wardeye was created under Riot Games' "Legal Jibber Jabber" policy using assets owned by Riot Games. Riot Games does not endorse or sponsor this project.
+
+- **Permission justifications** for the two new permissions; neither shows a warning, so an update does not disable the extension for anyone:
+  - `sidePanel`: shows Wardeye's panel in the browser's side panel beside the Twitch page: each player's legend and face-up cards, the plays of the match, the decklists the viewer pastes, and the settings.
+  - `storage`: remembers the viewer's two settings, what Wardeye shows on the video and how often it reads the video, on their computer (`chrome.storage.local`). Nothing else is stored, and nothing is sent anywhere.
+- **Unchanged:** the single purpose, the host permissions, no remote code, no data collected.
