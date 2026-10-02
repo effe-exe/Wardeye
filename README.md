@@ -15,7 +15,7 @@ It is made by Federico Vietti, who also makes [Gradeon](https://gradeon.ai), the
 
 ## Install
 
-Wardeye comes from the Chrome Web Store: **[Add Wardeye to Chrome](https://chromewebstore.google.com/detail/wardeye/hjglackjofehdfecoeehbdmbobafbjhn)**. The store has version 0.1.2; 0.2, with the plays panel and the settings below, is next.
+Wardeye comes from the Chrome Web Store: **[Add Wardeye to Chrome](https://chromewebstore.google.com/detail/wardeye/hjglackjofehdfecoeehbdmbobafbjhn)**. The store has version 0.1.2; 0.2.1, with the plays panel and the settings below, is next.
 
 - **Chrome:** open [Wardeye's page in the Chrome Web Store](https://chromewebstore.google.com/detail/wardeye/hjglackjofehdfecoeehbdmbobafbjhn) and click **Add to Chrome**.
 - **Edge:** open the same page in Edge. Edge asks once to **Allow extensions from other stores**; allow it, then click **Get**.
@@ -41,9 +41,9 @@ On the video, each card Wardeye has named is marked at its corners, with its nam
 
 Off, the overlay is hidden and nothing is read.
 
-**The plays panel** (from version 0.2): click the list button on the badge. A panel opens beside the page, with three tabs:
+**The plays panel** (from version 0.2.1): click the list button on the badge. A panel opens beside the page, with three tabs:
 
-- **Match:** each player's legend and the cards face up on their side, and the plays, newest first. Click a play and the replay goes back to just before it.
+- **Match:** each player's legend, their runes on the table (and how many of them are exhausted), the cards face up on their side, and the plays, newest first. Click a play and the replay goes back to just before it.
 - **Decklists:** a box for each player. Paste the player's published deck code or a deckbuilder's export (text, tourney sheet or JSON) and click **Use this list**. The box says which legend the list names and any line it could not read. A list counts only for the player whose legend it names, whichever box it is in, and it helps name only the cards face up on the table.
 - **Settings:**
   - **On the video:** **Outlines and names** (the default), **Outlines only**, or **Clean**, where nothing shows on the stream until you point at a card. Pointing at a card shows it in every view.
@@ -57,6 +57,8 @@ What works today, on Twitch: the face-up cards on the table are outlined and nam
 
 Not yet: the plays panel and the legends and decklists that narrow the search (next, [below](#next-plays-legends-and-decklists)), and YouTube ([roadmap](docs/ROADMAP.md)).
 
+Known issues in 0.2.1: the rune count can be a rune or two off where runes are stacked tight, in a column or a fan, and the exhausted count is often short there. A card held still in a hand over the table can be read for a moment. A legend can be misread if you turn Wardeye on after its die is down.
+
 ## Measured, not claimed
 
 | | Result | Measured on |
@@ -67,12 +69,13 @@ Not yet: the plays panel and the legends and decklists that narrow the search (n
 
 ## Next: plays, legends and decklists
 
-The plays panel, the legend rule and pasted decklists are built and come with the next update of the extension, 0.2 ([report](docs/reports/m2-decklist-prior.md)).
+The plays panel, the legend rule and pasted decklists are built and come with the next update of the extension, 0.2.1 ([report](docs/reports/m2-decklist-prior.md)).
 
 - **The plays, beside the video.** The list button on the badge opens a panel in the browser's side panel, as the local version has one beside its player.
   - Each player's legend, and what is face up on their side of the table.
   - The plays as they happened, newest first. Click one and the replay goes to just before it.
   - The list lives in the tab: nothing is stored, and it goes when the tab closes.
+- **The table's layout as a guide.** Battlefields are named in the strip along the middle of the table, where the official mat puts them, so a rune turned sideways elsewhere is not taken for one. Each player's runes are counted, with how many are exhausted, stacked runes included: every card is the same size, so a stack's step from strip to strip tells how many runes its gaps hide. The layout never drops a card: a unit that moves to a battlefield or changes hands keeps its name ([D-028](docs/decisions.md#d-028-the-tables-layout-is-a-guide-not-a-rule)).
 - **Graphics stay out.** The table is found inside frames drawn between bars (Stockholm) and past a co-streamer's webcam laid over its border, and Riot's showdown banner is no longer read as cards.
 
 - **The legends narrow the search, with nothing to set up.**

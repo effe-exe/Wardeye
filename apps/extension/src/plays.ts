@@ -9,11 +9,13 @@
 import type { State } from './geometry';
 import type { BoardEvent, ListSummary } from './parts';
 
-/** A player as the recogniser names them: their half of the table, a label, and their legend once it is pinned. */
+/** A player as the recogniser names them: their half of the table, a label, their legend once it is pinned, and their runes
+ * as the engine counts them (an older live runner does not, and then the panel counts the rune tracks). */
 export interface Player {
   side: string;
   label: string;
   legend: { printing_id: string; name: string } | null;
+  runes?: { count: number; exhausted: number };
 }
 
 /** Named cards of one printing on a player's side: how many, and the cards lying under them. */
@@ -24,10 +26,11 @@ export interface Group {
   under: string[];
 }
 
-/** A player's side of the table. */
-export interface Side extends Player {
+/** A player's side of the table: their runes counted, with how many are exhausted (used this turn), never named. */
+export interface Side extends Omit<Player, 'runes'> {
   cards: Group[];
   runes: number;
+  exhausted: number;
   unsure: number;
   facedown: number;
 }
@@ -55,13 +58,16 @@ function players(state: State): Player[] {
   if (!Array.isArray(raw)) return [];
   return raw.flatMap((p: unknown): Player[] => {
     if (typeof p !== 'object' || p === null) return [];
-    const { side, label, legend } = p as { side?: unknown; label?: unknown; legend?: unknown };
+    const { side, label, legend, runes } = p as { side?: unknown; label?: unknown; legend?: unknown; runes?: unknown };
     if (typeof side !== 'string') return [];
     const l = legend as { printing_id?: unknown; name?: unknown } | null | undefined;
+    const r = runes as { count?: unknown; exhausted?: unknown } | null | undefined;
+    const counted = r && Number.isInteger(r.count) && Number.isInteger(r.exhausted) ? { count: r.count as number, exhausted: r.exhausted as number } : null;
     return [{
       side,
       label: typeof label === 'string' ? label : side,
       legend: l && typeof l.printing_id === 'string' && typeof l.name === 'string' ? { printing_id: l.printing_id, name: l.name } : null,
+      ...(counted ? { runes: counted } : {}),
     }];
   });
 }
@@ -73,12 +79,12 @@ export function sidesOf(state: State | null): Side[] {
   if (!state) return [];
   const tracks = state.tracks;
   const under = new Set(tracks.flatMap((t) => (t.under ?? []).map((u) => u.id)));
-  return players(state).map((p) => {
-    const side: Side = { ...p, cards: [], runes: 0, unsure: 0, facedown: 0 };
+  return players(state).map(({ runes, ...p }) => {
+    const side: Side = { ...p, cards: [], runes: runes?.count ?? 0, exhausted: runes?.exhausted ?? 0, unsure: 0, facedown: 0 };
     const groups = new Map<string, Group>();
     for (const t of tracks) {
       if (t.side !== p.side || under.has(t.id) || t.kind === 'legend') continue;
-      if (t.kind === 'rune') side.runes++;
+      if (t.kind === 'rune') side.runes += runes ? 0 : 1; // the engine's count, when it gives one
       else if (t.state === 'unsure') side.unsure++;
       else if (t.state === 'facedown') side.facedown++;
       else if (t.state === 'named') {

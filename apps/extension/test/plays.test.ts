@@ -59,10 +59,23 @@ describe('the board, per player', () => {
       legend: { printing_id: 'SFD-195a', name: 'Blade Dancer' },
       cards: [{ printing_id: 'OGN-010', name: 'Zhonya', count: 2, under: ['Charm'] }],
       runes: 1,
+      exhausted: 0,
       unsure: 0,
       facedown: 0,
     });
-    expect(right).toEqual({ side: 'right', label: 'Player 2', legend: null, cards: [], runes: 0, unsure: 1, facedown: 1 });
+    expect(right).toEqual({ side: 'right', label: 'Player 2', legend: null, cards: [], runes: 0, exhausted: 0, unsure: 1, facedown: 1 });
+  });
+
+  it("takes each player's runes as the engine counts them, with the exhausted ones, over the rune tracks it sends", () => {
+    const counted = {
+      ...state,
+      players: [
+        { side: 'left', label: 'Player 1', legend: null, runes: { count: 6, exhausted: 2 } }, // some runes under a hand: still counted
+        { side: 'right', label: 'Player 2', legend: null, runes: { count: 'many', exhausted: 0 } }, // not a count: the tracks are counted
+      ],
+    } as unknown as State;
+    const [left, right] = sidesOf(counted);
+    expect([left!.runes, left!.exhausted, right!.runes, right!.exhausted]).toEqual([6, 2, 0, 0]);
   });
 
   it('says nothing without a board, or of players the state does not name', () => {

@@ -28,7 +28,7 @@
 // similarity fit (a closed form for the SVD); none changes a step of the LA final replay. `step` is asynchronous
 // because the finder and the encoder are.
 
-import { ChangeGate, gateSettings, viewHeight, viewToFrame, type GateSettings } from './changegate';
+import { ChangeGate, gateSettings, skin, viewHeight, viewToFrame, type GateSettings } from './changegate';
 import { dist, mean as meanOf, npRound, overlapArea } from './geometry';
 import * as image from './image';
 import { box as layoutBox, cardPx, side as layoutSide, sides as layoutSides } from './layouts';
@@ -46,10 +46,61 @@ export const TEMPERATURE = 0.0212;
 export const KEEP_S = 60.0;
 /** A named card that vanished this recently and is named again elsewhere has moved. */
 export const MOVE_S = 10.0;
-/** Set up before the game and never moved: pinned where they are named. */
+/** Set up before the game: pinned where they are named (a moved battlefield's pin follows it). */
 export const STATIC: readonly string[] = ['Legend', 'Battlefield'];
 /** Tracked, but never labelled, listed or announced: not worth watching. */
 export const QUIET: readonly string[] = ['Rune'];
+/** A pinned battlefield read this often, and as itself on fewer than one read in `UNPIN_P`, was misread once: a rune or a
+ * unit turned sideways (exhausted) looks like a battlefield's landscape art. */
+export const UNPIN_READS = 4;
+export const UNPIN_P = 0.2;
+/** A legend or battlefield out of sight this long is not drawn (a hand resting on it is shorter). */
+export const PIN_HIDE_S = 20.0;
+/** A card past the table window's edge on a player's side by this much of its width is in a hand. */
+export const HELD_OUT = 0.15;
+/** The battlefield strip: the band this far either side of the midline between the players, as a share of the table's
+ * width across them (the official mat's is 0.11; battlefields measured within 0.09). */
+export const STRIP = 0.12;
+/** Off the strip, a battlefield is named only after this many reads, and never pinned: a rune or a unit turned sideways
+ * looks like a battlefield's landscape art, and players lay out their tables differently. */
+export const STRIP_READS = 3;
+/** A rune counts in a frame while seen this recently (a hand passing over it is shorter). */
+export const RUNE_SEEN_S = 1.0;
+/** Two rune boxes closer than this share of a card's length are one rune (two tracks on one card). */
+export const RUNE_APART = 0.15;
+/** A rune box longer than this for its width, or than RUNE_LONG cards, spans two runes: the detector's slip. */
+export const RUNE_ASPECT = 1.7;
+export const RUNE_LONG = 1.3;
+/** A player's rune count is the upper quartile of the frames' counts over this long, and the exhausted ones the median
+ * over RUNE_EXHAUSTED_S: hands over the runes and boxes between two come and go, runes stay. */
+export const RUNE_WINDOW_S = 12.0;
+export const RUNE_EXHAUSTED_S = 3.0;
+/** A box whose reads put this share on runes is one, whatever it is named: runes are counted, never named, and a foil rune
+ * or a stacked one's strip is often read as another card. */
+export const RUNE_SHARE = 0.3;
+/** An unread or unnamed card-sized box this close to a rune (in cards), turned its way (within RUNE_TURN degrees, and its
+ * length within RUNE_SIZE of a card's), is one too: a stack's covered strips. */
+export const RUNE_JOIN = 0.6;
+export const RUNE_TURN = 20.0;
+export const RUNE_SIZE = 0.2;
+/** Runes this close (in cards) are one stack: a column or a fan. */
+export const RUNE_LINK = 0.6;
+/** A stack's step from strip to strip, as shares of a card's length: the gaps of that size. */
+export const RUNE_STEP: readonly [number, number] = [0.18, 0.35];
+/** A gap this many steps wide hides runes the detector missed: about gap / step - 1 of them. */
+export const RUNE_GAP = 1.6;
+/** A card with this share of skin in the band around it is in a hand: held, or being put down. */
+export const HAND_SKIN = 0.1;
+/** Out of a hand and still this long before a card is read: a card held over the table is never named. */
+export const HAND_FREE_S = 0.5;
+/** Still: moved less than this share of a card's length since (a hand that holds a card moves it). */
+export const HAND_STILL = 0.04;
+/** The band looked at, as distances out from the card's edges in shares of its width. */
+export const HAND_RING = [0.1, 0.2, 0.3] as const;
+/** Points along each side of the band, at each distance. */
+export const HAND_POINTS = 8;
+/** Fewer of them off the other cards and in the window: no hand to see. */
+export const HAND_MIN_POINTS = 8;
 export const KINDS: ReadonlyMap<string, string> = new Map([
   ['Legend', 'legend'],
   ['Battlefield', 'battlefield'],
@@ -107,10 +158,17 @@ export interface Legend {
   name: string;
 }
 
+/** A player's runes on the table: counted, never named, and how many are exhausted (used). */
+export interface Runes {
+  count: number;
+  exhausted: number;
+}
+
 export interface Player {
   side: string;
   label: string;
   legend: Legend | null;
+  runes: Runes;
 }
 
 /** What `step` returns: the state the overlay draws (apps/extension/src/geometry.ts's State). */
@@ -182,6 +240,11 @@ export class Track {
   kind = '';
   /** A legend or battlefield: kept where it is all game. */
   pinned = false;
+  /** Seen out of a hand and still since (`handShare`), from freeAt. */
+  freeSince: number | null = null;
+  freeAt: [number, number] | null = null;
+  /** Out of a hand and still HAND_FREE_S once: on the table. */
+  placed = false;
 
   constructor(id: string, box: CardBox, first: number, last: number, side = '') {
     this.id = id;
@@ -223,8 +286,68 @@ export function aabb(box: CardBox): Box4 {
 }
 
 /** Out of sight: not seen for more than a second. */
+/** The point lies on the card. */
+export function onBox(box: CardBox, x: number, y: number): boolean {
+  const a = box.angle_deg * (Math.PI / 180);
+  const ux = Math.cos(a);
+  const uy = Math.sin(a);
+  const dx = x - box.centre[0];
+  const dy = y - box.centre[1];
+  return Math.abs(dx * ux + dy * uy) <= box.long_px / 2 && Math.abs(dy * ux - dx * uy) <= box.short_px / 2;
+}
+
+/** The share of skin-coloured points in a band around the box, inside the table window and off the other cards
+ * (`others`): the fingers holding a card in a hand over the table, or putting it down. No card's art is looked at:
+ * gold, faces and fire are skin-coloured too. Hemmed in by other cards, it sees no hand. */
+export function handShare(frame: RgbImage, box: CardBox, table: readonly [number, number, number, number], others: readonly CardBox[] = []): number {
+  const [x0, y0, x1, y1] = table;
+  const { width: w, height: h, data } = frame;
+  const a = box.angle_deg * (Math.PI / 180);
+  const ux = Math.cos(a);
+  const uy = Math.sin(a);
+  const [cx, cy] = box.centre;
+  const near = others.filter((o) => dist(o.centre, box.centre) < o.long_px + box.long_px);
+  const px: number[] = [];
+  for (const f of HAND_RING) {
+    const d = f * box.short_px;
+    const hl = box.long_px / 2 + d;
+    const hs = box.short_px / 2 + d;
+    for (let k = 0; k < HAND_POINTS; k++) {
+      const alongL = ((k + 0.5) / HAND_POINTS) * 2 * hl - hl;
+      const alongS = ((k + 0.5) / HAND_POINTS) * 2 * hs - hs;
+      for (const [su, sv] of [[alongL, hs], [alongL, -hs], [hl, alongS], [-hl, alongS]] as const) {
+        const x = cx + su * ux - sv * uy;
+        const y = cy + su * uy + sv * ux;
+        const xi = Math.floor(x);
+        const yi = Math.floor(y);
+        if (xi >= Math.max(x0, 0) && xi < Math.min(x1, w) && yi >= Math.max(y0, 0) && yi < Math.min(y1, h) && !near.some((o) => onBox(o, x, y))) {
+          const o = (yi * w + xi) * 3;
+          px.push(data[o]!, data[o + 1]!, data[o + 2]!);
+        }
+      }
+    }
+  }
+  const n = px.length / 3;
+  if (n < HAND_MIN_POINTS) return 0;
+  const m = skin({ width: n, height: 1, data: Uint8Array.from(px) }).data;
+  let k = 0;
+  for (const v of m) k += v;
+  return k / n;
+}
+
+/** Out of a hand and still for HAND_FREE_S: a card on the table, not one held over it. */
+export function putDown(t: number, tr: Track): boolean {
+  return tr.freeSince !== null && t - tr.freeSince >= HAND_FREE_S;
+}
+
 export function hiddenNow(t: number, tr: Track): boolean {
   return t - tr.last > 1.0;
+}
+
+/** The card's long side runs up the picture rather than across it. */
+export function upright(box: CardBox): boolean {
+  const a = pyMod(box.angle_deg, 180);
+  return a >= 45 && a < 135;
 }
 
 /** The new box eased from the old one while the card barely moves: the detector's boxes jitter by a few pixels
@@ -558,6 +681,53 @@ export interface RecognizerOptions {
 
 /** Holds the gallery and the table's tracks; `step` takes one frame and returns the state and events. `finder(t,
  * image)` replaces the bootstrap finder, e.g. with the trained detector (detector_boxes). */
+/** Degrees between two boxes' long sides (a box's angle is modulo 180). */
+export function turnApart(a: number, b: number): number {
+  return Math.abs((((a - b + 90) % 180) + 180) % 180 - 90);
+}
+
+/** The boxes in groups, each linked box closer than `reach` to another of its group. */
+export function stacksOf(boxes: readonly CardBox[], reach: number): CardBox[][] {
+  const parent = boxes.map((_, i) => i);
+  const find = (i: number): number => {
+    while (parent[i] !== i) {
+      parent[i] = parent[parent[i]!]!;
+      i = parent[i]!;
+    }
+    return i;
+  };
+  for (let i = 0; i < boxes.length; i++)
+    for (let j = i + 1; j < boxes.length; j++) if (dist(boxes[i]!.centre, boxes[j]!.centre) <= reach) parent[find(i)] = find(j);
+  const groups = new Map<number, CardBox[]>();
+  boxes.forEach((b, i) => {
+    const r = find(i);
+    const g = groups.get(r);
+    if (g) g.push(b);
+    else groups.set(r, [b]);
+  });
+  return [...groups.values()];
+}
+
+/** Runes a column or fan hides from the detector: along the stack, its usual step from strip to strip (the gaps of
+ * RUNE_STEP cards), and each gap of RUNE_GAP steps or more holding about gap / step - 1 more. Cards are one size. */
+export function hiddenRunes(stack: readonly CardBox[], card: number): number {
+  if (stack.length < 3) return 0;
+  let a = stack[0]!, b = stack[0]!, span = -1;
+  for (const x of stack)
+    for (const y of stack) {
+      const d = dist(x.centre, y.centre);
+      if (d > span) [a, b, span] = [x, y, d];
+    }
+  if (span < 1e-6) return 0;
+  const ux = (b.centre[0] - a.centre[0]) / span, uy = (b.centre[1] - a.centre[1]) / span;
+  const at = stack.map((o) => (o.centre[0] - a.centre[0]) * ux + (o.centre[1] - a.centre[1]) * uy).sort((p, q) => p - q);
+  const gaps = at.slice(1).map((y, i) => y - at[i]!);
+  const steps = gaps.filter((g) => RUNE_STEP[0] * card <= g && g <= RUNE_STEP[1] * card).sort((p, q) => p - q);
+  if (!steps.length) return 0;
+  const step = steps[Math.floor(steps.length / 2)]!;
+  return gaps.filter((g) => g >= RUNE_GAP * step).reduce((n, g) => n + Math.max(0, Math.floor(g / step + 0.5) - 1), 0);
+}
+
 export class Recognizer {
   layout: Layout;
   rows: CatalogRow[];
@@ -567,6 +737,8 @@ export class Recognizer {
   cards: string[];
   firstRow = new Map<string, number>();
   rowOf = new Map<string, CatalogRow>();
+  /** card_id -> the card's type (Unit, Rune, ...) */
+  typeOf = new Map<string, string>();
   title: string;
   minP: number;
   sureP: number;
@@ -607,6 +779,12 @@ export class Recognizer {
   private cat: Catalogue | null = null;
   /** Track id -> its box's extent, this frame. */
   boxesNow = new Map<string, Box4>();
+  /** The frame's size, for where a card lies on the table. */
+  frameWh: [number, number] = [1920, 1080];
+  /** Card_id -> its gallery rows (1 for each), for a named card read again. */
+  cardRows = new Map<string, Uint8Array>();
+  /** Side -> [t, runes, exhausted] of the recent frames. */
+  runeCounts = new Map<string, [number, number, number][]>();
   // Camera cuts: frames off the table camera are skipped and the board's clocks stop (`pause`). After a cut the view
   // may be framed differently, so tracks found again by name re-anchor the rest (`cut`).
   scene: Scene;
@@ -636,6 +814,7 @@ export class Recognizer {
       if (!this.firstRow.has(r.card_id)) this.firstRow.set(r.card_id, i);
     });
     for (const r of this.rows) this.rowOf.set(r.printing_id, r);
+    for (const r of this.rows) this.typeOf.set(r.card_id, r.type);
     this.title = title || layout.title;
     this.minP = minP;
     this.sureP = sureP;
@@ -676,7 +855,8 @@ export class Recognizer {
   /** Boxes to tracks one to one at the least total distance (Hungarian assignment). A box continues a track of about
    * its size within a third of a card, in view or out of sight for a while, so a card found again where it was keeps
    * its id and name; any other box starts a new track. */
-  match(t: number, boxes: readonly CardBox[], w: number, h: number): Track[] {
+  match(t: number, found: readonly CardBox[], w: number, h: number): Track[] {
+    const boxes = found.filter((b) => !this.held(b, w, h));
     const tracks = [...this.tracks.values()];
     const pairs = new Map<number, Track>();
     if (tracks.length && boxes.length) {
@@ -712,6 +892,31 @@ export class Recognizer {
       seen.push(tr);
     });
     return seen;
+  }
+
+  /** A card across the table window's edge on a player's side: in a hand held over the table, or on its way there, not
+   * lying on it. Never tracked, so a player's hand is never read (D-005). (A card held just inside the edge looks like
+   * the cards lying there, on some broadcasts a quarter of a card from it: not caught.) */
+  held(box: CardBox, w: number, h: number): boolean {
+    const [x0, y0, x1, y1] = layoutBox(this.layout, w, h);
+    const [bx0, by0, bx1, by1] = aabb(box);
+    const m = HELD_OUT * box.short_px;
+    if (this.layout.split === 'horizontal') return by0 < y0 - m || by1 > y1 + m;
+    return bx0 < x0 - m || bx1 > x1 + m;
+  }
+
+  /** The point lies in the battlefield strip: the band along the table's midline between the players, where the
+   * battlefields lie and where either player's units go to fight over them. */
+  inStrip(x: number, y: number): boolean {
+    const [w, h] = this.frameWh;
+    const [x0, y0, x1, y1] = layoutBox(this.layout, w, h);
+    const u = this.layout.split === 'horizontal' ? (y - y0) / Math.max(1, y1 - y0) : (x - x0) / Math.max(1, x1 - x0);
+    return Math.abs(u - 0.5) <= STRIP;
+  }
+
+  otherSide(side: string): string {
+    const [a, b] = layoutSides(this.layout);
+    return side === a ? b : a;
   }
 
   /** The box's centre lies well inside a named legend. Only dice and counters go on a legend; the champion and the
@@ -811,6 +1016,24 @@ export class Recognizer {
     return out;
   }
 
+  /** A pinned battlefield whose reads since say it is another card: a rune or a unit turned sideways (exhausted), read
+   * once as a battlefield, which the pin would otherwise keep all game. */
+  misreadBattlefield(tr: Track): boolean {
+    const top = tr.top();
+    if (tr.reads < UNPIN_READS || !top.length || top[0]![0] === tr.named) return false;
+    return (top.find(([c]) => c === tr.named)?.[1] ?? 0.0) < UNPIN_P;
+  }
+
+  /** The pinned track of the battlefield `tr` is read as, when it is that card again: out of sight (the battlefield was
+   * moved, and its pin follows it), or in sight and overlapping `tr` (outlined twice). */
+  pinnedTwin(t: number, tr: Track): Track | null {
+    for (const o of this.tracks.values()) {
+      if (o !== tr && o.pinned && o.kind === 'Battlefield' && o.named === tr.named
+          && (hiddenNow(t, o) || Math.max(this.share(tr, o), this.share(o, tr)) >= 0.25)) return o;
+    }
+    return null;
+  }
+
   /** Another track of `tr`'s card that went out of sight around when `tr` appeared: the card moved. */
   vanished(t: number, tr: Track): Track | null {
     let best: Track | null = null;
@@ -835,6 +1058,7 @@ export class Recognizer {
     if (tr.named && (this.covered(t, tr) || this.stackedOn(t, tr) !== null)) return false; // its name is locked while something lies on it, or it lies on something
     const top = tr.top();
     if (!top.length || (top[0]![1] < this.sureP && tr.reads < this.maxReads)) return true;
+    if (tr.pinned && tr.kind === 'Battlefield' && top[0]![0] !== tr.named && tr.reads < this.maxReads) return true; // read as another card than its pin: read again at once, until the reads can undo it
     return t - tr.lastRead > this.recheckS;
   }
 
@@ -845,8 +1069,8 @@ export class Recognizer {
   allowed(side: string): Uint8Array | null {
     const lg = this.legendRule && side ? this.legends.get(side) : undefined;
     const row = lg !== undefined ? this.rowOf.get(lg.printing_id) : undefined;
-    if (row === undefined) return null;
-    const card = row.card_id;
+    const card = row !== undefined ? row.card_id : this.legendRule && side ? this.legendByElimination(side) : null;
+    if (card === null) return null;
     let mask = this.masks.get(card);
     if (mask === undefined) {
       this.tokens ??= tokenRows(this.rows).mask;
@@ -854,6 +1078,34 @@ export class Recognizer {
       this.masks.set(card, mask);
     }
     return mask;
+  }
+
+  /** With two lists given, once the other player's legend is one list's, this side's legend is the other list's: its
+   * cards are read against that list, its own legend under dice or not read yet. Null otherwise: lists for another
+   * match name neither legend on the table, and then neither is used. */
+  legendByElimination(side: string): string | null {
+    if (this.decks.length !== 2) return null;
+    const lg = this.legends.get(this.otherSide(side));
+    const row = lg !== undefined ? this.rowOf.get(lg.printing_id) : undefined;
+    if (row === undefined) return null;
+    const named = this.decks.map((d) => new Set(d.legends()));
+    const theirs = [0, 1].filter((k) => named[k]!.has(row.card_id));
+    if (theirs.length !== 1 || named[1 - theirs[0]!]!.size !== 1) return null;
+    return [...named[1 - theirs[0]!]!][0]!;
+  }
+
+  /** A side's rows (`allowed`) and the rows of `card`, the card a track is named: a card named on one side stays itself
+   * wherever it goes, a unit moved to a battlefield across the midline or taken by the other player. (Both players'
+   * cards on the battlefield strip would name the cards of a hand held over it: the side's rows stay.) */
+  withCard(allowed: Uint8Array, card: string): Uint8Array {
+    let rows = this.cardRows.get(card);
+    if (rows === undefined) {
+      rows = Uint8Array.from(this.cards, (c) => (c === card ? 1 : 0));
+      this.cardRows.set(card, rows);
+    }
+    const out = new Uint8Array(allowed.length);
+    for (let g = 0; g < out.length; g++) out[g] = allowed[g]! | rows[g]!;
+    return out;
   }
 
   /** The gallery's rows, indexed for decklists (made once, when a list is read). */
@@ -866,14 +1118,15 @@ export class Recognizer {
    * names competes with that list's cards; the other sides keep the legend rule. None: the legend rule everywhere. */
   setLists(decks: readonly Deck[]): void {
     this.decks = [...decks];
-    this.masks.clear();
+    this.masks.clear(); // the legend masks, and the other side's list by elimination, follow the lists
   }
 
   /** Per crop, its candidate cards as (card_id, probability, best score, best gallery row), best first. All four
    * turns go in one batch: which way up a card lies is unknown (exhausted, opponent side). `sides[n]` is where crop n
    * lies: under the legend rule, the rows its side's legend rules out score -Infinity before the best 60 are taken,
-   * and the softmax runs over the cards left. */
-  async identify(crops: readonly RgbImage[], sides?: readonly string[]): Promise<Candidate[][]> {
+   * and the softmax runs over the cards left. `keeps[n]`, when given, is the card crop n's track is named: it competes
+   * too, wherever the crop lies (`withCard`). */
+  async identify(crops: readonly RgbImage[], sides?: readonly string[], keeps?: readonly (string | null)[]): Promise<Candidate[][]> {
     if (!crops.length) return [];
     const views: RgbImage[] = [];
     for (const c of crops) for (const r of ROTATIONS) views.push(r ? image.rotate(c, r, { expand: true }) : c);
@@ -884,7 +1137,9 @@ export class Recognizer {
     crops.forEach((c, n) => {
       const level = { data: this.gallery.level(Math.max(c.width, c.height)), rows: this.gallery.rows, dim: this.gallery.dim };
       const sims = bestSimilarities({ data: emb.subarray(n * turns * dim, (n + 1) * turns * dim), rows: turns, dim }, level);
-      const allowed = sides !== undefined ? this.allowed(sides[n]!) : null;
+      let allowed = sides !== undefined ? this.allowed(sides[n]!) : null;
+      const keep = keeps !== undefined ? keeps[n]! : null;
+      if (allowed !== null && keep !== null) allowed = this.withCard(allowed, keep);
       if (allowed !== null) for (let g = 0; g < sims.length; g++) if (!allowed[g]) sims[g] = -Infinity;
       const scores = new Map<string, [number, number]>();
       for (const i of argsortDescending(sims).subarray(0, 60)) {
@@ -923,7 +1178,8 @@ export class Recognizer {
       crops.push(c);
       owners.push(tr);
     }
-    const found = await this.identify(crops, owners.map((tr) => tr.side));
+    const keeps = owners.map((tr) => (tr.named && tr.kind !== 'Battlefield' ? tr.named : null));
+    const found = await this.identify(crops, owners.map((tr) => tr.side), keeps);
     owners.forEach((tr, n) => {
       tr.reads += 1;
       for (const [card, pc, sc, i] of found[n]!) {
@@ -1040,6 +1296,8 @@ export class Recognizer {
     }
     for (const gh of this.ghosts) gh.t += dt;
     this.plays = this.plays.map(([pt, c, x, y]): [number, string, number, number] => [pt + dt, c, x, y]);
+    for (const tr of this.tracks.values()) if (tr.freeSince !== null) tr.freeSince += dt;
+    for (const [side, h] of this.runeCounts) this.runeCounts.set(side, h.map(([pt, n, ex]): [number, number, number] => [pt + dt, n, ex]));
     this.pending = [];
     this.flashes = [];
   }
@@ -1101,6 +1359,7 @@ export class Recognizer {
     const tic = performance.now();
     if (this.t0 === null) this.t0 = t;
     const { width: w, height: h } = frame;
+    this.frameWh = [w, h];
     const dt = this.lastT !== null ? t - this.lastT : 0.0;
     this.lastT = t;
     let boxes: CardBox[] | null = null;
@@ -1138,8 +1397,20 @@ export class Recognizer {
     this.boxesNow = new Map([...this.tracks].map(([k, tr]) => [k, aabb(tr.box)]));
     // New and uncertain cards first, then the oldest re-checks; a budget keeps each frame in time.
     // A box seen once may be the detector's slip (between two cards): only tracks seen twice are read.
+    const table = layoutBox(this.layout, w, h);
+    const still = HAND_STILL * cardPx(this.layout, h);
+    for (const tr of seen) {
+      // a card in a hand is not read, and not shown until it has been put down (D-005)
+      if (handShare(frame, tr.box, table, seen.filter((o) => o !== tr).map((o) => o.box)) >= HAND_SKIN) {
+        tr.freeSince = tr.freeAt = null;
+      } else if (tr.freeSince === null || dist(tr.box.centre, tr.freeAt!) > still) {
+        tr.freeSince = t; // out of the hand, or moved since: still from now
+        tr.freeAt = [tr.box.centre[0], tr.box.centre[1]];
+      }
+      tr.placed = tr.placed || putDown(t, tr);
+    }
     const todo = seen
-      .filter((tr) => tr.hits >= 2 && this.due(tr, t))
+      .filter((tr) => tr.hits >= 2 && putDown(t, tr) && this.due(tr, t))
       .sort((a, b) => Number(a.reads > 0) - Number(b.reads > 0) || a.lastRead - b.lastRead)
       .slice(0, budget);
     await this.read(t, frame, todo);
@@ -1162,13 +1433,23 @@ export class Recognizer {
       guesses.push({ printing_id: r.printing_id, card_id: c, name: r.name, p: pyRound(p, 3) });
     }
     const p0 = top[0]![1];
-    const legend = this.rows[this.firstRow.get(top[0]![0])!]!.type === 'Legend';
+    const kind = this.rows[this.firstRow.get(top[0]![0])!]!.type;
+    const legend = kind === 'Legend';
     if (!tr.pinned && legend && this.sideLegend(tr) !== null) return ['unsure', p0, guesses]; // one player, one legend: another outline of it, or a card misread as one
+    if (!tr.pinned && kind === 'Battlefield' && !this.inStrip(tr.box.centre[0], tr.box.centre[1])) {
+      // off the battlefield strip, a battlefield only once the reads agree: a card turned sideways is not one
+      return [tr.reads >= STRIP_READS && p0 >= this.minP ? 'named' : 'unsure', p0, guesses];
+    }
     let named = tr.pinned || p0 >= this.sureP || (p0 >= this.minP && tr.reads >= 2);
-    if (!named && tr.reads >= 4 && p0 >= 0.3 && legend && !this.otherLegend(tr.side, top[0]![0])) {
+    if (!named && tr.reads >= 4 && p0 >= 0.3 && legend && !this.otherLegend(tr.side, top[0]![0]) && this.listedLegend(top[0]![0])) {
       named = true; // a legend, read the same way four times: one a player, and its frame is like no other card's
     }
     return [named ? 'named' : 'unsure', p0, guesses];
+  }
+
+  /** No list given, or a given list names this legend: with lists, another legend needs a sure read to be named. */
+  listedLegend(card: string): boolean {
+    return !this.decks.length || this.decks.some((d) => d.legends().includes(card));
   }
 
   /** 'played' when a card is first named, 'moved' when a named card that just vanished is named again elsewhere (it
@@ -1199,6 +1480,17 @@ export class Recognizer {
         }
         continue;
       }
+      if (tr.pinned && tr.kind === 'Battlefield' && this.misreadBattlefield(tr)) tr.pinned = false; // read once as a battlefield, as another card since: named again as that card
+      if (!tr.pinned && tr.kind === 'Battlefield' && tr.named && !hiddenNow(t, tr) && this.inStrip(tr.box.centre[0], tr.box.centre[1])) {
+        const o = this.pinnedTwin(t, tr);
+        if (o !== null && hiddenNow(t, o)) {
+          o.box = tr.box;
+          o.last = tr.last;
+          o.hits = o.hits + tr.hits;
+          this.tracks.delete(tr.id); // a pinned battlefield's second outline, in sight where it is not: the pin goes there
+          continue;
+        }
+      }
       const [state, , g] = this.label(tr);
       if (state === 'named' && tr.named !== g[0]!.card_id) {
         const changed = tr.named !== null;
@@ -1222,7 +1514,22 @@ export class Recognizer {
             continue;
           }
         }
-        if (STATIC.includes(tr.kind) && !(tr.kind === 'Legend' && (this.otherLegend(tr.side, named) || this.sideLegend(tr) !== null))) {
+        const strip = this.inStrip(tr.box.centre[0], tr.box.centre[1]);
+        if (tr.kind === 'Battlefield' && strip) {
+          const o = this.pinnedTwin(t, tr);
+          if (o !== null) {
+            if (hiddenNow(t, o)) {
+              // the battlefield was moved: its pin follows it, under its first id
+              o.box = tr.box;
+              o.last = tr.last;
+              o.hits = o.hits + tr.hits;
+              this.tracks.delete(tr.id);
+            }
+            continue; // or the same battlefield outlined again: not a second one, and not drawn (state)
+          }
+        }
+        if (STATIC.includes(tr.kind) && (tr.kind !== 'Battlefield' || strip)
+            && !(tr.kind === 'Legend' && (this.otherLegend(tr.side, named) || this.sideLegend(tr) !== null))) {
           tr.pinned = true; // set up before the game: nothing to announce, and it stays put
           if (tr.kind === 'Legend' && !this.legends.has(tr.side)) {
             // the side's legend, however sure its reads are under the dice
@@ -1269,17 +1576,108 @@ export class Recognizer {
     return { t: pyRound(t, 2), kind, text, printing_id: pid, track: tr.id, side: tr.side };
   }
 
+  /** Whether a ready card stands upright in the picture. From the player's seat, a ready card points straight at them
+   * and an exhausted (used) one lies across, along their edge. Battlefields, printed landscape and never exhausted, lie
+   * along the edges too, so a ready card stands at right angles to them; before one is named, the layout says where the
+   * players sit (left and right: a ready card lies across the picture). */
+  readyUpright(): boolean {
+    const fields = [...this.tracks.values()].filter((tr) => tr.pinned && tr.kind === 'Battlefield');
+    if (fields.length) return fields.filter((tr) => upright(tr.box)).length * 2 < fields.length;
+    return this.layout.split === 'horizontal';
+  }
+
+  /** A player's runes in this frame, one per card (the newest of two tracks on one card), and how many are exhausted. */
+  runesSeen(t: number, side: string, ready: boolean): [number, number] {
+    const px = cardPx(this.layout, this.frameWh[1]);
+    const kept: Track[] = [];
+    const runes = [...this.tracks.values()]
+      .filter(
+        (tr) =>
+          tr.kind === 'Rune' &&
+          tr.side === side &&
+          tr.hits >= 2 &&
+          t - tr.last <= RUNE_SEEN_S &&
+          tr.box.long_px / Math.max(1e-6, tr.box.short_px) <= RUNE_ASPECT &&
+          tr.box.long_px <= RUNE_LONG * px,
+      )
+      .sort((a, b) => b.last - a.last || b.hits - a.hits);
+    for (const tr of runes) if (kept.every((k) => dist(tr.box.centre, k.box.centre) > RUNE_APART * px)) kept.push(tr);
+    return [kept.length, kept.filter((tr) => upright(tr.box) !== ready).length];
+  }
+
+  /** Read as a rune: named one, or a rune on RUNE_SHARE of its reads. */
+  runeLike(tr: Track): boolean {
+    if (tr.kind === 'Rune') return true;
+    if (tr.reads < 2) return false;
+    let p = 0;
+    for (const [c, pc] of tr.prob) if (this.typeOf.get(c) === 'Rune') p += pc;
+    return p >= RUNE_SHARE * tr.reads;
+  }
+
+  /** A player's runes in this frame: the boxes read as runes, the unnamed card-sized boxes beside them turned their way
+   * (a stack's covered strips), and the runes a stack's wider gaps hide (`hiddenRunes`). */
+  runesNow(t: number, side: string): number {
+    const px = cardPx(this.layout, this.frameWh[1]);
+    const now = [...this.tracks.values()].filter(
+      (tr) =>
+        tr.side === side &&
+        tr.hits >= 2 &&
+        tr.last === t &&
+        tr.box.long_px / Math.max(1e-6, tr.box.short_px) <= RUNE_ASPECT &&
+        tr.box.long_px <= RUNE_LONG * px,
+    );
+    const runes = now.filter((tr) => this.runeLike(tr));
+    for (;;) {
+      const more = now.filter(
+        (tr) =>
+          tr.kind === '' &&
+          !runes.includes(tr) &&
+          Math.abs(tr.box.long_px / px - 1) <= RUNE_SIZE &&
+          runes.some((r) => dist(tr.box.centre, r.box.centre) < RUNE_JOIN * px && turnApart(tr.box.angle_deg, r.box.angle_deg) <= RUNE_TURN),
+      );
+      if (!more.length) break;
+      runes.push(...more);
+    }
+    return runes.length + stacksOf(runes.map((tr) => tr.box), RUNE_LINK * px).reduce((n, g) => n + hiddenRunes(g, px), 0);
+  }
+
+  /** A player's runes on the table: counted, never named, and how many are exhausted (used this turn), over the last
+   * frames (RUNE_WINDOW_S); off the table camera it holds. The count is this frame's (`runesNow`), the exhausted ones
+   * those named runes seen in the last second that lie across (`runesSeen`). */
+  runes(t: number, side: string, ready: boolean): Runes {
+    let recent = this.runeCounts.get(side);
+    if (recent === undefined) this.runeCounts.set(side, (recent = []));
+    if (!this.away) {
+      const n = this.runesNow(t, side);
+      const ex = this.runesSeen(t, side, ready)[1];
+      if (recent.length && recent[recent.length - 1]![0] >= t) recent.pop(); // the state asked again for this frame
+      recent.push([t, n, ex]);
+      while (recent[0]![0] <= t - RUNE_WINDOW_S) recent.shift();
+    }
+    if (!recent.length) return { count: 0, exhausted: 0 };
+    const counts = recent.map(([, n]) => n).sort((a, b) => a - b);
+    const count = counts[Math.min(counts.length - 1, Math.floor((3 * counts.length) / 4))]!;
+    const newest = recent[recent.length - 1]![0];
+    const used = recent.filter(([pt]) => pt > newest - RUNE_EXHAUSTED_S).map(([, , ex]) => ex).sort((a, b) => a - b);
+    return { count, exhausted: Math.min(count, used[Math.floor(used.length / 2)]!) };
+  }
+
   state(t: number, w: number, h: number): RecognizerState {
     const tracks: StateTrack[] = [];
     const under = this.stacks(t);
+    const ready = this.readyUpright();
     for (const tr of this.tracks.values()) {
-      if (tr.hits < 2) continue; // seen once: maybe the detector's slip (a box between two cards), not shown yet
-      const hidden = t - tr.last > 1.0 && !tr.pinned;
+      if (tr.hits < 2 || !tr.placed) continue; // seen once (maybe the detector's slip, a box between two cards), or only ever in a hand
+      const hidden = t - tr.last > (tr.pinned ? PIN_HIDE_S : 1.0);
       if (hidden && !tr.named) continue;
       const [state, p, g] = this.label(tr);
       const lg = this.sideLegend(tr);
       if (lg !== null && !tr.pinned && g.length && g[0]!.card_id === lg.named) continue; // another outline of the side's legend (its case, the die on it): not a card
       if (this.twin(t, tr)) continue; // the same card outlined again (a sleeve's or a toploader's edge): drawn once
+      if (!tr.pinned && tr.kind === 'Battlefield') {
+        const o = this.pinnedTwin(t, tr);
+        if (o !== null && !hiddenNow(t, o)) continue; // a pinned battlefield's second outline: drawn once
+      }
       const top = g.length && state === 'named' ? g[0]! : null;
       // hidden: out of sight (under a hand or another card) but still on the board, so listed, not drawn
       const unders: Under[] = [];
@@ -1319,7 +1717,7 @@ export class Recognizer {
       message: '',
       title: this.title,
       frame: { width: w, height: h },
-      players: layoutSides(this.layout).map((s, k) => ({ side: s, label: `Player ${k + 1}`, legend: this.legends.get(s) ?? null })),
+      players: layoutSides(this.layout).map((s, k) => ({ side: s, label: `Player ${k + 1}`, legend: this.legends.get(s) ?? null, runes: this.runes(t, s, ready) })),
       layout: { name: this.layout.name, table: [...this.layout.table] },
       tracks,
     };

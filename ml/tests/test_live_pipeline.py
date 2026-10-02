@@ -6,7 +6,7 @@ from PIL import Image
 
 from rifteye_ml.fixtures import load_fixture_image, synthetic_catalog
 from rifteye_ml.live.layouts import LAYOUTS, Layout
-from rifteye_ml.live.pipeline import Recognizer, Track, card_crop, quad
+from rifteye_ml.live.pipeline import Recognizer, Track, card_crop, hidden_runes, quad
 from rifteye_ml.matcrops import CardBox
 
 MAT = (30, 40, 55)
@@ -67,6 +67,36 @@ def test_cards_are_named_played_once_and_face_down_never(tmp_path):
     assert 5 <= played[0]["t"] < 7 and played[0]["side"] == "left"
     assert not [e for e in events if e["kind"] == "left"]                  # hidden for 3 s is not leaving
     assert state["frame"] == {"width": 960, "height": 540} and [p["side"] for p in state["players"]] == ["left", "right"]
+
+
+def test_a_card_held_in_a_hand_over_the_table_is_not_read_until_it_is_put_down():
+    # D-005: a card in a player's hand is hidden information, even where the table camera sees it
+    from rifteye_ml.live.pipeline import hand_share
+
+    rows, art, rec = _setup(gate=False)
+    box = CardBox((378.0, 239.0), 78.0, 56.0, 90.0, 1.0)  # the card pasted at (350, 200)
+    rec.finder = lambda t, image: [box] if t >= 4 else []
+    events, shown = [], {}
+    for k in range(60):  # 12 s at 5 fps: the card is held over the table from 4 s to 8 s, then put down
+        t = k / 5
+        im = Image.fromarray(_frame([(art[3], 350, 200)] if t >= 4 else []))
+        if t < 8:
+            im.paste((200, 140, 110), (326, 200, 350, 278))  # the fingers along its left edge
+        state, ev = rec.step(t, np.asarray(im))
+        events += ev
+        shown[t] = [tr["name"] for tr in state["tracks"]]
+        if 4 <= t < 8:
+            assert [tr.reads for tr in rec.tracks.values()] == [0]  # never read in the hand
+    assert not any(v for t, v in shown.items() if t < 8)  # nor drawn
+    played = [e for e in events if e["kind"] == "played"]
+    assert [e["text"] for e in played] == [f"{rows[3]['name']} played"] and 8 <= played[0]["t"] < 9  # put down: played
+    im = _frame([(art[3], 350, 200)])
+    fingers = np.array(im)
+    fingers[200:278, 326:350] = (200, 140, 110)
+    table = LAYOUT.box(960, 540)
+    assert hand_share(im, box, table) == 0.0 and hand_share(fingers, box, table) >= 0.1
+    other = CardBox((338.0, 239.0), 78.0, 30.0, 90.0, 1.0)  # skin-coloured art of a card beside it is no hand
+    assert hand_share(fingers, box, table, [other]) == 0.0
 
 
 def test_layouts_split_the_table_between_the_players():
@@ -192,7 +222,7 @@ def test_a_card_under_another_keeps_its_name_while_covered(monkeypatch):
 def test_legends_and_battlefields_stay_pinned_and_runes_are_quiet():
     rows, art, rec = _setup(gate=False)
     rows[0]["type"], rows[1]["type"], rows[2]["type"] = "Battlefield", "Legend", "Rune"
-    bf, lg, rune = (art[0], 100, 100), (art[1], 300, 100), (art[2], 500, 100)
+    bf, lg, rune = (art[0], 440, 100), (art[1], 300, 100), (art[2], 600, 100)  # the battlefield on the strip
 
     def plan(t):
         if t < 4:
@@ -204,6 +234,208 @@ def test_legends_and_battlefields_stay_pinned_and_runes_are_quiet():
     assert by_kind["battlefield"]["name"] == rows[0]["name"] and not by_kind["battlefield"]["hidden"]
     assert by_kind["legend"]["name"] == rows[1]["name"] and by_kind["rune"]["name"] == rows[2]["name"]
     assert events == []  # set-up cards and runes are never announced
+
+
+def test_a_battlefield_misread_once_is_named_again_as_the_card_it_is():
+    # a rune turned sideways (exhausted) looks like a battlefield's landscape art: read once as one, it was pinned
+    # under that name all game; the reads since say what it is
+    rows, art, rec = _setup(gate=False)
+    rows[0]["type"], rows[1]["type"] = "Battlefield", "Rune"
+    rec.row_of = {r["printing_id"]: r for r in rows}
+    bf, rune = rows[0]["card_id"], rows[1]["card_id"]
+    box = CardBox((100.0, 100.0), 78.0, 56.0, 0.0, 1.0)
+
+    def pinned(prob):
+        return Track("t0", box, 0.0, 10.0, hits=20, reads=5, prob=prob, best_row={c: (0.9, i) for i, c in enumerate(prob)},
+                     named=bf, kind="Battlefield", pinned=True, side="left")
+
+    misread = pinned({bf: 0.5, rune: 4.4})
+    rec.tracks = {"t0": misread}
+    assert rec.announce(10.0) == [] and not misread.pinned and misread.named == rune  # a rune: never announced
+    kept = pinned({bf: 3.0, rune: 2.0})  # read as itself three times in five: still the battlefield, under dice or a hand
+    rec.tracks = {"t0": kept}
+    assert rec.announce(10.0) == [] and kept.pinned and kept.named == bf
+    doubt, sure = pinned({bf: 1.0, rune: 1.9}), pinned({bf: 4.9, rune: 0.1})  # read half a second ago
+    doubt.last_read = sure.last_read = 9.5
+    assert rec.due(doubt, 10.0) and not rec.due(sure, 10.0)  # leaning to another card, it is read again at once
+
+
+def test_a_battlefield_moved_keeps_its_pin_and_is_not_drawn_twice():
+    rows, art, rec = _setup(gate=False)
+    rows[0]["type"] = "Battlefield"
+    rec.row_of = {r["printing_id"]: r for r in rows}
+
+    def plan(t):
+        c = (art[0], 400, 100) if t < 6 else (art[0], 470, 350)
+        return [c], ([] if 6 <= t < 7.5 else [c])  # picked up and put down elsewhere on the strip
+
+    state, events = _run(rec, plan, 12)
+    fields = [tr for tr in state["tracks"] if tr["kind"] == "battlefield"]
+    assert [tr["id"] for tr in fields] == ["t0"] and not fields[0]["hidden"] and events == []
+    cx, cy = np.mean(fields[0]["quad"], axis=0)
+    assert abs(cx - 498) < 3 and abs(cy - 389) < 3  # where it lies now
+
+
+def test_a_pinned_card_long_out_of_sight_is_listed_but_not_drawn():
+    rows, art, rec = _setup(gate=False)
+    rows[0]["type"] = "Battlefield"
+    rec.row_of = {r["printing_id"]: r for r in rows}
+    bf = (art[0], 440, 100)
+    state, _ = _run(rec, lambda t: ([bf], [bf] if t < 6 else []), 28)  # gone from the detector's view for 22 s
+    fields = [tr for tr in state["tracks"] if tr["kind"] == "battlefield"]
+    assert len(fields) == 1 and fields[0]["name"] == rows[0]["name"] and fields[0]["hidden"]
+
+
+def test_a_card_held_across_the_table_edge_is_never_read():
+    # a player's hand, held over the table at its edge: the camera sees the cards' faces, but they are not on it
+    edge = Layout("edge", "a table inside the frame", (0.2, 0.0, 0.8, 1.0), card_long_1080=156, mat=MAT, mat_share=0.5)
+    rows, art, _ = _setup(gate=False)
+    from rifteye_ml.encoders import get_encoder
+    from rifteye_ml.retrieval import Pyramid, at_long_side
+
+    enc = get_encoder("colorgrid/trim0.03+dhash/trim0.03")
+    rec = Recognizer(edge, rows, enc, Pyramid({s: enc.embed([at_long_side(im, s) for im in art]) for s in (70, 80)}), fps=5.0, gate=False)
+    # the window starts at x = 192: one card held 20 px past its edge, one lying just inside it, one a card's width in
+    past, edge, lying = (art[0], 172, 200), (art[2], 196, 330), (art[1], 400, 200)
+    state, events = _run(rec, lambda t: ([past, edge, lying], [past, edge, lying]), 4)
+    assert sorted(tr["name"] for tr in state["tracks"]) == sorted([rows[2]["name"], rows[1]["name"]])
+    assert rec.held(_boxes([past])[0], 960, 540) and not rec.held(_boxes([edge])[0], 960, 540)
+
+
+def test_a_battlefield_off_the_strip_needs_agreeing_reads_and_is_never_pinned():
+    # the battlefields lie on the strip along the midline; off it, a card read as one is most likely turned sideways
+    rows, art, rec = _setup(gate=False)
+    rows[0]["type"] = "Battlefield"
+    rec.row_of = {r["printing_id"]: r for r in rows}
+    bf = rows[0]["card_id"]
+    side = CardBox((150.0, 300.0), 78.0, 56.0, 0.0, 1.0)  # x 150 of 960: a player's side of the table
+    rec.frame_wh = (960, 540)
+    assert not rec.in_strip(150.0, 300.0) and rec.in_strip(470.0, 300.0)
+    tr = Track("t0", side, 0.0, 10.0, hits=20, reads=2, prob={bf: 1.96}, best_row={bf: (0.9, 0)})
+    assert rec.label(tr)[0] == "unsure"  # read twice, surely: on the strip that would name it
+    tr.reads, tr.prob = 3, {bf: 2.9}
+    rec.tracks = {"t0": tr}
+    assert rec.label(tr)[0] == "named" and rec.announce(10.0) == [] and tr.named == bf and not tr.pinned
+
+
+def test_a_named_card_competes_as_itself_wherever_it_goes():
+    rows, art, rec = _setup(gate=False)
+    left = np.array([1, 1, 0, 0, 0, 1], bool)
+    taken = rows[4]["card_id"]  # a unit moved across the midline to a battlefield, or taken by the other player
+    assert (rec.with_card(left, taken) == (left | (rec.cards == taken))).all()
+
+
+def test_two_lists_give_the_other_player_theirs_once_one_legend_is_read():
+    class Deck:
+        def __init__(self, legend):
+            self.legend = legend
+
+        def legends(self):
+            return [self.legend]
+
+    rows, art, rec = _setup(gate=False)
+    a, b = rows[1], rows[2]
+    rec.decks = [Deck(a["card_id"]), Deck(b["card_id"])]
+    assert rec.legend_by_elimination("right") is None  # no legend read yet
+    rec.legends["left"] = {"printing_id": a["printing_id"], "name": a["name"]}
+    assert rec.legend_by_elimination("right") == b["card_id"] and rec.legend_by_elimination("left") is None
+    rec.legends["left"] = {"printing_id": rows[3]["printing_id"], "name": rows[3]["name"]}
+    assert rec.legend_by_elimination("right") is None  # lists for another match: neither is used
+
+
+def test_with_lists_a_legend_on_neither_needs_a_sure_read():
+    class Deck:
+        def legends(self):
+            return ["no-such-legend"]
+
+    rows, art, rec = _setup(gate=False)
+    rows[2]["type"] = "Legend"
+    rec.row_of = {r["printing_id"]: r for r in rows}
+    lg = rows[2]["card_id"]
+    tr = Track("t0", CardBox((300.0, 100.0), 78.0, 56.0, 90.0, 1.0), 0.0, 10.0, hits=20, reads=4, prob={lg: 1.6},
+               best_row={lg: (0.9, 2)})
+    assert rec.label(tr)[0] == "named"  # four reads of a legend at 0.4: named, with no list
+    rec.decks = [Deck()]
+    assert rec.label(tr)[0] == "unsure"
+
+
+def test_runes_are_counted_never_named_and_the_exhausted_ones_told():
+    # from the player's seat a ready rune points straight at them and an exhausted (used) one lies across, along their
+    # edge; players sit left and right of this table, so a ready rune lies across the picture
+    rows, art, rec = _setup(gate=False)
+    rows[0]["type"] = "Battlefield"
+    rune, bf = rows[1]["card_id"], rows[0]["card_id"]
+
+    def track(k, angle, kind, named, side="left", hits=5, pinned=False):
+        return Track(f"t{k}", CardBox((100.0 + 60 * k, 300.0), 78.0, 56.0, angle, 1.0), 0.0, 10.0, hits=hits, reads=3,
+                     prob={named: 2.9}, named=named, kind=kind, side=side, pinned=pinned, placed=True)
+
+    rec.tracks = {tr.id: tr for tr in [track(0, 0.0, "Rune", rune), track(1, 178.0, "Rune", rune), track(2, 90.0, "Rune", rune),
+                                       track(4, 91.0, "Rune", rune, "right"), track(5, 0.0, "Rune", rune, hits=1)]}
+    assert not rec.ready_upright()  # LAYOUT puts the players left and right
+    assert rec.runes(10.0, "left", False) == {"count": 3, "exhausted": 1}  # a box seen once is no rune
+    assert rec.runes(10.0, "right", False) == {"count": 1, "exhausted": 1}
+    assert rec.runes(30.0, "left", False)["count"] == 0  # not seen for 20 s: recycled, or the camera is elsewhere
+    state = rec.state(10.0, 960, 540)
+    assert {p["side"]: p["runes"] for p in state["players"]} == {"left": {"count": 3, "exhausted": 1}, "right": {"count": 1, "exhausted": 1}}
+    assert "exhausted" not in state["tracks"][0]  # said of runes only
+    rec.tracks["t9"] = track(9, 2.0, "Battlefield", bf, pinned=True)  # a battlefield lying across: the players sit above and below
+    assert rec.ready_upright() and rec.runes(10.0, "left", True) == {"count": 3, "exhausted": 2}
+
+
+def test_a_players_rune_count_holds_through_a_hand_a_box_between_runes_and_a_camera_cut():
+    rows, art, rec = _setup(gate=False)
+    rune = rows[1]["card_id"]
+
+    def track(k, x, y, last, hits=5):
+        return Track(f"t{k}", CardBox((x, y), 78.0, 56.0, 0.0, 1.0), 0.0, last, hits=hits, reads=3, prob={rune: 2.9},
+                     named=rune, kind="Rune", side="left")
+
+    counts, seen = [], []
+    for k in range(20):
+        t = 0.5 * k
+        covered = 1.5 if 4 <= k < 7 else t  # a hand rests on two of the three runes for 1.5 s
+        trs = [track(0, 100.0, 300.0, t), track(1, 160.0, 300.0, covered), track(2, 220.0, 300.0, covered),
+               track(3, 104.0, 302.0, t - 0.5)]  # a second track on the first rune's card: one rune
+        if k == 10:
+            trs.append(track(4, 130.0, 340.0, t, hits=2))  # a box between two runes, for a frame
+        rec.tracks = {tr.id: tr for tr in trs}
+        seen.append(rec.runes_seen(t, "left", False)[0])
+        counts.append(rec.runes(t, "left", False)["count"])
+    assert seen[6] == 1 and seen[10] == 4  # frame by frame, the hand and the box move it
+    assert counts == [3] * 20
+    rec.away, rec.tracks = True, {}  # off the table camera: the count holds, and the board's clocks stop
+    rec.pause(30.0)
+    assert rec.runes(40.0, "left", False)["count"] == 3
+    rec.away = False
+    assert rec.runes(40.5, "left", False)["count"] == 3  # back: still the runes seen before the cut, until frames say otherwise
+    for k in range(22):
+        rec.runes(41.0 + 0.5 * k, "left", False)
+    assert rec.runes(52.0, "left", False) == {"count": 0, "exhausted": 0}  # gone: recycled, or the camera moved
+
+
+def test_a_stacks_covered_runes_are_counted_from_the_card_size_and_its_step_and_a_foil_rune_from_its_reads():
+    rows, art, rec = _setup(gate=False)
+    rec.frame_wh = (960, 540)  # 78 px cards
+    rune, other = rows[1]["card_id"], rows[2]["card_id"]
+    rec.type_of[rune] = "Rune"
+
+    def track(k, x, kind="Rune", prob=None, side="left"):
+        return Track(f"t{k}", CardBox((x, 300.0), 78.0, 56.0, 90.0, 1.0), 0.0, 10.0, hits=5, reads=4 if prob else 0,
+                     prob=prob or {}, kind=kind, side=side, placed=True)
+
+    # a fan of six runes a quarter of a card apart: the detector boxed five, the strip between the third and the fifth is missing
+    fan = [track(0, 100.0), track(1, 120.0), track(2, 140.0), track(3, 180.0), track(4, 200.0)]
+    rec.tracks = {tr.id: tr for tr in fan}
+    assert rec.runes_now(10.0, "left") == 6
+    assert hidden_runes([tr.box for tr in fan], 78.0) == 1 and hidden_runes([tr.box for tr in fan[:2]], 78.0) == 0  # two: no step
+    # a covered strip boxed but not read joins the runes beside it; a card two cards away does not
+    rec.tracks.update({tr.id: tr for tr in [track(2, 140.0, kind=""), track(5, 300.0, kind="")]})
+    assert rec.runes_now(10.0, "left") == 6
+    # a foil rune read as a spell counts on the share of its reads that say rune; a spell that only looks like one does not
+    rec.tracks.update({tr.id: tr for tr in [track(6, 600.0, "Spell", {rune: 1.6, other: 2.4}, "right"),
+                                            track(7, 800.0, "Spell", {rune: 0.8, other: 3.2}, "right")]})
+    assert rec.runes_now(10.0, "right") == 1
 
 
 def test_a_box_seen_once_is_neither_shown_nor_read():
@@ -291,7 +523,7 @@ def test_a_pinned_card_keeps_its_name_and_a_second_outline_on_a_legend_is_no_car
     rows, art, rec = _setup(gate=False, recheck_s=1.0)
     rows[1]["type"], rows[2]["type"] = "Legend", "Battlefield"
     rec.row_of = {r["printing_id"]: r for r in rows}
-    legend, bf, unit = CardBox((328.0, 139.0), 78.0, 56.0, 90.0, 1.0), (628.0, 139.0), (634.0, 143.0)
+    legend, bf, unit = CardBox((328.0, 139.0), 78.0, 56.0, 90.0, 1.0), (468.0, 139.0), (474.0, 143.0)
 
     def boxes(k, t):
         found = [CardBox(legend.centre, 78.0, 56.0, 90.0, 1.0), CardBox(bf, 78.0, 56.0, 90.0, 1.0)]
@@ -301,11 +533,11 @@ def test_a_pinned_card_keeps_its_name_and_a_second_outline_on_a_legend_is_no_car
             found.append(CardBox(unit, 78.0, 56.0, 90.0, 1.0))
         return found
 
-    for k in range(100):  # 20 s at 5 fps; from 4 s on, every re-read sees other pictures there (dice, a hand)
+    for k in range(100):  # 20 s at 5 fps; from 5 s on, every re-read sees other pictures there (dice, a hand)
         t = k / 5
-        faces = [(art[1] if t < 4 else art[4], 300, 100), (art[2] if t < 4 else art[5], 600, 100)]
+        faces = [(art[1] if t < 5 else art[4], 300, 100), (art[2] if t < 5 else art[5], 440, 100)]
         rec.finder = lambda t_, im, k=k, t=t: boxes(k, t)
-        state, _ = rec.step(t, _frame(faces + ([(art[3], 606, 104)] if t >= 10 else [])))
+        state, _ = rec.step(t, _frame(faces + ([(art[3], 446, 104)] if t >= 10 else [])))
         on_legend = [tr for tr in state["tracks"] if math.dist(np.mean(tr["quad"], axis=0), legend.centre) < 30]
         if t >= 1:
             assert [(tr["kind"], tr["state"], tr["name"]) for tr in on_legend] == [("legend", "named", rows[1]["name"])]

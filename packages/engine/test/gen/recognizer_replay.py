@@ -106,7 +106,8 @@ def snapshot(rec) -> dict:
                        "reads": tr.reads, "down": tr.down, "prob_n": len(prob), "prob_sum": float(sum(p for _, p in prob)),
                        "prob_top": [[c, float(p)] for c, p in best],
                        "best_row": [[c, float(tr.best_row[c][0]), int(tr.best_row[c][1])] for c, _ in best if c in tr.best_row],
-                       "last_read": tr.last_read, "named": tr.named, "side": tr.side, "kind": tr.kind, "pinned": tr.pinned})
+                       "last_read": tr.last_read, "named": tr.named, "side": tr.side, "kind": tr.kind, "pinned": tr.pinned,
+                       "free_since": tr.free_since, "free_at": tr.free_at, "placed": tr.placed})
     sc = rec.scene
     return plain({
         "tracks": tracks, "next_id": rec.next_id, "t0": rec.t0, "last_t": rec.last_t, "away": rec.away, "cut_at": rec.cut_at,

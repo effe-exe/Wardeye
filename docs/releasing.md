@@ -24,7 +24,7 @@ Then, on GitHub:
 
 ## B. The Chrome Web Store release
 
-**Live:** [Wardeye on the Chrome Web Store](https://chromewebstore.google.com/detail/wardeye/hjglackjofehdfecoeehbdmbobafbjhn), item `hjglackjofehdfecoeehbdmbobafbjhn`. Version 0.1.2 passed its first review; 0.2.0 is the first update (below).
+**Live:** [Wardeye on the Chrome Web Store](https://chromewebstore.google.com/detail/wardeye/hjglackjofehdfecoeehbdmbobafbjhn), item `hjglackjofehdfecoeehbdmbobafbjhn`. Version 0.1.2 passed its first review. The first update is 0.2.1 (below): 0.2.0 was taken out of review before it was published, for the tracker fixes found on the Barcelona final.
 
 Now, while Riot reviews the application ([D-025](decisions.md#d-025-release-on-the-chrome-web-store-now-and-apply-to-riot-in-parallel)). The store build:
 - is standalone only: no companion mode and no access to `127.0.0.1`;
@@ -65,11 +65,11 @@ Now, while Riot reviews the application ([D-025](decisions.md#d-025-release-on-t
   - Screenshots, 1 to 5, at 1280 × 800: the overlay on a table, a hover card open, the badge. Take them from the real extension on a real replay. Crop or blur the broadcast's logos, and credit the broadcast in the description.
 - **Links:** the web page, [effe-exe.github.io](https://effe-exe.github.io) ([D-027](decisions.md#d-027-wardeyes-own-page-at-effe-exegithubio)), as the homepage, and the repository's issues page for support. The privacy policy has a field of its own: [PRIVACY.md](PRIVACY.md) at its public URL.
 
-### The 0.2.0 update
+### The 0.2.1 update
 
 The same listing, with these changes:
 
-- **Package:** the 0.2.0 store zip, built and checked as above. The version must be higher than the one live.
+- **Package:** the 0.2.1 store zip, built and checked as above (the embedder in both precisions). The version must be higher than the one live. 0.2.1 is 0.2.0 with the tracker fixes found on the Barcelona final: a card turned sideways read once as a battlefield is named again as what it is, a battlefield moved or outlined twice is drawn once, and a card held across the table's edge is never read. A card held in a hand over the table is read only once it is put down ([D-029](decisions.md#d-029-a-card-in-a-hand-is-not-on-the-table)). It also takes the table's layout as a guide ([D-028](decisions.md#d-028-the-tables-layout-is-a-guide-not-a-rule)): battlefields are pinned only in the strip along the midline, the Match tab counts each player's runes, stacked ones included, and the exhausted ones, and two pasted lists help each other. The listing, the permissions and their justifications are 0.2.0's.
 - **Description**, for the new panel and settings:
 
   > Wardeye is the ward you place on a Riftbound stream. Point at any card on the table to see its name and official image, as the video plays, live or on replay.

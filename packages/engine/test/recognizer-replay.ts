@@ -187,6 +187,9 @@ function trackJson(tr: Track): Record<string, unknown> {
     side: tr.side,
     kind: tr.kind,
     pinned: tr.pinned,
+    free_since: tr.freeSince,
+    free_at: tr.freeAt,
+    placed: tr.placed,
   };
 }
 

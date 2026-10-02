@@ -21,6 +21,8 @@ import {
   similarity,
   smooth,
   type Ghost,
+  handShare,
+  hiddenRunes,
 } from '../src/recognizer';
 import * as decklist from '../src/decklist';
 import { rgbImage } from '../src/image';
@@ -44,6 +46,9 @@ interface TrackJson {
   side: string;
   kind: string;
   pinned: boolean;
+  free_since: number | null;
+  free_at: [number, number] | null;
+  placed: boolean;
 }
 
 interface Setup {
@@ -73,6 +78,10 @@ interface Board {
     face_down: boolean;
     on_legend: boolean;
     side_legend: string | null;
+    misread_battlefield: boolean;
+    pinned_twin: string | null;
+    held: boolean;
+    in_strip: boolean;
   }[];
   stacks: Record<string, string[]>;
   state: unknown;
@@ -142,6 +151,9 @@ function setUp(rec: Recognizer, s: Setup): void {
     tr.named = d.named;
     tr.kind = d.kind;
     tr.pinned = d.pinned;
+    tr.freeSince = d.free_since;
+    tr.freeAt = d.free_at;
+    tr.placed = d.placed;
     rec.tracks.set(tr.id, tr);
   }
   rec.nextId = s.next_id;
@@ -174,6 +186,9 @@ function after(rec: Recognizer): unknown {
         side: tr.side,
         kind: tr.kind,
         pinned: tr.pinned,
+        free_since: tr.freeSince,
+        free_at: tr.freeAt,
+        placed: tr.placed,
         prob_n: tr.prob.size,
         prob_sum: sum,
       };
@@ -327,6 +342,10 @@ describe("the tracker's rules on boards of tracks", () => {
         expect(rec.faceDown(tr), `${where} face down`).toBe(p.face_down);
         expect(rec.onLegend(tr.box), `${where} on a legend`).toBe(p.on_legend);
         expect(rec.sideLegend(tr)?.id ?? null, `${where} side legend`).toBe(p.side_legend);
+        expect(tr.pinned && tr.kind === 'Battlefield' ? rec.misreadBattlefield(tr) : false, `${where} misread battlefield`).toBe(p.misread_battlefield);
+        expect(tr.named ? (rec.pinnedTwin(t, tr)?.id ?? null) : null, `${where} pinned twin`).toBe(p.pinned_twin);
+        expect(rec.held(tr.box, W, H), `${where} held`).toBe(p.held);
+        expect(rec.inStrip(tr.box.centre[0], tr.box.centre[1]), `${where} on the strip`).toBe(p.in_strip);
       }
       same(Object.fromEntries([...rec.stacks(t)].map(([k, v]) => [k, v.map((u) => u.id)])), b.stacks, `board ${n} stacks`);
       same(rec.state(t, W, H), b.state, `board ${n} state`);
@@ -477,6 +496,114 @@ describe('the legend rule', () => {
     rec.setLists([]);
     const [again] = await rec.identify([crop], ['left']);
     same(again!, LEFT); // the lists taken away: the legend rule again
+  });
+
+  it("gives the other player the other list once one player's legend is a list's, never for lists of another match", async () => {
+    const crop = rgbImage(56, 78);
+    const rec = ruled();
+    const anvil = decklist.parse('1 Fakesmith - Gleaming Anvil (SFD-901)\n3 Fakesmith - Hammerer (SFD-902)\n7 Hush Rune (OGN-918)\n1 Quiet Glade (OGN-907)', rec.catalogue());
+    const crown = decklist.parse('1 Fakezap - Thunder Crown (VEN-912)\n3 Spark Bolt (VEN-906)\n1 Far Tower (UNL-909)', rec.catalogue());
+    rec.setLists([anvil, crown]);
+    expect(rec.legendByElimination('right')).toBeNull(); // no legend read yet
+    rec.legends.set('left', { printing_id: 'SFD-901', name: 'Gleaming Anvil' });
+    expect(rec.legendByElimination('right')).toBe('thunder-crown');
+    expect(rec.legendByElimination('left')).toBeNull();
+    const [right] = await rec.identify([crop], ['right']);
+    const cards = right!.map(([c]) => c);
+    expect(cards[0]).toBe('spark-bolt'); // the Thunder Crown list's, though that legend is not read: under dice, say
+    expect(cards).not.toContain('blaze-fist');
+    rec.legends.set('left', { printing_id: 'OGN-913', name: 'Silent Loom' }); // lists for another match
+    expect(rec.legendByElimination('right')).toBeNull();
+  });
+
+  it('holds a legend on neither pasted list to a sure read, and keeps a named card competing as itself', async () => {
+    const rec = ruled();
+    const tr = new Track('t0', { centre: [300, 300], long_px: 78, short_px: 56, angle_deg: 90, fill: 1 }, 0, 10, 'left');
+    tr.hits = 20;
+    tr.reads = 4;
+    tr.prob.set('silent-loom', 1.6);
+    tr.bestRow.set('silent-loom', [0.9, 3]);
+    expect(rec.label(tr)[0]).toBe('named'); // four reads of a legend at 0.4: named, with no list
+    rec.setLists([decklist.parse('1 Fakesmith - Gleaming Anvil (SFD-901)', rec.catalogue())]);
+    expect(rec.label(tr)[0]).toBe('unsure');
+    const left = Uint8Array.from(ROWS, (r) => (r.card_id === 'hush-rune' ? 1 : 0));
+    const both = rec.withCard(left, 'blaze-fist'); // a unit taken from the other player, now on this side
+    expect([...both].map((v, i) => (v ? ROWS[i]!.card_id : '')).filter(Boolean)).toEqual(['blaze-fist', 'hush-rune', 'hush-rune']);
+  });
+
+  it("holds a player's rune count through a hand, a box between runes and a camera cut", () => {
+    const rec = ruled();
+    const track = (k: number, x: number, y: number, last: number, hits = 5): Track => {
+      const tr = new Track(`t${k}`, { centre: [x, y], long_px: 78, short_px: 56, angle_deg: 0, fill: 1 }, 0, last, 'left');
+      tr.hits = hits;
+      tr.reads = 3;
+      tr.named = 'hush-rune';
+      tr.kind = 'Rune';
+      return tr;
+    };
+    const counts: number[] = [];
+    const seen: number[] = [];
+    for (let k = 0; k < 20; k++) {
+      const t = 0.5 * k;
+      const covered = k >= 4 && k < 7 ? 1.5 : t; // a hand rests on two of the three runes for 1.5 s
+      const trs = [track(0, 100, 300, t), track(1, 160, 300, covered), track(2, 220, 300, covered), track(3, 104, 302, t - 0.5)];
+      if (k === 10) trs.push(track(4, 130, 340, t, 2)); // a box between two runes, for a frame
+      rec.tracks = new Map(trs.map((tr) => [tr.id, tr]));
+      seen.push(rec.runesSeen(t, 'left', false)[0]);
+      counts.push(rec.runes(t, 'left', false).count);
+    }
+    expect([seen[6], seen[10]]).toEqual([1, 4]); // frame by frame, the hand and the box move it
+    expect(counts).toEqual(Array(20).fill(3));
+    rec.away = true; // off the table camera: the count holds, and the board's clocks stop
+    rec.tracks = new Map();
+    rec.pause(30);
+    expect(rec.runes(40, 'left', false).count).toBe(3);
+    rec.away = false;
+    expect(rec.runes(40.5, 'left', false).count).toBe(3);
+    for (let k = 0; k < 22; k++) rec.runes(41 + 0.5 * k, 'left', false);
+    expect(rec.runes(52, 'left', false)).toEqual({ count: 0, exhausted: 0 });
+  });
+
+  it("counts a stack's covered runes from the card size and its step, and a foil rune from its reads, as Python does", () => {
+    const rec = ruled();
+    rec.frameWh = [960, 540]; // 77.5 px cards
+    rec.typeOf.set('hush-rune', 'Rune');
+    const track = (k: number, x: number, kind = 'Rune', prob?: [string, number][], side = 'left'): Track => {
+      const tr = new Track(`t${k}`, { centre: [x, 300], long_px: 78, short_px: 56, angle_deg: 90, fill: 1 }, 0, 10, side);
+      tr.hits = 5;
+      tr.kind = kind;
+      tr.placed = true;
+      if (prob) {
+        tr.reads = 4;
+        tr.prob = new Map(prob);
+      }
+      return tr;
+    };
+    // a fan of six runes a quarter of a card apart: the detector boxed five, the strip between the third and the fifth is missing
+    const fan = [track(0, 100), track(1, 120), track(2, 140), track(3, 180), track(4, 200)];
+    rec.tracks = new Map(fan.map((tr) => [tr.id, tr]));
+    expect(rec.runesNow(10, 'left')).toBe(6);
+    expect([hiddenRunes(fan.map((tr) => tr.box), 78), hiddenRunes(fan.slice(0, 2).map((tr) => tr.box), 78)]).toEqual([1, 0]);
+    // a covered strip boxed but not read joins the runes beside it; a card two cards away does not
+    for (const tr of [track(2, 140, ''), track(5, 300, '')]) rec.tracks.set(tr.id, tr);
+    expect(rec.runesNow(10, 'left')).toBe(6);
+    // a foil rune read as a spell counts on the share of its reads that say rune; a spell that only looks like one does not
+    for (const tr of [track(6, 600, 'Spell', [['hush-rune', 1.6], ['blaze-fist', 2.4]], 'right'), track(7, 800, 'Spell', [['hush-rune', 0.8], ['blaze-fist', 3.2]], 'right')])
+      rec.tracks.set(tr.id, tr);
+    expect(rec.runesNow(10, 'right')).toBe(1);
+  });
+
+  it('sees a hand around a card off the other cards, as Python does', () => {
+    const mat = rgbImage(960, 540, Uint8Array.from({ length: 960 * 540 * 3 }, (_, i) => [30, 40, 55][i % 3]!));
+    const fingers = rgbImage(960, 540, Uint8Array.from(mat.data));
+    for (let y = 200; y < 278; y++) for (let x = 326; x < 350; x++) fingers.data.set([200, 140, 110], (y * 960 + x) * 3);
+    const box: CardBox = { centre: [378, 239], long_px: 78, short_px: 56, angle_deg: 90, fill: 1 };
+    const other: CardBox = { centre: [338, 239], long_px: 78, short_px: 30, angle_deg: 90, fill: 1 };
+    const tilted: CardBox = { ...box, angle_deg: 63 };
+    const table = [0, 0, 960, 540] as const;
+    // the numbers live/pipeline.py's hand_share gives on the same pictures
+    expect([handShare(mat, box, table), handShare(fingers, box, table), handShare(fingers, box, table, [other])]).toEqual([0, 0.1875, 0]);
+    expect([handShare(fingers, tilted, table), handShare(fingers, tilted, [340, 0, 960, 540])]).toEqual([0.1875, 0.1]);
   });
 
   it("reads a track's crops on its side, and can be turned off", async () => {

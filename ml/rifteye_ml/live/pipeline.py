@@ -32,7 +32,7 @@ import numpy as np
 from PIL import Image
 
 from .. import priors
-from ..changegate import ChangeGate, GateSettings
+from ..changegate import ChangeGate, GateSettings, skin
 from ..detect.geometry import overlap_area
 from ..matcrops import FACE_DOWN_DETAIL, CardBox, detail, find_cards, mat_colour, notmat_mask
 from ..retrieval import Pyramid, ROTATIONS
@@ -41,8 +41,36 @@ from .layouts import Layout
 TEMPERATURE = 0.0212  # fitted on the M0 real labels (reviewpack identity)
 KEEP_S = 60.0   # a named card out of sight this long has gone: not a hand over it, dice, a card on top
 MOVE_S = 10.0   # a named card that vanished this recently and is named again elsewhere has moved
-STATIC = ("Legend", "Battlefield")  # set up before the game and never moved: pinned where they are named
+STATIC = ("Legend", "Battlefield")  # set up before the game: pinned where they are named (a moved battlefield's pin follows it)
 QUIET = ("Rune",)                   # tracked, but never labelled, listed or announced: not worth watching
+UNPIN_READS = 4    # a pinned battlefield read this often, and as itself on fewer than one read in UNPIN_P, was misread
+UNPIN_P = 0.2      # once: a rune or a unit turned sideways (exhausted) looks like a battlefield's landscape art
+PIN_HIDE_S = 20.0  # a legend or battlefield out of sight this long is not drawn (a hand resting on it is shorter)
+HELD_OUT = 0.15    # a card past the table window's edge on a player's side by this much of its width is in a hand
+STRIP = 0.12       # the battlefield strip: the band this far either side of the midline between the players, as a share
+                   # of the table's width across them (the official mat's is 0.11; battlefields measured within 0.09)
+STRIP_READS = 3    # off the strip, a battlefield is named only after this many reads, and never pinned: a rune or a unit
+                   # turned sideways looks like a battlefield's landscape art, and players lay out their tables differently
+RUNE_SEEN_S = 1.0       # a rune counts in a frame while seen this recently (a hand passing over it is shorter)
+RUNE_APART = 0.15       # two rune boxes closer than this share of a card's length are one rune (two tracks on one card)
+RUNE_ASPECT = 1.7       # a rune box longer than this for its width, or than RUNE_LONG cards, spans two runes: a slip
+RUNE_LONG = 1.3
+RUNE_WINDOW_S = 12.0    # a player's rune count is the upper quartile of the frames' counts over this long, and the exhausted
+RUNE_EXHAUSTED_S = 3.0  # ones the median over this long: hands over the runes and boxes between two come and go, runes stay
+RUNE_SHARE = 0.3        # a box whose reads put this share on runes is one, whatever it is named: runes are counted, never
+                        # named, and a foil rune or a stacked one's strip is often read as another card
+RUNE_JOIN = 0.6         # an unread or unnamed card-sized box this close to a rune (in cards), turned its way, is one too
+RUNE_TURN = 20.0        # (within this many degrees, and its length within RUNE_SIZE of a card's): a stack's covered strips
+RUNE_SIZE = 0.2
+RUNE_LINK = 0.6         # runes this close (in cards) are one stack: a column or a fan
+RUNE_STEP = (0.18, 0.35)  # a stack's step from strip to strip, as shares of a card's length: the gaps of that size
+RUNE_GAP = 1.6          # a gap this many steps wide hides runes the detector missed: about gap / step - 1 of them
+HAND_SKIN = 0.10       # a card with this share of skin in the band around it is in a hand: held, or being put down
+HAND_FREE_S = 0.5      # out of a hand and still this long before a card is read: a card held over the table is never named
+HAND_STILL = 0.04      # still: moved less than this share of a card's length since (a hand that holds a card moves it)
+HAND_RING = (0.1, 0.2, 0.3)  # the band looked at, as distances out from the card's edges in shares of its width
+HAND_POINTS = 8        # points along each side of the band, at each distance
+HAND_MIN_POINTS = 8    # fewer of them off the other cards and in the window: no hand to see
 KINDS = {"Legend": "legend", "Battlefield": "battlefield", "Rune": "rune"}
 
 
@@ -62,6 +90,9 @@ class Track:
     side: str = ""
     kind: str = ""                                   # the named card's type (Unit, Rune, Legend, ...)
     pinned: bool = False                             # a legend or battlefield: kept where it is all game
+    free_since: float | None = None                  # seen out of a hand and still since (`hand_share`), from free_at
+    free_at: tuple[float, float] | None = None
+    placed: bool = False                             # out of a hand and still HAND_FREE_S once: on the table
 
     def top(self) -> list[tuple[str, float]]:
         if not self.reads:
@@ -84,9 +115,92 @@ def aabb(box: CardBox) -> tuple[float, float, float, float]:
     return float(q[:, 0].min()), float(q[:, 1].min()), float(q[:, 0].max()), float(q[:, 1].max())
 
 
+def on_box(box: CardBox, x: float, y: float) -> bool:
+    """The point lies on the card."""
+    a = math.radians(box.angle_deg)
+    ux, uy = math.cos(a), math.sin(a)
+    dx, dy = x - box.centre[0], y - box.centre[1]
+    return abs(dx * ux + dy * uy) <= box.long_px / 2 and abs(dy * ux - dx * uy) <= box.short_px / 2
+
+
+def hand_share(image: np.ndarray, box: CardBox, table: tuple[int, int, int, int], others: Sequence[CardBox] = ()) -> float:
+    """The share of skin-coloured points in a band around the box, inside the table window and off the other cards
+    (`others`): the fingers holding a card in a hand over the table, or putting it down. No card's art is looked at:
+    gold, faces and fire are skin-coloured too. Hemmed in by other cards, it sees no hand."""
+    x0, y0, x1, y1 = table
+    h, w = image.shape[:2]
+    a = math.radians(box.angle_deg)
+    ux, uy = math.cos(a), math.sin(a)
+    cx, cy = box.centre
+    near = [o for o in others if math.dist(o.centre, box.centre) < o.long_px + box.long_px]
+    px = []
+    for f in HAND_RING:
+        d = f * box.short_px
+        hl, hs = box.long_px / 2 + d, box.short_px / 2 + d
+        for k in range(HAND_POINTS):
+            along_l = (k + 0.5) / HAND_POINTS * 2 * hl - hl
+            along_s = (k + 0.5) / HAND_POINTS * 2 * hs - hs
+            for su, sv in ((along_l, hs), (along_l, -hs), (hl, along_s), (-hl, along_s)):
+                x, y = cx + su * ux - sv * uy, cy + su * uy + sv * ux
+                xi, yi = math.floor(x), math.floor(y)
+                if max(x0, 0) <= xi < min(x1, w) and max(y0, 0) <= yi < min(y1, h) and not any(on_box(o, x, y) for o in near):
+                    px.append(image[yi, xi])
+    if len(px) < HAND_MIN_POINTS:
+        return 0.0
+    return float(skin(np.asarray(px, np.uint8).reshape(1, -1, 3)).mean())
+
+
+def turn_apart(a: float, b: float) -> float:
+    """Degrees between two boxes' long sides (a box's angle is modulo 180)."""
+    return abs((a - b + 90) % 180 - 90)
+
+
+def stacks_of(boxes: Sequence[CardBox], reach: float) -> list[list[CardBox]]:
+    """The boxes in groups, each linked box closer than `reach` to another of its group."""
+    parent = list(range(len(boxes)))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+    for i in range(len(boxes)):
+        for j in range(i + 1, len(boxes)):
+            if math.dist(boxes[i].centre, boxes[j].centre) <= reach:
+                parent[find(i)] = find(j)
+    groups: dict[int, list[CardBox]] = {}
+    for i, b in enumerate(boxes):
+        groups.setdefault(find(i), []).append(b)
+    return list(groups.values())
+
+
+def hidden_runes(stack: Sequence[CardBox], card: float) -> int:
+    """Runes a column or fan hides from the detector: along the stack, its usual step from strip to strip (the gaps of
+    RUNE_STEP cards), and each gap of RUNE_GAP steps or more holding about gap / step - 1 more. Cards are one size."""
+    if len(stack) < 3:
+        return 0
+    a, b = max(((x, y) for x in stack for y in stack), key=lambda p: math.dist(p[0].centre, p[1].centre))
+    span = math.dist(a.centre, b.centre)
+    if span < 1e-6:
+        return 0
+    ux, uy = (b.centre[0] - a.centre[0]) / span, (b.centre[1] - a.centre[1]) / span
+    at = sorted((o.centre[0] - a.centre[0]) * ux + (o.centre[1] - a.centre[1]) * uy for o in stack)
+    gaps = [y - x for x, y in zip(at, at[1:])]
+    steps = sorted(g for g in gaps if RUNE_STEP[0] * card <= g <= RUNE_STEP[1] * card)
+    if not steps:
+        return 0
+    step = steps[len(steps) // 2]
+    return sum(max(0, math.floor(g / step + 0.5) - 1) for g in gaps if g >= RUNE_GAP * step)
+
+
 def hidden_now(t: float, tr: "Track") -> bool:
     """Out of sight: not seen for more than a second."""
     return t - tr.last > 1.0
+
+
+def upright(box: CardBox) -> bool:
+    """The card's long side runs up the picture rather than across it."""
+    return 45 <= box.angle_deg % 180 < 135
 
 
 def smooth(old: CardBox, new: CardBox, k: float = 0.35) -> CardBox:
@@ -280,6 +394,7 @@ class Recognizer:
         for i, r in enumerate(self.rows):
             self.first_row.setdefault(r["card_id"], i)
         self.row_of = {r["printing_id"]: r for r in self.rows}
+        self.type_of = {r["card_id"]: r.get("type", "") for r in self.rows}
         self.title = title or layout.title
         self.min_p, self.sure_p, self.recheck_s, self.forget_s = min_p, sure_p, recheck_s, forget_s
         self.max_reads, self.settle_s = max_reads, settle_s
@@ -309,6 +424,9 @@ class Recognizer:
         self._cat = None                         # the rows indexed for decklists, once a list is read
         self.tokens: np.ndarray | None = None    # priors.token_rows, once a legend needs it
         self.boxes_now: dict[str, tuple[float, float, float, float]] = {}  # track id -> its box's extent, this frame
+        self.frame_wh: tuple[int, int] = (1920, 1080)  # the frame's size, for where a card lies on the table
+        self.card_rows: dict[str, np.ndarray] = {}    # card_id -> its gallery rows, for a named card read again
+        self.rune_counts: dict[str, list[tuple[float, int, int]]] = {}  # side -> (t, runes, exhausted) of recent frames
         # Camera cuts: frames off the table camera are skipped and the board's clocks stop (`pause`). After a
         # cut the view may be framed differently, so tracks found again by name re-anchor the rest (`cut`).
         self.scene = Scene(layout)
@@ -347,6 +465,7 @@ class Recognizer:
         found again where it was keeps its id and name; any other box starts a new track."""
         from scipy.optimize import linear_sum_assignment
 
+        boxes = [b for b in boxes if not self.held(b, w, h)]
         tracks = list(self.tracks.values())
         pairs: dict[int, Track] = {}
         if tracks and boxes:
@@ -375,6 +494,29 @@ class Recognizer:
                     tr.side = self.layout.side(*tr.box.centre, w, h)
             seen.append(tr)
         return seen
+
+    def held(self, box: CardBox, w: int, h: int) -> bool:
+        """A card across the table window's edge on a player's side: in a hand held over the table, or on its way
+        there, not lying on it. Never tracked, so a player's hand is never read (D-005). (A card held just inside
+        the edge looks like the cards lying there, on some broadcasts a quarter of a card from it: not caught.)"""
+        x0, y0, x1, y1 = self.layout.box(w, h)
+        bx0, by0, bx1, by1 = aabb(box)
+        m = HELD_OUT * box.short_px
+        if self.layout.split == "horizontal":
+            return by0 < y0 - m or by1 > y1 + m
+        return bx0 < x0 - m or bx1 > x1 + m
+
+    def in_strip(self, x: float, y: float) -> bool:
+        """The point lies in the battlefield strip: the band along the table's midline between the players, where the
+        battlefields lie and where either player's units go to fight over them."""
+        w, h = self.frame_wh
+        x0, y0, x1, y1 = self.layout.box(w, h)
+        u = (y - y0) / max(1, y1 - y0) if self.layout.split == "horizontal" else (x - x0) / max(1, x1 - x0)
+        return abs(u - 0.5) <= STRIP
+
+    def other_side(self, side: str) -> str:
+        a, b = self.layout.sides()
+        return b if side == a else a
 
     def on_legend(self, box: CardBox) -> bool:
         """The box's centre lies well inside a named legend. Only dice and counters go on a legend; the champion
@@ -450,6 +592,19 @@ class Recognizer:
                 out.setdefault(host.id, []).append(u)
         return out
 
+    def misread_battlefield(self, tr: Track) -> bool:
+        """A pinned battlefield whose reads since say it is another card: a rune or a unit turned sideways
+        (exhausted), read once as a battlefield, which the pin would otherwise keep all game."""
+        top = tr.top()
+        return tr.reads >= UNPIN_READS and bool(top) and top[0][0] != tr.named and dict(top).get(tr.named, 0.0) < UNPIN_P
+
+    def pinned_twin(self, t: float, tr: Track) -> Track | None:
+        """The pinned track of the battlefield `tr` is read as, when it is that card again: out of sight (the
+        battlefield was moved, and its pin follows it), or in sight and overlapping `tr` (outlined twice)."""
+        return next((o for o in self.tracks.values() if o is not tr and o.pinned and o.kind == "Battlefield"
+                     and o.named == tr.named and (hidden_now(t, o) or max(self.share(tr, o), self.share(o, tr)) >= 0.25)),
+                    None)
+
     def vanished(self, t: float, tr: Track) -> Track | None:
         """Another track of `tr`'s card that went out of sight around when `tr` appeared: the card moved."""
         gone = [o for o in self.tracks.values() if o is not tr and o.named == tr.named and not o.pinned
@@ -471,6 +626,8 @@ class Recognizer:
         top = tr.top()
         if not top or top[0][1] < self.sure_p and tr.reads < self.max_reads:
             return True
+        if tr.pinned and tr.kind == "Battlefield" and top[0][0] != tr.named and tr.reads < self.max_reads:
+            return True  # read as another card than its pin: read again at once, until the reads can undo it
         return t - tr.last_read > self.recheck_s
 
     def allowed(self, side: str) -> np.ndarray | None:
@@ -483,15 +640,39 @@ class Recognizer:
 
         lg = self.legends.get(side) if self.legend_rule and side else None
         row = self.row_of.get(lg["printing_id"]) if lg is not None else None
-        if row is None:
+        card = row["card_id"] if row is not None else self.legend_by_elimination(side) if self.legend_rule and side else None
+        if card is None:
             return None
-        card = row["card_id"]
         if card not in self.masks:
             if self.tokens is None:
                 self.tokens = priors.token_rows(self.rows)[0]
             mask = decklist.list_mask(self.catalogue(), self.decks, card) if self.decks else None
             self.masks[card] = mask if mask is not None else priors.legend_mask(self.rows, [card], self.tokens, runes=True)[0]
         return self.masks[card]
+
+    def legend_by_elimination(self, side: str) -> str | None:
+        """With two lists given, once the other player's legend is one list's, this side's legend is the other list's:
+        its cards are read against that list, its own legend under dice or not read yet. None otherwise: lists for
+        another match name neither legend on the table, and then neither is used."""
+        if len(self.decks) != 2:
+            return None
+        lg = self.legends.get(self.other_side(side))
+        row = self.row_of.get(lg["printing_id"]) if lg is not None else None
+        if row is None:
+            return None
+        named = [set(d.legends()) for d in self.decks]
+        theirs = [k for k in (0, 1) if row["card_id"] in named[k]]
+        if len(theirs) != 1 or len(named[1 - theirs[0]]) != 1:
+            return None
+        return next(iter(named[1 - theirs[0]]))
+
+    def with_card(self, allowed: np.ndarray, card: str) -> np.ndarray:
+        """A side's rows (`allowed`) and the rows of `card`, the card a track is named: a card named on one side stays
+        itself wherever it goes, a unit moved to a battlefield across the midline or taken by the other player. (Both
+        players' cards on the battlefield strip would name the cards of a hand held over it: the side's rows stay.)"""
+        if card not in self.card_rows:
+            self.card_rows[card] = self.cards == card
+        return allowed | self.card_rows[card]
 
     def catalogue(self):
         """The gallery's rows, indexed for decklists (`decklist.Catalogue`, made once, when a list is read)."""
@@ -505,13 +686,15 @@ class Recognizer:
         """The decklists given, read through `catalogue()`: from the next read on, a side whose pinned legend a list
         names competes with that list's cards; the other sides keep the legend rule. None: the rule everywhere."""
         self.decks = list(decks)
-        self.masks.clear()
+        self.masks.clear()  # the legend masks, and the other side's list by elimination, follow the lists
 
-    def identify(self, crops: Sequence[Image.Image], sides: Sequence[str] | None = None) -> list[list[tuple[str, float, float, int]]]:
+    def identify(self, crops: Sequence[Image.Image], sides: Sequence[str] | None = None,
+                 keeps: Sequence[str | None] | None = None) -> list[list[tuple[str, float, float, int]]]:
         """Per crop, its candidate cards as (card_id, probability, best score, best gallery row), best first.
         All four turns go in one batch: which way up a card lies is unknown (exhausted, opponent side).
         `sides[n]` is where crop n lies: under the legend rule, the rows its side's legend rules out score -inf
-        before the best 60 are taken, and the softmax runs over the cards left."""
+        before the best 60 are taken, and the softmax runs over the cards left. `keeps[n]`, when given, is the card crop
+        n's track is named: it competes too, wherever the crop lies (`with_card`)."""
         if not crops:
             return []
         views = [c.rotate(r, expand=True) if r else c for c in crops for r in ROTATIONS]
@@ -521,6 +704,8 @@ class Recognizer:
             level = self.gallery.levels[self.gallery.level_for(max(c.size))]
             sims = (emb[n] @ level.T).max(axis=0)
             allowed = self.allowed(sides[n]) if sides is not None else None
+            if allowed is not None and keeps is not None and keeps[n] is not None:
+                allowed = self.with_card(allowed, keeps[n])
             if allowed is not None:
                 sims = np.where(allowed, sims, -np.inf)
             scores: dict[str, tuple[float, int]] = {}
@@ -554,7 +739,8 @@ class Recognizer:
             tr.down = 0
             crops.append(c)
             owners.append(tr)
-        for tr, cands in zip(owners, self.identify(crops, [tr.side for tr in owners])):
+        keeps = [tr.named if tr.named and tr.kind != "Battlefield" else None for tr in owners]
+        for tr, cands in zip(owners, self.identify(crops, [tr.side for tr in owners], keeps)):
             tr.reads += 1
             for card, pc, sc, i in cands:
                 tr.prob[card] = tr.prob.get(card, 0.0) + pc
@@ -652,6 +838,10 @@ class Recognizer:
         for gh in self.ghosts:
             gh["t"] += dt
         self.plays = [(pt + dt, c, x, y) for pt, c, x, y in self.plays]
+        for tr in self.tracks.values():
+            if tr.free_since is not None:
+                tr.free_since += dt
+        self.rune_counts = {side: [(pt + dt, n, ex) for pt, n, ex in h] for side, h in self.rune_counts.items()}
         self.pending, self.flashes = [], []
 
     def cut(self, t: float) -> None:
@@ -694,6 +884,7 @@ class Recognizer:
         if self.t0 is None:
             self.t0 = t
         h, w = image.shape[:2]
+        self.frame_wh = (w, h)
         dt = t - self.last_t if self.last_t is not None else 0.0
         self.last_t = t
         boxes: list[CardBox] | None = None
@@ -727,7 +918,14 @@ class Recognizer:
         frame = Image.fromarray(image)
         # New and uncertain cards first, then the oldest re-checks; a budget keeps each frame in time.
         # A box seen once may be the detector's slip (between two cards): only tracks seen twice are read.
-        todo = sorted((tr for tr in seen if tr.hits >= 2 and self.due(tr, t)),
+        table, still = self.layout.box(w, h), HAND_STILL * self.layout.card_px(h)
+        for tr in seen:  # a card in a hand is not read, and not shown until it has been put down (D-005)
+            if hand_share(image, tr.box, table, [o.box for o in seen if o is not tr]) >= HAND_SKIN:
+                tr.free_since = tr.free_at = None
+            elif tr.free_since is None or math.dist(tr.box.centre, tr.free_at) > still:
+                tr.free_since, tr.free_at = t, tr.box.centre  # out of the hand, or moved since: still from now
+            tr.placed = tr.placed or self.put_down(t, tr)
+        todo = sorted((tr for tr in seen if tr.hits >= 2 and self.put_down(t, tr) and self.due(tr, t)),
                       key=lambda tr: (tr.reads > 0, tr.last_read))[:budget]
         self.read(t, frame, todo)
         tr_ = time.perf_counter()
@@ -751,13 +949,21 @@ class Recognizer:
             r = self.rows[tr.best_row.get(c, (0.0, self.first_row[c]))[1]]
             guesses.append({"printing_id": r["printing_id"], "card_id": c, "name": r["name"], "p": round(p, 3)})
         p0 = top[0][1]
-        if not tr.pinned and self.rows[self.first_row[top[0][0]]].get("type") == "Legend" and self.side_legend(tr):
+        kind = self.rows[self.first_row[top[0][0]]].get("type")
+        if not tr.pinned and kind == "Legend" and self.side_legend(tr):
             return "unsure", p0, guesses  # one player, one legend: another outline of it, or a card misread as one
+        if not tr.pinned and kind == "Battlefield" and not self.in_strip(*tr.box.centre):
+            # off the battlefield strip, a battlefield only once the reads agree: a card turned sideways is not one
+            return ("named" if tr.reads >= STRIP_READS and p0 >= self.min_p else "unsure"), p0, guesses
         named = tr.pinned or p0 >= self.sure_p or (p0 >= self.min_p and tr.reads >= 2)
-        if not named and tr.reads >= 4 and p0 >= 0.3 and self.rows[self.first_row[top[0][0]]].get("type") == "Legend" \
-                and not self.other_legend(tr.side, top[0][0]):
+        if not named and tr.reads >= 4 and p0 >= 0.3 and kind == "Legend" and not self.other_legend(tr.side, top[0][0]) \
+                and self.listed_legend(top[0][0]):
             named = True  # a legend, read the same way four times: one a player, and its frame is like no other card's
         return ("named" if named else "unsure"), p0, guesses
+
+    def listed_legend(self, card: str) -> bool:
+        """No list given, or a given list names this legend: with lists, another legend needs a sure read to be named."""
+        return not self.decks or any(card in d.legends() for d in self.decks)
 
     def announce(self, t: float) -> list[dict]:
         """'played' when a card is first named, 'moved' when a named card that just vanished is named again
@@ -779,6 +985,13 @@ class Recognizer:
                                         "name": g[0]["name"] if g else tr.named, "printing_id": g[0]["printing_id"] if g else None,
                                         "side": tr.side, "id": tr.id})
                 continue
+            if tr.pinned and tr.kind == "Battlefield" and self.misread_battlefield(tr):
+                tr.pinned = False  # read once as a battlefield, as another card since: named again as that card
+            if not tr.pinned and tr.kind == "Battlefield" and tr.named and not hidden_now(t, tr) and self.in_strip(*tr.box.centre) \
+                    and (o := self.pinned_twin(t, tr)) is not None and hidden_now(t, o):
+                o.box, o.last, o.hits = tr.box, tr.last, o.hits + tr.hits
+                del self.tracks[tr.id]  # a pinned battlefield's second outline, in sight where it is not: the pin goes there
+                continue
             state, p, g = self.label(tr)
             if state == "named" and tr.named != g[0]["card_id"]:
                 changed = tr.named is not None
@@ -795,8 +1008,14 @@ class Recognizer:
                         del self.tracks[tr.id]  # it keeps its first id
                         self.reanchor()
                         continue
-                if tr.kind in STATIC and not (tr.kind == "Legend" and (self.other_legend(tr.side, tr.named)
-                                                                      or self.side_legend(tr) is not None)):
+                strip = self.in_strip(*tr.box.centre)
+                if tr.kind == "Battlefield" and strip and (o := self.pinned_twin(t, tr)) is not None:
+                    if hidden_now(t, o):  # the battlefield was moved: its pin follows it, under its first id
+                        o.box, o.last, o.hits = tr.box, tr.last, o.hits + tr.hits
+                        del self.tracks[tr.id]
+                    continue  # or the same battlefield outlined again: not a second one, and not drawn (state)
+                if tr.kind in STATIC and (tr.kind != "Battlefield" or strip) \
+                        and not (tr.kind == "Legend" and (self.other_legend(tr.side, tr.named) or self.side_legend(tr) is not None)):
                     tr.pinned = True  # set up before the game: nothing to announce, and it stays put
                     if tr.kind == "Legend":  # the side's legend, however sure its reads are under the dice
                         self.legends.setdefault(tr.side, {"printing_id": g[0]["printing_id"], "name": g[0]["name"]})
@@ -832,13 +1051,82 @@ class Recognizer:
     def event(self, t: float, kind: str, text: str, tr: Track, pid: str | None) -> dict:
         return {"t": round(t, 2), "kind": kind, "text": text, "printing_id": pid, "track": tr.id, "side": tr.side}
 
+    def ready_upright(self) -> bool:
+        """Whether a ready card stands upright in the picture. From the player's seat, a ready card points straight at
+        them and an exhausted (used) one lies across, along their edge. Battlefields, printed landscape and never
+        exhausted, lie along the edges too, so a ready card stands at right angles to them; before one is named, the
+        layout says where the players sit (left and right: a ready card lies across the picture)."""
+        fields = [tr for tr in self.tracks.values() if tr.pinned and tr.kind == "Battlefield"]
+        if fields:
+            return sum(1 for tr in fields if upright(tr.box)) * 2 < len(fields)
+        return self.layout.split == "horizontal"
+
+    @staticmethod
+    def put_down(t: float, tr: Track) -> bool:
+        """Out of a hand and still for HAND_FREE_S: a card on the table, not one held over it."""
+        return tr.free_since is not None and t - tr.free_since >= HAND_FREE_S
+
+    def runes_seen(self, t: float, side: str, ready: bool) -> tuple[int, int]:
+        """A player's runes in this frame, one per card (the newest of two tracks on one card), and how many are exhausted."""
+        px = self.layout.card_px(self.frame_wh[1])
+        kept: list[Track] = []
+        for tr in sorted((tr for tr in self.tracks.values() if tr.kind == "Rune" and tr.side == side and tr.hits >= 2
+                          and t - tr.last <= RUNE_SEEN_S and tr.box.aspect <= RUNE_ASPECT and tr.box.long_px <= RUNE_LONG * px),
+                         key=lambda tr: (-tr.last, -tr.hits)):
+            if all(math.dist(tr.box.centre, k.box.centre) > RUNE_APART * px for k in kept):
+                kept.append(tr)
+        return len(kept), sum(1 for tr in kept if upright(tr.box) != ready)
+
+    def rune_like(self, tr: Track) -> bool:
+        """Read as a rune: named one, or a rune on RUNE_SHARE of its reads."""
+        if tr.kind == "Rune":
+            return True
+        return tr.reads >= 2 and sum(p for c, p in tr.prob.items() if self.type_of.get(c) == "Rune") >= RUNE_SHARE * tr.reads
+
+    def runes_now(self, t: float, side: str) -> int:
+        """A player's runes in this frame: the boxes read as runes, the unnamed card-sized boxes beside them turned their
+        way (a stack's covered strips), and the runes a stack's wider gaps hide (`hidden_runes`)."""
+        px = self.layout.card_px(self.frame_wh[1])
+        now = [tr for tr in self.tracks.values() if tr.side == side and tr.hits >= 2 and tr.last == t
+               and tr.box.aspect <= RUNE_ASPECT and tr.box.long_px <= RUNE_LONG * px]
+        runes = [tr for tr in now if self.rune_like(tr)]
+        while True:
+            more = [tr for tr in now if tr.kind == "" and tr not in runes and abs(tr.box.long_px / px - 1) <= RUNE_SIZE
+                    and any(math.dist(tr.box.centre, r.box.centre) < RUNE_JOIN * px
+                            and turn_apart(tr.box.angle_deg, r.box.angle_deg) <= RUNE_TURN for r in runes)]
+            if not more:
+                break
+            runes += more
+        return len(runes) + sum(hidden_runes(g, px) for g in stacks_of([tr.box for tr in runes], RUNE_LINK * px))
+
+    def runes(self, t: float, side: str, ready: bool) -> dict:
+        """A player's runes on the table: counted, never named, and how many are exhausted (used this turn), over the
+        last frames (`RUNE_WINDOW_S`); off the table camera it holds. The count is this frame's (`runes_now`), the
+        exhausted ones those named runes seen in the last second that lie across (`runes_seen`)."""
+        recent = self.rune_counts.setdefault(side, [])
+        if not self.away:
+            n, ex = self.runes_now(t, side), self.runes_seen(t, side, ready)[1]
+            if recent and recent[-1][0] >= t:
+                recent.pop()  # the state asked again for this frame
+            recent.append((t, n, ex))
+            while recent[0][0] <= t - RUNE_WINDOW_S:
+                recent.pop(0)
+        if not recent:
+            return {"count": 0, "exhausted": 0}
+        counts = sorted(n for _, n, _ in recent)
+        count = counts[min(len(counts) - 1, 3 * len(counts) // 4)]
+        newest = recent[-1][0]
+        used = sorted(ex for pt, _, ex in recent if pt > newest - RUNE_EXHAUSTED_S)
+        return {"count": count, "exhausted": min(count, used[len(used) // 2])}
+
     def state(self, t: float, w: int, h: int) -> dict:
         tracks = []
         under = self.stacks(t)
+        ready = self.ready_upright()
         for tr in self.tracks.values():
-            if tr.hits < 2:
-                continue  # seen once: maybe the detector's slip (a box between two cards), not shown yet
-            hidden = t - tr.last > 1.0 and not tr.pinned
+            if tr.hits < 2 or not tr.placed:
+                continue  # seen once (maybe the detector's slip, a box between two cards), or only ever in a hand
+            hidden = t - tr.last > (PIN_HIDE_S if tr.pinned else 1.0)
             if hidden and not tr.named:
                 continue
             state, p, g = self.label(tr)
@@ -846,6 +1134,8 @@ class Recognizer:
                 continue  # another outline of the side's legend (its case, the die on it): not a card
             if self.twin(t, tr):
                 continue  # the same card outlined again (a sleeve's or a toploader's edge): drawn once
+            if not tr.pinned and tr.kind == "Battlefield" and (o := self.pinned_twin(t, tr)) is not None and not hidden_now(t, o):
+                continue  # a pinned battlefield's second outline: drawn once
             top = g[0] if g and state == "named" else None
             # hidden: out of sight (under a hand or another card) but still on the board, so listed, not drawn
             tracks.append({"id": tr.id, "quad": quad(tr.box), "side": tr.side, "state": state,
@@ -863,7 +1153,7 @@ class Recognizer:
                     self.legends[tr["side"]] = {"printing_id": pid, "name": r["name"]}
         return {"t": round(t, 2), "status": "live", "message": "", "title": self.title,
                 "frame": {"width": w, "height": h},
-                "players": [{"side": s, "label": f"Player {k + 1}", "legend": self.legends.get(s)}
+                "players": [{"side": s, "label": f"Player {k + 1}", "legend": self.legends.get(s), "runes": self.runes(t, s, ready)}
                             for k, s in enumerate(self.layout.sides())],
                 "layout": {"name": self.layout.name, "table": list(self.layout.table)},
                 "tracks": tracks}

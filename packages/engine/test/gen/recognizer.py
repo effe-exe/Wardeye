@@ -227,7 +227,7 @@ def track_json(tr: pl.Track) -> dict:
     return plain({"id": tr.id, "box": box_json(tr.box), "first": tr.first, "last": tr.last, "hits": tr.hits, "reads": tr.reads,
                   "down": tr.down, "prob": [[c, p] for c, p in tr.prob.items()],
                   "best_row": [[c, s, i] for c, (s, i) in tr.best_row.items()], "last_read": tr.last_read, "named": tr.named,
-                  "side": tr.side, "kind": tr.kind, "pinned": tr.pinned})
+                  "side": tr.side, "kind": tr.kind, "pinned": tr.pinned, "free_since": tr.free_since, "free_at": tr.free_at, "placed": tr.placed})
 
 
 def board(rng, rows, rec: pl.Recognizer, t: float, cut: bool) -> None:
@@ -247,6 +247,7 @@ def board(rng, rows, rec: pl.Recognizer, t: float, cut: bool) -> None:
         last = float(rng.choice([t, t, t, t - 0.5, t - 1.5, t - 5.0, t - 30.0, t - 70.0]))
         last = max(first, last)
         tr = pl.Track(f"t{k}", b, first, last, side=LAYOUT.side(*b.centre, W, H))
+        tr.placed = True  # on the table: seen out of a hand
         tr.hits = int(rng.choice([1, 2, 3, 8, 20]))
         tr.reads = int(rng.choice([0, 1, 2, 3, 4, 6, 12]))
         tr.down = int(rng.choice([0, 0, 0, 1, 2, 3]))
@@ -314,6 +315,7 @@ def moved(rows, rec: pl.Recognizer, t: float) -> None:
     again), and one that went out of sight long ago (a ghost now)."""
     def add(k, cx, cy, first, last, named=None, reads=0, prob=None):
         tr = pl.Track(f"t{k}", det_box(cx, cy, 152.0, 108.0, 90.0), first, last, side=LAYOUT.side(cx, cy, W, H))
+        tr.placed = True  # on the table: seen out of a hand
         tr.hits, tr.reads, tr.named = 12, reads, named
         tr.kind = rows[rec.first_row[named]]["type"] if named else ""
         for c, p in (prob or {}).items():
@@ -329,15 +331,40 @@ def moved(rows, rec: pl.Recognizer, t: float) -> None:
     rec.boxes_now = {k: pl.aabb(tr.box) for k, tr in rec.tracks.items()}
 
 
+def pins(rows, rec: pl.Recognizer, t: float) -> None:
+    """Pinned battlefields: one misread once (a rune turned sideways) and read as the rune since; one out of sight,
+    read again elsewhere (moved); one in sight, outlined again over itself; and a card held past the window's edge."""
+    def add(k, cx, cy, first, last, named=None, reads=0, prob=None, pinned=False):
+        tr = pl.Track(f"t{k}", det_box(cx, cy, 152.0, 108.0, 90.0), first, last, side=LAYOUT.side(cx, cy, W, H))
+        tr.placed = True  # on the table: seen out of a hand
+        tr.hits, tr.reads, tr.named, tr.pinned = 12, reads, named, pinned
+        tr.kind = rows[rec.first_row[named]]["type"] if named else ""
+        for c, p in (prob or {}).items():
+            tr.prob[c] = p
+            tr.best_row[c] = (0.8, rec.first_row[c])
+        rec.tracks[tr.id] = tr
+    add(0, 700.0, 400.0, 2.0, t, "card-06", 6, {"card-06": 0.6, "card-07": 5.2}, pinned=True)
+    add(1, 800.0, 800.0, 2.0, t - 3.0, "card-14", 8, {"card-14": 7.8}, pinned=True)
+    add(2, 1100.0, 600.0, t - 2.0, t, None, 3, {"card-14": 2.9})
+    add(3, 1400.0, 300.0, 2.0, t, "card-06", 8, {"card-06": 7.9}, pinned=True)
+    add(4, 1430.0, 320.0, t - 2.0, t, None, 3, {"card-06": 2.95})
+    add(5, 300.0, 500.0, t - 1.0, t, None, 2, {"card-01": 1.9})
+    rec.next_id, rec.t0 = 6, 0.0
+    rec.boxes_now = {k: pl.aabb(tr.box) for k, tr in rec.tracks.items()}
+
+
 def boards(rng) -> list[dict]:
     rows = catalogue()
     out = []
-    for n in range(11):
+    for n in range(12):
         t = float(rng.choice([20.0, 45.5, 90.0]))
         rec = recognizer(rows)
         if n == 10:
             t = 80.0
             moved(rows, rec, t)
+        elif n == 11:
+            t = 80.0
+            pins(rows, rec, t)
         else:
             board(rng, rows, rec, t, cut=n % 4 == 3)
         setup = setup_json(rec)
@@ -348,7 +375,10 @@ def boards(rng) -> list[dict]:
             per.append(plain({"id": tr.id, "label": list(rec.label(tr)), "due": rec.due(tr, t), "covered": rec.covered(t, tr),
                               "stacked_on": so.id if so else None, "twin": rec.twin(t, tr), "vanished": va.id if va else None,
                               "face_down": rec.face_down(tr), "on_legend": rec.on_legend(tr.box),
-                              "side_legend": (lambda o: o.id if o else None)(rec.side_legend(tr))}))
+                              "side_legend": (lambda o: o.id if o else None)(rec.side_legend(tr)),
+                              "misread_battlefield": rec.misread_battlefield(tr) if tr.pinned and tr.kind == "Battlefield" else False,
+                              "pinned_twin": (lambda o: o.id if o else None)(rec.pinned_twin(t, tr)) if tr.named else None,
+                              "held": rec.held(tr.box, W, H), "in_strip": rec.in_strip(*tr.box.centre)}))
         stacks = {k: [u.id for u in v] for k, v in rec.stacks(t).items()}
         state = plain(rec.state(t, W, H))
         asks = [(str(rng.choice(sorted({r["card_id"] for r in rows}))), float(rng.uniform(400, 1500)), float(rng.uniform(100, 1000)))
@@ -382,6 +412,7 @@ def reanchor_vectors(rng) -> list[dict]:
         for k in range(8):
             b = det_box(rng.uniform(500, 1400), rng.uniform(150, 950), 150.0, 107.0, rng.uniform(85, 95))
             tr = pl.Track(f"t{k}", b, 10.0, 49.5, side=LAYOUT.side(*b.centre, W, H))
+            tr.placed = True  # on the table: seen out of a hand
             tr.hits, tr.reads = 20, 3
             if k < 6:
                 tr.named = cards[k]
@@ -394,6 +425,7 @@ def reanchor_vectors(rng) -> list[dict]:
             c = s * rot @ np.asarray(o.box.centre) + shift
             b = det_box(c[0] + rng.normal(0, 3), c[1] + rng.normal(0, 3), 150.0 * s, 107.0 * s, o.box.angle_deg)
             tr = pl.Track(f"t{k}", b, 50.5, 51.0, side=LAYOUT.side(*b.centre, W, H))
+            tr.placed = True  # on the table: seen out of a hand
             tr.hits = 3
             if k == 11:
                 tr.reads, tr.prob[cards[7]] = 1, 0.9

@@ -141,7 +141,7 @@ function sideSection(s: Side): HTMLElement {
   section.append(list);
   // and what is there but not named: runes, unsure reads, face-down cards, counted
   const bits = [
-    s.runes ? `${s.runes} ${s.runes > 1 ? 'runes' : 'rune'}` : '',
+    s.runes ? `${s.runes} ${s.runes > 1 ? 'runes' : 'rune'}${s.exhausted ? ` · ${s.exhausted} exhausted` : ''}` : '',
     s.unsure ? `${s.unsure} unsure` : '',
     s.facedown ? `${s.facedown} face down` : '',
   ].filter(Boolean);
