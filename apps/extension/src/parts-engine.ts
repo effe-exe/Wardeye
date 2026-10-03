@@ -86,6 +86,9 @@ export async function loadParts(ctx: LoadContext): Promise<Parts> {
         setLists(lists: unknown) {
           rec.setLists(lists as decklist.Deck[]);
         },
+        prime(frames: readonly RgbImage[]) {
+          rec.prime(frames);
+        },
       };
     },
     readLists(texts: readonly string[]) {

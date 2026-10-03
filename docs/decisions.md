@@ -146,7 +146,7 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 
 ### D-022: Free for everyone, closed weights, a showcase for Gradeon
 
-- **Date:** 2026-09-29. **Status:** accepted. Supersedes the commercial part of [D-001](#d-001-agpl-30-only-plus-a-cla) and the sustainability model in [07 §7.7](research/07-licensing-and-governance.md#77-sustainability-model). How it credits Gradeon is amended by [D-024](#d-024-wardeye-has-its-own-brand-book).
+- **Date:** 2026-09-29. **Status:** accepted. Supersedes the commercial part of [D-001](#d-001-agpl-30-only-plus-a-cla) and the sustainability model in [07 §7.7](research/07-licensing-and-governance.md#77-sustainability-model). How it credits Gradeon is amended by [D-024](#d-024-wardeye-has-its-own-brand-book). The extension's package is offered on GitHub too ([D-035](#d-035-each-releases-zip-is-on-github-too)).
 - **Decision:**
   - The project is free for everyone. It offers no commercial licences, no paid tiers and no paid services.
   - The code stays AGPL-3.0-only, and contributors still sign the CLA, which keeps the licensing in one hand. [D-002](#d-002-permissive-dependencies-only)'s permissive-only rule stays for the same reason.
@@ -214,8 +214,64 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 
 ### D-029: A card in a hand is not on the table
 
-- **Date:** 2026-10-02. **Status:** accepted; the Maintainer's decision ("fix it first"). Ships in 0.2.1. Applies [D-005](#d-005-public-information-only).
+- **Date:** 2026-10-02. **Status:** accepted; the Maintainer's decision ("fix it first"). Ships in 0.2.1. Applies [D-005](#d-005-public-information-only). What counts as a hand is refined by [D-033](#d-033-a-hand-is-what-is-not-the-table) (0.2.2).
 - **Decision:** A card is read only once it is put down: out of a hand for half a second, and still. A card never put down is neither drawn nor announced, and nothing of its face is looked at.
   - **A hand** is seen in a band around the card, outside its edges: 96 points at three distances, those inside the table window and off the other cards. A card with a tenth of them skin-coloured is in a hand, held or being put down. The card's own face is never looked at, since gold, faces and fire in the art are skin-coloured too. A card hemmed in by other cards shows no hand.
   - **Put down** means no hand around it for 0.5 s while it moves less than 4% of a card's length. Then it is read, and drawn from then on.
 - **Why:** On the Barcelona final the players hold their hands low over the table, and the detector outlines the cards in them. Before the rule, the first 200 s listed 27 plays, 13 of them false: cards in a hand, a card turned in a hand, the same card twice. With it there are 17 plays, 3 of them false, and 13 of the 15 real plays are found (14 before). Of the three false plays left, one is a card held still in a hand for a moment, and two are cards announced a second time. On the Los Angeles final the rule removes two false plays and keeps every real one. A card in a hand is hidden information ([D-005](#d-005-public-information-only)): naming it would spoil the match.
+
+### D-030: What stays put through the cuts is the broadcast's overlay
+
+- **Date:** 2026-10-03. **Status:** accepted; the Maintainer's decision ("fix everything"), after testing 0.2.1 on a co-stream. Ships in 0.2.2. Applies [D-005](#d-005-public-information-only).
+- **Decision:** What a broadcast lays over every shot (a co-streamer's webcam and chat, a scoreboard, a sponsor banner) is found from the cuts, and nothing on it is read.
+  - **A cut** is a frame whose 96 x 54 thumbnail changed from the frame before by half. Play changes a quarter at most.
+  - **The overlay** is the thumbnail's pixels that stayed through 90% of the cuts, once there have been four, in patches that reach the frame's edge, with their holes filled (a webcam's frame stays put, the face in it moves).
+  - **What was overlay stays overlay** while it stays through 60% of the cuts: the face moving in a webcam changes its pixels at some cuts, and opens the webcam's frame to the table.
+  - **Before four cuts,** what stayed through every cut so far is only suspect: nothing there is read until the cuts make it overlay, or for a minute after the last cut, since one cut alone can be the camera reframed. The frames the table was looked for in count too: a cut from a player cam to the table shows the webcam from the board's first frame.
+  - **Once the overlay is known,** a box in it is not a card, the cards read off it before then are dropped (with a legend one of them gave its side), and their plays are withdrawn: the panel takes them off its list.
+  - **The scene gate** leaves the overlay out of its score, and learns a frame only when the one before was the table camera too. How it scores is [D-034](#d-034-the-table-camera-is-told-by-the-table-window-block-by-block).
+- **Why:** On a co-stream of a Riftbound tournament, recorded live, the co-streamer's webcam lay inside the table window: it was read as a legend (shown as one player's), a battlefield and a play, and the scoreboard's portraits and the chat were outlined. The scene gate, which scored the overlay with the table, took a close-up of a hand for the table 99 s in, learnt it, and from then on took every shot for the table. With these rules, on that game: four cards read on the webcam and the scoreboard before the fourth cut are withdrawn at it, 44 s into the video, and nothing on the webcam is read after; one graphic of the scoreboard is, at 165 s, a box wider than any card that the cuts never showed to stay put (the score track's numbers change). Before the rule that keeps what was overlay, the webcam left the overlay at the fifth cut, and the card on its wall was read and announced again 15 s later.
+
+### D-031: A table camera shows both sides of a table
+
+- **Date:** 2026-10-03. **Status:** accepted; the Maintainer's decision ("fix everything"). Ships in 0.2.2.
+- **Decision:** The layout found from the footage (`autolayout`) is a table camera's only when its window holds five cards' lengths each way, cards lie on both sides of its middle (both players'), and they are not a graphic's grid: six or more cards all within 2 degrees of square and 3% of one size. Otherwise the look found nothing, and the table is looked for again a second later.
+- **Why:** The layout is found once and kept for the whole video. Opened during a co-stream's pre-game close-up of a player shuffling, Wardeye took the close-up for the table (cards 304 px long, 3.3 cards high) and would have kept it all match; a sideboard screen's eight cards, in a grid, were read as eight plays. The table window holds 6.5 card lengths or more on every broadcast so far. On real tables the most crooked card lies 6 degrees off square or more and the sizes vary by 7% or more; on the sideboard screen every card was within 0.7 degrees and 1%.
+
+### D-032: A card is a card's size, and not the mat's print
+
+- **Date:** 2026-10-03. **Status:** accepted; the Maintainer's decision ("fix everything"). Ships in 0.2.2.
+- **Decision:**
+  - **A box longer than 1.45 cards is not one.** The detector outlines a co-stream's chat (two cards long) and, on a mat with printed card zones, a card and the empty zone beside it as one box.
+  - **A zone printed on the mat is not a card.** A box of the mat's own colour inside as around it (their medians within 18 levels) and plain inside (the middle half of its points within 24) is a printed zone or the mat's logo. A card's face is never plain, and a face-down card is plain in its sleeve's colour.
+  - **Four cards first named within a second are not four plays.** They are a graphic of cards or a view framed anew: nobody plays four cards a second. They are named, and not announced.
+- **Why:** On the co-stream of [D-030](#d-030-what-stays-put-through-the-cuts-is-the-broadcasts-overlay) a box round a card and the empty zone above it was named as that card again and announced as a second play, and the zone a card was moved away from kept the card's name. Named cards on the two finals measure within 1.24 cards 99.5% of the time; the zone test flags none of 494 named cards checked on the Barcelona and Los Angeles finals, and 77 boxes on the co-stream's mats, all zones, the logo, or the spot a card left.
+
+### D-033: A hand is what is not the table
+
+- **Date:** 2026-10-03. **Status:** accepted; the Maintainer's decision ("fix everything"). Ships in 0.2.2. Refines [D-029](#d-029-a-card-in-a-hand-is-not-on-the-table).
+- **Decision:** A point of the band around a card counts as skin only where the frame there is 40 levels unlike the still table: the median of the first five table frames half a second apart (hands move, the table does not), which then moves 2 levels nearer the frame every half second, so a hand passing over the table stays a hand and a card put down becomes part of the table within half a minute. The two are compared at a quarter of 1080p, so a mat's thin printed lines are the table too. Until the still table is known (2.5 s), the colour test alone decides, as before.
+- **Why:** A wooden table is skin-coloured. On the co-stream of [D-030](#d-030-what-stays-put-through-the-cuts-is-the-broadcasts-overlay) every card beside the wood counted as held: both legends, a champion and the battlefields lying on the wood between the mats were never named. With the rule, both legends, both champions and a battlefield are named on that game.
+
+### D-034: The table camera is told by the table window, block by block
+
+- **Date:** 2026-10-03. **Status:** accepted; the Maintainer's decision ("fix everything"). Ships in 0.2.2. Applies [D-005](#d-005-public-information-only).
+- **Decision:** The scene gate, which says whether a frame is the table camera, looks at the table window only, and in blocks.
+  - **Only the table window is scored.** The panels beside it are laid over every shot, a close-up of a hand included.
+  - **In blocks.** The score is the mean of the correlations in a 6 x 3 grid of blocks of the 96 x 54 thumbnail, each with 20 still pixels of the window or more: an arm or a banner over the table spoils a block or two, a cut to another shot spoils them all.
+  - **Learnt again only with cards.** Away for 20 s, a view is learnt as the table camera moved only when it looks like the mat and holds five card-sized boxes or more, and half the most the table camera showed in its last minute on screen. A mat's colour alone is no proof. Only the boxes are counted: nothing on them is read.
+- **Why:** Replayed on five stretches (Barcelona 0 to 200 s and 800 to 1000 s, Los Angeles 0 to 240 s, the game of the co-stream of [D-030](#d-030-what-stays-put-through-the-cuts-is-the-broadcasts-overlay)), 1,971 frames against shot labels checked by eye:
+  - 0.2.1 took 488 frames of other shots for the table and lost none of it: Barcelona's close-ups of hands and of single cards, which the panels made look like the table, and on the co-stream nearly every other shot from 99 s on.
+  - 0.2.2 before this rule took 434 and lost 87: on the co-stream it learnt a player cam as the table at 112 s, and on Barcelona an arm over the mat's printed score track took the table away for 9 s.
+  - Now 9 and 8: in the first 6 s of a stretch, before the gate has learnt the table, and around cuts.
+  - On the co-stream every shot passes for the mat by its colour (0.57 to 0.72 of the window, where 0.39 is enough), and the player cam the gate learnt at 112 s holds no card. Close-ups of one side of the table hold 13 card-sized boxes at most; the table holds 45 to 61.
+  - Run on the stretches with the rest of 0.2.2: on Barcelona's first 200 s, 15 plays are announced, 12 of them real and 2 false, where 0.2.1 announced 17, 11 real and 3 false (checked against the frames). On the co-stream's game the gate is right on 687 frames of 688. On Los Angeles the plays are as before.
+  - The rune count, which holds while the camera is away, is right 39 times of the 65 moments of [D-028](#d-028-the-tables-layout-is-a-guide-not-a-rule), against 43: on Barcelona's first 200 s it is one rune high at four moments more, most just after a close-up, whose empty frames had pulled 0.2.1's count down. The exhausted ones are right 30 times, as before.
+
+### D-035: Each release's zip is on GitHub too
+
+- **Date:** 2026-10-03. **Status:** accepted; the Maintainer's decision ("add the latest zip on GitHub for developers"). Refines [D-022](#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon).
+- **Decision:** Every version's store zip is attached to its GitHub release. Unzipped and loaded in Developer mode, it is the extension the store gets, for developers and for anyone who wants a version before the store has approved it. It does not update itself.
+  - **The models inside stay closed** ([D-022](#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)): they are not under the AGPL, all rights are reserved, and they may be used only to run Wardeye. Each release's notes say so.
+- **Why:** The store reviews every update, which takes days, and developers want the newest build, or a fixed copy of one. The models already reach everyone inside the store package, which anyone can download, so nothing new is exposed. Saying the terms where the zip is keeps the weights' status plain.
+

@@ -133,7 +133,7 @@ def jpeg(image: np.ndarray, width: int = 1280, quality: int = 78) -> bytes:
 
 def find_layout(frames, det, every: float = 1.0, give_up: float = 120.0):
     """`--layout auto`: a layout from the first table shots (`autolayout.py`), one look a second over the
-    last five; SystemExit when none shows a table in the first `give_up` s of media."""
+    last five, and those five (`Recognizer.prime`); SystemExit when none shows a table in the first `give_up` s of media."""
     from .autolayout import auto_layout
 
     detect = (lambda f, box, px: det.detect(Image.fromarray(f), box, px)) if det is not None else None
@@ -145,7 +145,7 @@ def find_layout(frames, det, every: float = 1.0, give_up: float = 120.0):
         last_t = fr.t
         seen = (seen + [fr.image])[-5:]
         if len(seen) == 5 and (layout := auto_layout(seen, detect)) is not None:
-            return layout
+            return layout, seen
         if fr.t - t0 > give_up:
             break
     raise SystemExit(f"no table found in the first {give_up / 60:g} minutes: name the broadcast's layout with --layout")
@@ -236,12 +236,12 @@ def main(argv: list[str] | None = None) -> int:
             if browser is None:
                 print(f"{src.kind}: {src.width}x{src.height} at {src.fps:g} fps", flush=True)
             frames = iter(src)
-            layout, video, t_first, last_t = None, None, None, None
+            layout, video, t_first, last_t, looked = None, None, None, None, []
             while True:  # once per broadcast: the extension's viewer can open another video
                 if layout is None or a.layout == "auto" and video is not None:
                     if a.layout == "auto":
                         status("starting", "finding the table and the size of a card")
-                        layout = find_layout(frames, det, give_up=math.inf if browser is not None else 120.0)
+                        layout, looked = find_layout(frames, det, give_up=math.inf if browser is not None else 120.0)
                         print(f"layout found: table {layout.table}, cards {layout.card_long_1080:g} px long at 1080p", flush=True)
                     else:
                         layout = LAYOUTS[a.layout]
@@ -256,6 +256,8 @@ def main(argv: list[str] | None = None) -> int:
                                               min_score=a.det_score)
                 rec = Recognizer(layout, rows, enc, pyr, title=title, fps=a.fps, finder=finder,
                                  legend_rule=not a.no_legend_rule, **({"temperature": temperature} if temperature else {}))
+                rec.prime(looked)  # the frames the layout was found from: the overlay's first cut, often
+                looked = []
                 switched = False
                 for fr in frames:
                     key = getattr(fr, "video", None)

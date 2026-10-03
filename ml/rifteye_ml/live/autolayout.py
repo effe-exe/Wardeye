@@ -24,6 +24,11 @@ from .layouts import Layout
 
 W, H = 480, 270                                  # the thumbnail the borders are found on
 SIZES = (80, 100, 125, 155, 190, 235)            # candidate card long sides at 1080p
+MIN_CARDS = 5.0    # a table camera's window holds this many cards' lengths each way: it shows both players' mats (6.5 on
+                   # every broadcast so far); a close-up of a hand or a deck shows a few big cards (3.3 on a co-stream)
+GRID_TURN = 2.0    # cards all within this many degrees of square and GRID_SIZE of one size, six or more, are a graphic
+GRID_SIZE = 0.03   # (a sideboard, a decklist: within 0.7 and 1%), not a table: on one the most crooked card is 6 or more
+GRID_CARDS = 6     # degrees off and the sizes vary by 7% or more
 
 
 RUN = 0.09  # the shortest stretch of an edge that counts, as a share of the thumbnail's side
@@ -127,9 +132,16 @@ def table_window(frames: Sequence[np.ndarray], tol: int = 45) -> tuple[tuple[flo
 def card_size(detect, frames: Sequence[np.ndarray], window: tuple[float, float, float, float]) -> float | None:
     """A card's long side at 1080p: of the candidate sizes, the one at which the detector finds the most
     confident cards whose own size agrees with it; then the median size of those cards."""
-    best, best_n, best_longs = None, 0, []
+    found = card_size_and_cards(detect, frames, window)
+    return None if found is None else found[0]
+
+
+def card_size_and_cards(detect, frames: Sequence[np.ndarray], window: tuple[float, float, float, float]):
+    """`card_size`, and the cards it agreed on: (x as a share of the frame's width, long side at 1080p, degrees its long
+    side lies off square), for `a_table`."""
+    best, best_n, best_cards = None, 0, []
     for px in SIZES:
-        longs = []
+        cards = []
         for f in frames:
             h, w = f.shape[:2]
             box = (window[0] * w, window[1] * h, window[2] * w, window[3] * h)
@@ -137,31 +149,59 @@ def card_size(detect, frames: Sequence[np.ndarray], window: tuple[float, float, 
                 if d["score"] < 0.6:
                     continue
                 q = np.asarray(d["quad"], np.float64).reshape(4, 2)
-                side = max(np.linalg.norm(q[1] - q[0]), np.linalg.norm(q[2] - q[1])) * 1080 / h
+                e0, e1 = q[1] - q[0], q[2] - q[1]
+                n0, n1 = float(np.linalg.norm(e0)), float(np.linalg.norm(e1))
+                side = max(n0, n1) * 1080 / h
                 if abs(side / px - 1) < 0.35:
-                    longs.append(side)
-        if len(longs) > best_n:
-            best, best_n, best_longs = px, len(longs), longs
-    return float(np.median(best_longs)) if best is not None and best_n >= 5 else None
+                    e = e0 if n0 >= n1 else e1
+                    turn = abs((math.degrees(math.atan2(e[1], e[0])) + 45) % 90 - 45)
+                    cards.append((float(q[:, 0].mean()) / w, side, turn))
+        if len(cards) > best_n:
+            best, best_n, best_cards = px, len(cards), cards
+    if best is None or best_n < 5:
+        return None
+    return float(np.median([c[1] for c in best_cards])), best_cards
+
+
+def a_table(window: tuple[float, float, float, float], px: float, cards, aspect: float) -> bool:
+    """Whether a window and the cards found in it are a table camera's: it holds MIN_CARDS cards' lengths each way, cards
+    lie on both sides of its middle (both players'), and they are not a graphic's grid (GRID_CARDS or more, all square
+    and one size). `aspect` is the frame's width over its height; `px` a card's long side at 1080p."""
+    x0, y0, x1, y1 = window
+    if min((x1 - x0) * aspect * 1080, (y1 - y0) * 1080) < MIN_CARDS * px:
+        return False
+    mid = (x0 + x1) / 2
+    if not (any(x < mid for x, _, _ in cards) and any(x >= mid for x, _, _ in cards)):
+        return False
+    return not (len(cards) >= GRID_CARDS and max(t for _, _, t in cards) <= GRID_TURN
+                and max(abs(s / px - 1) for _, s, _ in cards) <= GRID_SIZE)
 
 
 def card_size_finder(frames: Sequence[np.ndarray], window: tuple[float, float, float, float],
                      mat: tuple[int, int, int]) -> float | None:
     """Without the detector: the candidate size at which the bootstrap finder sees the most isolated cards,
     then their median size."""
+    found = card_size_finder_and_cards(frames, window, mat)
+    return None if found is None else found[0]
+
+
+def card_size_finder_and_cards(frames: Sequence[np.ndarray], window: tuple[float, float, float, float],
+                               mat: tuple[int, int, int]):
+    """`card_size_finder`, and the cards it saw, as `card_size_and_cards` gives them."""
     from ..matcrops import find_cards, notmat_mask
 
-    best: list[float] = []
+    best: list[tuple[float, float, float]] = []
     for px in SIZES:
-        longs = []
+        cards = []
         for f in frames:
             h, w = f.shape[:2]
-            roi = f[round(window[1] * h):round(window[3] * h), round(window[0] * w):round(window[2] * w)]
-            longs += [b.long_px * 1080 / h for b in find_cards(roi, px * h / 1080, tol=0.15,
-                                                                  mask=notmat_mask(roi, np.asarray(mat, np.int16), 45))]
-        if len(longs) > len(best):
-            best = longs
-    return float(np.median(best)) if len(best) >= 3 else None
+            ox = round(window[0] * w)
+            roi = f[round(window[1] * h):round(window[3] * h), ox:round(window[2] * w)]
+            cards += [((b.centre[0] + ox) / w, b.long_px * 1080 / h, abs((b.angle_deg + 45) % 90 - 45))
+                      for b in find_cards(roi, px * h / 1080, tol=0.15, mask=notmat_mask(roi, np.asarray(mat, np.int16), 45))]
+        if len(cards) > len(best):
+            best = cards
+    return (float(np.median([c[1] for c in best])), best) if len(best) >= 3 else None
 
 
 def auto_layout(frames: Sequence[np.ndarray], detect=None) -> Layout | None:
@@ -171,7 +211,11 @@ def auto_layout(frames: Sequence[np.ndarray], detect=None) -> Layout | None:
     if found is None:
         return None
     window, mat, share = found
-    px = card_size(detect, frames, window) if detect is not None else card_size_finder(frames, window, mat)
-    if px is None:
+    sized = card_size_and_cards(detect, frames, window) if detect is not None else card_size_finder_and_cards(frames, window, mat)
+    if sized is None:
         return None
+    px, cards = sized
+    h, w = frames[0].shape[:2]
+    if not a_table(window, px, cards, w / h):
+        return None  # a close-up, one side of the table, or a graphic of cards: looked for again in a moment
     return Layout("auto", "this broadcast", window, round(px, 1), mat=mat, mat_share=round(0.8 * share, 2))

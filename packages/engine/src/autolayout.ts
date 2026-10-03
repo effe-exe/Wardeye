@@ -14,7 +14,7 @@ import * as image from './image';
 import { makeLayout } from './layouts';
 import { findCards, matColour, notmatMask } from './matcrops';
 import { binaryClosing, binaryFillHoles, label, type Mask } from './ndimage';
-import { median, pyRound } from './pynum';
+import { median, pyMod, pyRound } from './pynum';
 import type { Detection, Layout, RgbImage } from './types';
 
 /** The thumbnail the borders are found on. */
@@ -22,6 +22,19 @@ export const W = 480;
 export const H = 270;
 /** Candidate card long sides at 1080p. */
 export const SIZES = [80, 100, 125, 155, 190, 235] as const;
+/** A table camera's window holds this many cards' lengths each way: it shows both players' mats (6.5 on every broadcast
+ * so far); a close-up of a hand or a deck shows a few big cards (3.3 on a co-stream). */
+export const MIN_CARDS = 5.0;
+/** Cards all within GRID_TURN degrees of square and GRID_SIZE of one size, GRID_CARDS or more, are a graphic (a sideboard,
+ * a decklist: within 0.7 and 1%), not a table: on one the most crooked card is 6 or more degrees off and the sizes vary
+ * by 7% or more. */
+export const GRID_TURN = 2.0;
+export const GRID_SIZE = 0.03;
+export const GRID_CARDS = 6;
+
+/** A card the layout's size was found from: x as a share of the frame's width, its long side at 1080p, and how many
+ * degrees its long side lies off square. */
+export type SizedCard = [x: number, long1080: number, turn: number];
 
 export type Window = [number, number, number, number];
 
@@ -240,28 +253,55 @@ export function tableWindow(frames: readonly RgbImage[], tol = 45): { window: Wi
 /** A card's long side at 1080p: of the candidate sizes, the one at which the detector finds the most confident cards
  * whose own size agrees with it; then the median size of those cards. Asynchronous: the detector is. */
 export async function cardSize(detect: Detect, frames: readonly RgbImage[], window: Window): Promise<number | null> {
+  const found = await cardSizeAndCards(detect, frames, window);
+  return found === null ? null : found[0];
+}
+
+/** `cardSize`, and the cards it agreed on (`SizedCard`), for `aTable`. */
+export async function cardSizeAndCards(detect: Detect, frames: readonly RgbImage[], window: Window): Promise<[number, SizedCard[]] | null> {
   let best: number | null = null;
   let bestN = 0;
-  let bestLongs: number[] = [];
+  let bestCards: SizedCard[] = [];
   for (const px of SIZES) {
-    const longs: number[] = [];
+    const cards: SizedCard[] = [];
     for (const f of frames) {
       const { width: w, height: h } = f;
       const box: Window = [window[0] * w, window[1] * h, window[2] * w, window[3] * h];
       for (const d of await detect(f, box, (px * h) / 1080)) {
         if (d.score < 0.6) continue;
         const q = d.quad;
-        const side = (Math.max(norm2(q[1]![0] - q[0]![0], q[1]![1] - q[0]![1]), norm2(q[2]![0] - q[1]![0], q[2]![1] - q[1]![1])) * 1080) / h;
-        if (Math.abs(side / px - 1) < 0.35) longs.push(side);
+        const e0 = [q[1]![0] - q[0]![0], q[1]![1] - q[0]![1]] as const;
+        const e1 = [q[2]![0] - q[1]![0], q[2]![1] - q[1]![1]] as const;
+        const n0 = norm2(e0[0], e0[1]);
+        const n1 = norm2(e1[0], e1[1]);
+        const side = (Math.max(n0, n1) * 1080) / h;
+        if (Math.abs(side / px - 1) < 0.35) {
+          const e = n0 >= n1 ? e0 : e1;
+          const turn = Math.abs(pyMod(Math.atan2(e[1], e[0]) * (180 / Math.PI) + 45, 90) - 45); // math.degrees: x * (180 / pi)
+          cards.push([(((q[0]![0] + q[1]![0]) + q[2]![0]) + q[3]![0]) / 4 / w, side, turn]);
+        }
       }
     }
-    if (longs.length > bestN) {
+    if (cards.length > bestN) {
       best = px;
-      bestN = longs.length;
-      bestLongs = longs;
+      bestN = cards.length;
+      bestCards = cards;
     }
   }
-  return best !== null && bestN >= 5 ? median(bestLongs) : null;
+  if (best === null || bestN < 5) return null;
+  return [median(bestCards.map((c) => c[1])), bestCards];
+}
+
+/** Whether a window and the cards found in it are a table camera's: it holds MIN_CARDS cards' lengths each way, cards lie
+ * on both sides of its middle (both players'), and they are not a graphic's grid (GRID_CARDS or more, all square and one
+ * size). `aspect` is the frame's width over its height; `px` a card's long side at 1080p. As autolayout.py's `a_table`. */
+export function aTable(window: Window, px: number, cards: readonly SizedCard[], aspect: number): boolean {
+  const [x0, y0, x1, y1] = window;
+  if (Math.min((x1 - x0) * aspect * 1080, (y1 - y0) * 1080) < MIN_CARDS * px) return false;
+  const mid = (x0 + x1) / 2;
+  if (!(cards.some(([x]) => x < mid) && cards.some(([x]) => x >= mid))) return false;
+  return !(cards.length >= GRID_CARDS && Math.max(...cards.map((c) => c[2])) <= GRID_TURN
+    && Math.max(...cards.map(([, s]) => Math.abs(s / px - 1))) <= GRID_SIZE);
 }
 
 /** f[y0:y1, x0:x1] as numpy slices it: clipped to the picture. */
@@ -279,17 +319,26 @@ function slice(f: RgbImage, y0: number, y1: number, x0: number, x1: number): Rgb
 /** Without the detector: the candidate size at which the bootstrap finder sees the most isolated cards, then their
  * median size. */
 export function cardSizeFinder(frames: readonly RgbImage[], window: Window, mat: readonly [number, number, number]): number | null {
-  let best: number[] = [];
+  const found = cardSizeFinderAndCards(frames, window, mat);
+  return found === null ? null : found[0];
+}
+
+/** `cardSizeFinder`, and the cards it saw, as `cardSizeAndCards` gives them. */
+export function cardSizeFinderAndCards(frames: readonly RgbImage[], window: Window, mat: readonly [number, number, number]): [number, SizedCard[]] | null {
+  let best: SizedCard[] = [];
   for (const px of SIZES) {
-    const longs: number[] = [];
+    const cards: SizedCard[] = [];
     for (const f of frames) {
       const { width: w, height: h } = f;
-      const roi = slice(f, pyRound(window[1] * h), pyRound(window[3] * h), pyRound(window[0] * w), pyRound(window[2] * w));
-      for (const b of findCards(roi, (px * h) / 1080, { tol: 0.15, mask: notmatMask(roi, mat, 45) })) longs.push((b.long_px * 1080) / h);
+      const ox = pyRound(window[0] * w);
+      const roi = slice(f, pyRound(window[1] * h), pyRound(window[3] * h), ox, pyRound(window[2] * w));
+      for (const b of findCards(roi, (px * h) / 1080, { tol: 0.15, mask: notmatMask(roi, mat, 45) })) {
+        cards.push([(b.centre[0] + ox) / w, (b.long_px * 1080) / h, Math.abs(pyMod(b.angle_deg + 45, 90) - 45)]);
+      }
     }
-    if (longs.length > best.length) best = longs;
+    if (cards.length > best.length) best = cards;
   }
-  return best.length >= 3 ? median(best) : null;
+  return best.length >= 3 ? [median(best.map((c) => c[1])), best] : null;
 }
 
 /** A layout for these frames of the table camera, or null when they do not show a table (or no card on it yet). With a
@@ -298,7 +347,10 @@ export async function autoLayout(frames: readonly RgbImage[], detect?: Detect): 
   const found = tableWindow(frames);
   if (found === null) return null;
   const { window, mat, share } = found;
-  const px = detect !== undefined ? await cardSize(detect, frames, window) : cardSizeFinder(frames, window, mat);
-  if (px === null) return null;
+  const sized = detect !== undefined ? await cardSizeAndCards(detect, frames, window) : cardSizeFinderAndCards(frames, window, mat);
+  if (sized === null) return null;
+  const [px, cards] = sized;
+  const f0 = frames[0]!;
+  if (!aTable(window, px, cards, f0.width / f0.height)) return null; // a close-up, one side of the table, or a graphic of cards
   return makeLayout({ name: 'auto', title: 'this broadcast', table: window, card_long_1080: pyRound(px, 1), mat, mat_share: pyRound(0.8 * share, 2) });
 }

@@ -37,6 +37,9 @@ describe("a tab's layout", () => {
     expect(parts.made).toEqual([LA]);
     expect(parts.steps.map((x) => x.t)).toEqual([4.2, 4.4, 4.6, 4.8, 5, 5.2]);
     expect(s.layoutName).toBe('la-rq');
+    expect(parts.primed).toEqual([5]); // with the five looks it was found from: a cut among them shows the overlay
+    await play(s, '/videos/1', 30, 30.4); // a jump: a new board on the same table, primed with nothing
+    expect(parts.primed).toEqual([5, 0]);
   });
 
   it('says what it is doing while it looks', async () => {

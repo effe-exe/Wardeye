@@ -117,7 +117,8 @@ export class PlayLog {
     return this.list;
   }
 
-  /** The events of a frame of `video`; the ones new to the list are returned. */
+  /** The events of a frame of `video`; the ones new to the list are returned. A `withdrawn` event takes its play off the
+   * list (a card read off the stream's overlay, before the cuts showed it for what it is). */
   add(video: string, events: readonly BoardEvent[]): BoardEvent[] {
     if (video !== this.video) {
       this.video = video;
@@ -125,6 +126,10 @@ export class PlayLog {
     }
     const fresh: BoardEvent[] = [];
     for (const e of events) {
+      if (e.kind === 'withdrawn') {
+        this.list = this.list.filter((p) => !(p.kind === 'played' && p.track === e.track));
+        continue;
+      }
       if (this.list.some((p) => p.kind === e.kind && p.text === e.text && p.side === e.side && Math.abs(p.t - e.t) <= AGAIN_S)) continue;
       let i = this.list.length;
       while (i > 0 && this.list[i - 1]!.t > e.t) i--; // after a seek back, a play goes where it happened

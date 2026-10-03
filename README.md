@@ -13,17 +13,24 @@ Wardeye is the ward you place on a Riftbound stream. Point at any card on the ta
 
 It is made by Federico Vietti, who also makes [Gradeon](https://gradeon.ai), the AI card pre-grading app. Wardeye shares Gradeon's dark look; it is not a Gradeon product.
 
+[![How Wardeye works: a walkthrough in 1:21](https://github.com/effe-exe/wardeye/releases/download/v0.2.2/wardeye-walkthrough.jpg)](https://github.com/effe-exe/wardeye/releases/download/v0.2.2/wardeye-walkthrough-16x9.mp4)
+
+<sub>The walkthrough (1:21, no sound) downloads from the [0.2.2 release](https://github.com/effe-exe/wardeye/releases/tag/v0.2.2). Footage: Riftbound Regional Qualifier Barcelona, grand final, official broadcast.</sub>
+
+[Riftbound Zone](https://riftbound.zone), the Italian Riftbound community, supports Wardeye. Read its article: [Wardeye: the free extension that tells you which cards are on the table while you watch Riftbound on Twitch](https://riftbound.zone/en/wardeye-chrome-extension-riftbound-cards-twitch/) ([also in Italian](https://riftbound.zone/wardeye-estensione-chrome-carte-riftbound-twitch/)).
+
 ## Install
 
-Wardeye comes from the Chrome Web Store: **[Add Wardeye to Chrome](https://chromewebstore.google.com/detail/wardeye/hjglackjofehdfecoeehbdmbobafbjhn)**. The store has version 0.1.2; 0.2.1, with the plays panel and the settings below, is next.
+Wardeye comes from the Chrome Web Store: **[Add Wardeye to Chrome](https://chromewebstore.google.com/detail/wardeye/hjglackjofehdfecoeehbdmbobafbjhn)**. The store has version 0.1.2; 0.2.2, with the plays panel and the settings below, is next.
 
 - **Chrome:** open [Wardeye's page in the Chrome Web Store](https://chromewebstore.google.com/detail/wardeye/hjglackjofehdfecoeehbdmbobafbjhn) and click **Add to Chrome**.
 - **Edge:** open the same page in Edge. Edge asks once to **Allow extensions from other stores**; allow it, then click **Get**.
 - **Pin it** (optional): click the puzzle-piece icon in the toolbar, then the pin next to Wardeye. Its toolbar button turns it off and on.
+- **From GitHub, in Developer mode:** each [release](https://github.com/effe-exe/wardeye/releases/latest) has the extension's zip, the same package the store gets, often days before the store has it. Unzip it, open `chrome://extensions` (or `edge://extensions`), turn on **Developer mode**, click **Load unpacked** and choose the folder. It does not update itself: install the next release when it comes. The models inside are not open source ([D-035](docs/decisions.md#d-035-each-releases-zip-is-on-github-too)).
 
 You need desktop Chrome or Edge, version 137 or newer. A recent graphics chip (WebGPU) makes it fast; without one it runs on the processor, much more slowly. The second line of its badge says which.
 
-**From source?** A build from this repository has the whole extension but not the trained models, which ship only inside the store version ([D-022](docs/decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)). On its own it cannot read a table; see [For developers](#for-developers).
+**From source?** A build from this repository has the whole extension but not the trained models, which ship only inside the extension's package: the store version and the zip of each release ([D-022](docs/decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)). On its own it cannot read a table; see [For developers](#for-developers).
 
 ## Use it
 
@@ -41,7 +48,7 @@ On the video, each card Wardeye has named is marked at its corners, with its nam
 
 Off, the overlay is hidden and nothing is read.
 
-**The plays panel** (from version 0.2.1): click the list button on the badge. A panel opens beside the page, with three tabs:
+**The plays panel** (from version 0.2.2): click the list button on the badge. A panel opens beside the page, with three tabs:
 
 - **Match:** each player's legend, their runes on the table (and how many of them are exhausted), the cards face up on their side, and the plays, newest first. Click a play and the replay goes back to just before it.
 - **Decklists:** a box for each player. Paste the player's published deck code or a deckbuilder's export (text, tourney sheet or JSON) and click **Use this list**. The box says which legend the list names and any line it could not read. A list counts only for the player whose legend it names, whichever box it is in, and it helps name only the cards face up on the table.
@@ -57,7 +64,7 @@ What works today, on Twitch: the face-up cards on the table are outlined and nam
 
 Not yet: the plays panel and the legends and decklists that narrow the search (next, [below](#next-plays-legends-and-decklists)), and YouTube ([roadmap](docs/ROADMAP.md)).
 
-Known issues in 0.2.1: the rune count can be a rune or two off where runes are stacked tight, in a column or a fan, and the exhausted count is often short there. A card held still in a hand over the table can be read for a moment. A legend can be misread if you turn Wardeye on after its die is down.
+Known issues in 0.2.2: the rune count can be a rune or two off where runes are stacked tight, in a column or a fan, and the exhausted count is often short there. A card held still in a hand over the table can be read for a moment. A legend can be misread if you turn Wardeye on after its die is down. On a co-stream, what the streamer lays over the table (a webcam, a scoreboard) is known once the stream has cut away from the table a few times: before then a scoreboard's portraits can be read as cards, and Wardeye drops them, and withdraws their plays from the panel, once it knows. A part of a scoreboard that changes, such as its score track, can still be read as a card now and then.
 
 ## Measured, not claimed
 
@@ -69,7 +76,7 @@ Known issues in 0.2.1: the rune count can be a rune or two off where runes are s
 
 ## Next: plays, legends and decklists
 
-The plays panel, the legend rule and pasted decklists are built and come with the next update of the extension, 0.2.1 ([report](docs/reports/m2-decklist-prior.md)).
+The plays panel, the legend rule and pasted decklists are built and come with the next update of the extension, 0.2.2 ([report](docs/reports/m2-decklist-prior.md)).
 
 - **The plays, beside the video.** The list button on the badge opens a panel in the browser's side panel, as the local version has one beside its player.
   - Each player's legend, and what is face up on their side of the table.
@@ -77,6 +84,7 @@ The plays panel, the legend rule and pasted decklists are built and come with th
   - The list lives in the tab: nothing is stored, and it goes when the tab closes.
 - **The table's layout as a guide.** Battlefields are named in the strip along the middle of the table, where the official mat puts them, so a rune turned sideways elsewhere is not taken for one. Each player's runes are counted, with how many are exhausted, stacked runes included: every card is the same size, so a stack's step from strip to strip tells how many runes its gaps hide. The layout never drops a card: a unit that moves to a battlefield or changes hands keeps its name ([D-028](docs/decisions.md#d-028-the-tables-layout-is-a-guide-not-a-rule)).
 - **Graphics stay out.** The table is found inside frames drawn between bars (Stockholm) and past a co-streamer's webcam laid over its border, and Riot's showdown banner is no longer read as cards.
+- **Co-streams.** What a co-streamer lays over every shot (their webcam and chat, a scoreboard, a sponsor banner) is found from the stream's cuts and never read. Only the table window tells the table camera from the other shots, so a close-up of a hand is not taken for it, and an arm over the mat does not take it away. On a wooden table the cards beside the wood are read.
 
 - **The legends narrow the search, with nothing to set up.**
   - Every card in a Riftbound deck must fit its legend's two domains, runes included.

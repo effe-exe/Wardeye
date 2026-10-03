@@ -8,7 +8,10 @@
   on frames drawn by a formula (learning the table camera, losing it when the camera moves, learning it again);
 * the tracker's rules (label, due, covered, stacked_on, twin, vanished, stacks, state, announce, left, recently_played,
   reanchor) on random boards of tracks, set up by hand on a Recognizer with a made-up catalogue;
-* the bootstrap finder (Recognizer.find with no finder) on a mat with cards, drawn by formula.
+* the bootstrap finder (Recognizer.find with no finder) on a mat with cards, drawn by formula;
+* the overlay laid over every shot (Scene.see and overlay_patches) on thumbnails drawn by formula, with cuts between
+  shots and a corner that stays; the still table (StillTable) on frames drawn by formula; the hand rule against it
+  (hand_share with `still` and `now`) on a wooden table; and printed zones (plain_zone).
 
 No pictures, no card art, nothing from a broadcast: the catalogue's names are made up and the boards are random.
 
@@ -174,29 +177,33 @@ def scene_vectors() -> list[dict]:
 
 def scene_frame(shift: int) -> np.ndarray:
     """A 1920 x 1080 table-camera frame drawn by formula (the test draws the same): around the table window the
-    broadcast's overlay, a print of 40 px blocks (moved `shift` px when the camera moves), inside it la-rq's mat."""
+    broadcast's overlay, a print of 40 px blocks; inside it la-rq's mat with a print of its own in 40 px blocks, moved
+    `shift` px when the camera moves (the overlay does not move with it)."""
     y, x = np.mgrid[0:H, 0:W]
     img = np.empty((H, W, 3), np.uint8)
     for c in range(3):
-        bx, by = (x + shift) // 40, y // 40
+        bx, by = x // 40, y // 40
         img[..., c] = (bx * bx * 37 + by * by * 91 + bx * by * 13 + c * 50) % 256
     x0, y0, x1, y1 = LAYOUT.box(W, H)
     for c in range(3):
-        img[y0:y1, x0:x1, c] = LAYOUT.mat[c] + (x[y0:y1, x0:x1] * 3 + y[y0:y1, x0:x1] * 7 + c) % 5
+        bx, by = (x[y0:y1, x0:x1] + shift) // 40, y[y0:y1, x0:x1] // 40
+        img[y0:y1, x0:x1, c] = LAYOUT.mat[c] + (bx * bx * 37 + by * by * 91 + bx * by * 13 + c * 50) % 40
     return img
 
 
-def scene_on_table() -> list[dict]:
+def scene_on_table(cards: int, shown: int = 0) -> list[dict]:
     """Scene.on_table over 81 frames at 2 fps: the table camera for 10 s (it learns it), then the same table seen by a
-    camera that moved (the overlay's print is 40 px off): unrecognised, away, until after 20 s and three table-like
-    looks it learns the view again."""
+    camera that moved (the mat's print is 40 px off): unrecognised, away, until after 20 s three table-like looks with
+    `cards` card-sized boxes in the view (RELEARN_CARDS, and half the `shown` the table camera showed) learn the view
+    again; without them it stays away."""
     sc = pl.Scene(LAYOUT)
+    sc.saw_cards(0.0, shown)
     frames = {0: scene_frame(0), 40: scene_frame(40)}
     out = []
     for k in range(81):
         t = 0.5 * k
         shift = 0 if t <= 10.0 else 40
-        ok = sc.on_table(t, frames[shift])
+        ok = sc.on_table(t, frames[shift], lambda: cards)
         out.append({"t": t, "shift": shift, "ok": bool(ok), "n": sc.n, "away_since": sc.away_since, "looks": sc.looks,
                     "last_look": sc.last_look, "last_learn": sc.last_learn})
     return out
@@ -478,6 +485,115 @@ def bootstrap_vectors() -> list[dict]:
     return out
 
 
+def shot_thumb(k: int, shot: str) -> np.ndarray:
+    """A 96 x 54 thumbnail of one shot, drawn by integer formulas (the test draws the same): the table camera (thumb's
+    pattern), or another shot (a pattern of its own per shot); in every shot the same corner, bottom right, as a
+    co-streamer's webcam stays put through the cuts. The co-streamer in it moves at the cut at k = 30, and their
+    face reaches the frame's bottom edge."""
+    y, x, c = np.meshgrid(np.arange(54), np.arange(96), np.arange(3), indexing="ij")
+    if shot == "table":
+        v = (x * 7 + y * 13 + c * 50) % 200 + 20 + (x * 31 + y * 17 + c * 5 + k * 11) % 7 - 3
+    else:
+        s = 1 if shot == "cam" else 2
+        v = (x * (3 + s) + y * (29 - s) + c * 71 + k * 13) % 256
+    v = np.where((x >= 80) & (y >= 40), 100 + c * 40, v)
+    v = np.where((x >= 85) & (x <= 90) & (y >= 44), 100 + c * 40 + (60 if k >= 30 else 0), v)
+    return v.astype(np.float32)
+
+
+OVERLAY_SHOTS = (["table"] * 10 + ["cam"] * 4 + ["table"] * 6 + ["wide"] * 4 + ["table"] * 6 + ["cam"] * 4 + ["table"] * 6)
+
+
+def overlay_vectors() -> dict:
+    """Scene.see over 40 thumbnails, the table camera with cuts to two other shots: per step the cuts seen, how often
+    the overlay was worked out, and its size and whether it holds the co-streamer's face (which moves at the fifth cut:
+    the overlay keeps it); then the overlay, and where it is in frame points."""
+    sc = pl.Scene(LAYOUT)
+    steps = []
+    for k, shot in enumerate(OVERLAY_SHOTS):
+        sc.see(shot_thumb(k, shot))
+        steps.append({"k": k, "shot": shot, "cuts": sc.cuts, "overlay_n": sc.overlay_n,
+                      "suspect": None if sc.suspect is None else int(sc.suspect.sum()), "corner": sc.in_suspect(1800, 950, W, H),
+                      "overlay": None if sc.overlay is None else int(sc.overlay.sum()), "face": sc.in_overlay(1760, 980, W, H)})
+    ov = sc.overlay
+    points = [(1800, 950), (1700, 820), (960, 540), (100, 100), (1919, 1079), (1590, 790)]
+    return {"steps": steps, "same_sum": int(sc.same.sum()), "overlay": [int(i) for i in np.flatnonzero(ov)] if ov is not None else None,
+            "points": [{"x": px, "y": py, "in": sc.in_overlay(px, py, W, H)} for px, py in points]}
+
+
+def still_frame(k: int) -> np.ndarray:
+    """A 960 x 540 frame drawn by integer formulas (the test draws the same): a table that slowly changes with k, and a
+    hand that crosses it, there in frames 2 and 6 only."""
+    y, x, c = np.mgrid[0:540, 0:960, 0:3]
+    v = (x * 5 + y * 3 + c * 40 + (k * 7) * (x // 120)) % 256
+    if k in (2, 6):
+        v = np.where((x >= 300) & (x < 420) & (y >= 200) & (y < 300), 230 * (c == 0) + 185 * (c == 1) + 160 * (c == 2), v)
+    return v.astype(np.uint8)
+
+
+def still_vectors() -> dict:
+    """StillTable over 16 frames at 0.4 s: the frames HAND_BG_EVERY apart are taken (every other one); the first five
+    make the median, without the hand in two of them; the rest step it nearer."""
+    st = pl.StillTable()
+    out = []
+    for k in range(16):
+        t = 0.4 * k
+        st.feed(t, pl.StillTable.small(still_frame(k)))
+        out.append({"t": t, "last": st.last, "first": len(st.first), "bg": st.bg is not None,
+                    "bg_sum": None if st.bg is None else int(st.bg.astype(np.int64).sum()),
+                    "bg_head": None if st.bg is None else [int(v) for v in st.bg.ravel()[:48]]})
+    return {"steps": out}
+
+
+def wood_frames() -> tuple[np.ndarray, np.ndarray]:
+    """A wooden table, skin-coloured (170, 120, 100), 960 x 540, and the same with fingers (230, 185, 160) along the left
+    edge of the card at (628, 239)."""
+    wood = np.empty((540, 960, 3), np.uint8)
+    wood[...] = (170, 120, 100)
+    held = wood.copy()
+    held[200:278, 576:600] = (230, 185, 160)
+    return wood, held
+
+
+def hand_vectors() -> list[dict]:
+    """hand_share on a wooden table: the colour test alone, then against the still table (`still`, `now`)."""
+    wood, held = wood_frames()
+    sw, sh = pl.StillTable.small(wood), pl.StillTable.small(held)
+    table = (0, 0, 960, 540)
+    out = []
+    for name, b in (("upright", det_box(628, 239, 78, 56, 90.0)), ("tilted", det_box(628, 239, 78, 56, 63.0)),
+                    ("across", det_box(610, 250, 78, 56, 0.0))):
+        out.append({"box": box_json(b),
+                    "alone": pl.hand_share(wood, b, table), "held_alone": pl.hand_share(held, b, table),
+                    "still": pl.hand_share(wood, b, table, still=sw, now=sw), "held": pl.hand_share(held, b, table, still=sw, now=sh)})
+    return out
+
+
+def plain_frame() -> np.ndarray:
+    """The mat (30, 40, 55), 960 x 540, with a card-sized zone printed on it (a 2 px outline, (150, 130, 70), around
+    (600, 200) to (656, 278)), a card's face (a busy patch) at (350, 200) and a face-down card in a pink sleeve at
+    (200, 200), each 56 x 78."""
+    y, x, c = np.mgrid[0:540, 0:960, 0:3]
+    im = np.empty((540, 960, 3), np.uint8)
+    im[...] = (30, 40, 55)
+    im[200:279, 600:657] = (150, 130, 70)
+    im[202:277, 602:655] = (30, 40, 55)
+    face = ((x * 37 + y * 11 + c * 90) % 256).astype(np.uint8)
+    im[200:278, 350:406] = face[200:278, 350:406]
+    im[200:278, 200:256] = (220, 90, 150)
+    return im
+
+
+def plain_vectors() -> list[dict]:
+    im = plain_frame()
+    out = []
+    for name, b in (("zone", det_box(628.0, 239.0, 78, 56, 90.0)), ("face", det_box(378.0, 239.0, 78, 56, 90.0)),
+                    ("sleeve", det_box(228.0, 239.0, 78, 56, 90.0)), ("zone turned", det_box(628.0, 239.0, 78, 56, 87.0)),
+                    ("mat", det_box(800.0, 400.0, 78, 56, 0.0)), ("edge", det_box(20.0, 20.0, 78, 56, 0.0))):
+        out.append({"name": name, "box": box_json(b), "plain": pl.plain_zone(im, b)})
+    return out
+
+
 def main() -> int:
     rng = np.random.default_rng(20260929)
     vectors = {
@@ -485,12 +601,16 @@ def main() -> int:
         "layout": "la-rq", "frame": [W, H], "rows": catalogue(),
         "geometry": geometry(rng),
         "scene": scene_vectors(),
-        "on_table": scene_on_table(),
+        "on_table": scene_on_table(6), "on_table_nocards": scene_on_table(0), "on_table_few": scene_on_table(6, 20),
     }
     brng = np.random.default_rng(7)
     vectors["boards"] = boards(brng)
     vectors["reanchor"] = reanchor_vectors(np.random.default_rng(11))
     vectors["bootstrap"] = bootstrap_vectors()
+    vectors["overlay"] = overlay_vectors()
+    vectors["still"] = still_vectors()
+    vectors["hands"] = hand_vectors()
+    vectors["plain"] = plain_vectors()
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(vectors, separators=(",", ":")), encoding="utf-8")
     print(f"{OUT} ({OUT.stat().st_size / 1e3:.0f} KB)")

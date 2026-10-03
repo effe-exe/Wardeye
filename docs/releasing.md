@@ -91,3 +91,16 @@ The same listing, with these changes:
   - `sidePanel`: shows Wardeye's panel in the browser's side panel beside the Twitch page: each player's legend and face-up cards, the plays of the match, the decklists the viewer pastes, and the settings.
   - `storage`: remembers the viewer's two settings, what Wardeye shows on the video and how often it reads the video, on their computer (`chrome.storage.local`). Nothing else is stored, and nothing is sent anywhere.
 - **Unchanged:** the single purpose, the host permissions, no remote code, no data collected.
+
+### The 0.2.2 update
+
+The same listing as 0.2.1, with a new package:
+
+- **Package:** the 0.2.2 store zip, built and checked as above (the embedder in both precisions). 0.2.2 is 0.2.1 with the fixes found on a co-stream of a Riftbound tournament, recorded live:
+  - What a broadcast lays over every shot (a co-streamer's webcam and chat, a scoreboard, a banner) is found from the cuts and never read. A play read on it before it was found is taken off the panel's list ([D-030](decisions.md#d-030-what-stays-put-through-the-cuts-is-the-broadcasts-overlay)).
+  - The table is found only in a view of both sides of a table, never in a close-up or a graphic of cards ([D-031](decisions.md#d-031-a-table-camera-shows-both-sides-of-a-table)).
+  - A box bigger than a card, or a zone printed on the mat, is not a card, and four cards named at once are not four plays ([D-032](decisions.md#d-032-a-card-is-a-cards-size-and-not-the-mats-print)).
+  - On a wooden table the cards beside the wood are read: a hand is what is not the table ([D-033](decisions.md#d-033-a-hand-is-what-is-not-the-table)).
+  - The table camera is told by the table window alone, block by block: a close-up of a hand is not taken for it, an arm over the mat no longer takes it away, and a player cam is never learnt as the table ([D-034](decisions.md#d-034-the-table-camera-is-told-by-the-table-window-block-by-block)).
+- **Unchanged:** the description, the single purpose, the permissions and their justifications, no remote code, no data collected.
+- **On GitHub too:** the same zip goes on the release `v0.2.2` ([D-035](decisions.md#d-035-each-releases-zip-is-on-github-too)), with notes saying what changed and that the models inside are not under the AGPL.

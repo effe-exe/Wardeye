@@ -71,7 +71,33 @@ HAND_STILL = 0.04      # still: moved less than this share of a card's length si
 HAND_RING = (0.1, 0.2, 0.3)  # the band looked at, as distances out from the card's edges in shares of its width
 HAND_POINTS = 8        # points along each side of the band, at each distance
 HAND_MIN_POINTS = 8    # fewer of them off the other cards and in the window: no hand to see
-KINDS = {"Legend": "legend", "Battlefield": "battlefield", "Rune": "rune"}
+HAND_DIFF = 40         # a skin-coloured point this unlike the still table there (`StillTable`) is a hand; one like it is the
+                       # table itself: a wooden table is skin-coloured, and the cards lying beside it are not in a hand
+HAND_BG = (480, 270)   # the still table: the frame at a quarter of 1080p, ...
+HAND_BG_FRAMES = 5     # ... first the median of this many table frames HAND_BG_EVERY apart (hands move; the table does not),
+HAND_BG_EVERY = 0.5
+HAND_BG_STEP = 2       # ... then every HAND_BG_EVERY this much nearer the frame, so a hand passing over it stays a hand
+SIZE_MAX = 1.45        # a box longer than this many cards is not one: the co-stream's chat, two cards or a card and the
+                       # printed zone beside it outlined as one (named cards: 99.5% within 1.24 on two finals)
+PLAIN_TOL = 18         # a box the mat's own colour inside as around it (medians, this close), and plain inside (the middle
+PLAIN_SPREAD = 24      # half of its points within this), is a zone printed on the mat, not a card
+BURST = 4              # this many cards named for the first time on the table within BURST_S are not that many plays: a
+BURST_S = 1.0          # graphic of cards (a sideboard, a decklist) or a view framed anew; nobody plays four cards a second
+OVERLAY_TOL = 16       # a thumbnail pixel within this of the frame before, through a cut, stayed: the broadcast's overlay
+CUT_SHARE = 0.5        # a frame whose thumbnail changed this much from the one before is a cut (play changes a quarter at most)
+OVERLAY_SHARE = 0.9    # the overlay: what stayed through this share of the cuts, once there are OVERLAY_CUTS, in patches
+OVERLAY_CUTS = 4       # reaching within OVERLAY_EDGE pixels of the frame's edge (a co-streamer's webcam and chat, a
+OVERLAY_EDGE = 2       # scoreboard, a sponsor banner), holes filled
+OVERLAY_KEEP = 0.6     # a pixel once overlay stays so while it stayed through this share of the cuts: a face moving in a
+                       # webcam changes it at some cuts, and opens the webcam's frame to the table
+SUSPECT_S = 60.0       # before then, what stayed through every cut so far is suspect: nothing there is read, until the cuts
+                       # make it overlay, or for this long after the last cut (one cut alone can be the camera reframed)
+SCENE_GRID = (6, 3)    # the scene's score is the mean of its scores in a 6 x 3 grid of blocks of the thumbnail: an arm or a
+SCENE_BLOCK = 20       # banner over the table spoils a block or two, another shot all of them; a block counts with this
+                       # many still pixels of the table window in it
+RELEARN_CARDS = 5      # the scene learns a moved camera again only when this many card-sized boxes lie in the view, and
+CARDS_S = 60.0         # half the most the table camera showed in this long of its last time on screen
+KINDS ={"Legend": "legend", "Battlefield": "battlefield", "Rune": "rune"}
 
 
 @dataclass
@@ -123,17 +149,21 @@ def on_box(box: CardBox, x: float, y: float) -> bool:
     return abs(dx * ux + dy * uy) <= box.long_px / 2 and abs(dy * ux - dx * uy) <= box.short_px / 2
 
 
-def hand_share(image: np.ndarray, box: CardBox, table: tuple[int, int, int, int], others: Sequence[CardBox] = ()) -> float:
+def hand_share(image: np.ndarray, box: CardBox, table: tuple[int, int, int, int], others: Sequence[CardBox] = (),
+               still: np.ndarray | None = None, now: np.ndarray | None = None) -> float:
     """The share of skin-coloured points in a band around the box, inside the table window and off the other cards
     (`others`): the fingers holding a card in a hand over the table, or putting it down. No card's art is looked at:
-    gold, faces and fire are skin-coloured too. Hemmed in by other cards, it sees no hand."""
+    gold, faces and fire are skin-coloured too. Hemmed in by other cards, it sees no hand. With `still`, the still
+    table (`StillTable.bg`), and `now`, this frame at its size (HAND_BG), a point counts only where the frame there is
+    HAND_DIFF unlike the table: on a wooden table the wood is skin-coloured too, and a hand is what is not the table
+    (compared at the same size, so a mat's thin printed lines are the table too)."""
     x0, y0, x1, y1 = table
     h, w = image.shape[:2]
     a = math.radians(box.angle_deg)
     ux, uy = math.cos(a), math.sin(a)
     cx, cy = box.centre
     near = [o for o in others if math.dist(o.centre, box.centre) < o.long_px + box.long_px]
-    px = []
+    px, at = [], []
     for f in HAND_RING:
         d = f * box.short_px
         hl, hs = box.long_px / 2 + d, box.short_px / 2 + d
@@ -145,9 +175,82 @@ def hand_share(image: np.ndarray, box: CardBox, table: tuple[int, int, int, int]
                 xi, yi = math.floor(x), math.floor(y)
                 if max(x0, 0) <= xi < min(x1, w) and max(y0, 0) <= yi < min(y1, h) and not any(on_box(o, x, y) for o in near):
                     px.append(image[yi, xi])
+                    at.append((yi, xi))
     if len(px) < HAND_MIN_POINTS:
         return 0.0
-    return float(skin(np.asarray(px, np.uint8).reshape(1, -1, 3)).mean())
+    pts = np.asarray(px, np.uint8).reshape(1, -1, 3)
+    hand = skin(pts)[0]
+    if still is not None and now is not None:
+        sh, sw = still.shape[:2]
+        at_bg = [(min(sh - 1, yi * sh // h), min(sw - 1, xi * sw // w)) for yi, xi in at]
+        bg = np.array([still[by, bx] for by, bx in at_bg], np.int16)
+        fg = np.array([now[by, bx] for by, bx in at_bg], np.int16)
+        hand &= np.abs(fg - bg).max(axis=1) >= HAND_DIFF
+    return float(hand.mean())
+
+
+class StillTable:
+    """The table camera's picture without the hands over it, for the hand rule (`hand_share`): HAND_BG_FRAMES table
+    frames HAND_BG_EVERY apart, their median per pixel (hands move, the table does not), then every HAND_BG_EVERY a
+    step of HAND_BG_STEP nearer the frame: a hand passing over the table for a few seconds stays unlike it, a card put
+    down becomes part of it within half a minute. Whole numbers throughout, as the engine's are. Fed the frames at its
+    size (`small`)."""
+
+    def __init__(self) -> None:
+        self.first: list[np.ndarray] = []
+        self.bg: np.ndarray | None = None
+        self.last = -1e9
+
+    @staticmethod
+    def small(image: np.ndarray) -> np.ndarray:
+        """A frame at the still table's size."""
+        return np.asarray(Image.fromarray(image).resize(HAND_BG, Image.BOX), np.int16)
+
+    def feed(self, t: float, x: np.ndarray) -> None:
+        if t - self.last < HAND_BG_EVERY:
+            return
+        self.last = t
+        if self.bg is None:
+            self.first.append(x)
+            if len(self.first) == HAND_BG_FRAMES:
+                self.bg = np.sort(np.stack(self.first), axis=0)[HAND_BG_FRAMES // 2]
+                self.first = []
+            return
+        self.bg = self.bg + np.clip(x - self.bg, -HAND_BG_STEP, HAND_BG_STEP)
+
+
+def plain_zone(image: np.ndarray, box: CardBox) -> bool:
+    """A box of the mat's own colour inside as around it, and plain inside: a zone printed on the mat (outlined, a
+    card's size) or the mat's logo, which the detector outlines like a card. A card's face is never plain, and a face-down
+    card is plain in its sleeve's colour, not the mat's (one the mat's colour is not told apart, and is never read either).
+    Inside: 5 x 5 points over the middle 60% of the box; around: the band HAND_RING[1] out from its edges. Their medians,
+    and the inside's quartiles, of whole numbers."""
+    h, w = image.shape[:2]
+    a = math.radians(box.angle_deg)
+    ux, uy = math.cos(a), math.sin(a)
+    cx, cy = box.centre
+    inside, ring = [], []
+    for i in range(5):
+        for j in range(5):
+            su, sv = (i - 2) * 0.15 * box.long_px, (j - 2) * 0.15 * box.short_px
+            xi, yi = math.floor(cx + su * ux - sv * uy), math.floor(cy + su * uy + sv * ux)
+            if 0 <= xi < w and 0 <= yi < h:
+                inside.append(image[yi, xi])
+    d = HAND_RING[1] * box.short_px
+    hl, hs = box.long_px / 2 + d, box.short_px / 2 + d
+    for k in range(HAND_POINTS):
+        along_l = (k + 0.5) / HAND_POINTS * 2 * hl - hl
+        along_s = (k + 0.5) / HAND_POINTS * 2 * hs - hs
+        for su, sv in ((along_l, hs), (along_l, -hs), (hl, along_s), (-hl, along_s)):
+            xi, yi = math.floor(cx + su * ux - sv * uy), math.floor(cy + su * uy + sv * ux)
+            if 0 <= xi < w and 0 <= yi < h:
+                ring.append(image[yi, xi])
+    if len(inside) < 25 or len(ring) < 2 * HAND_POINTS:
+        return False
+    si, sr = np.sort(np.asarray(inside, np.int16), axis=0), np.sort(np.asarray(ring, np.int16), axis=0)
+    n = len(ring)
+    mid_in, mid_ring = si[12], (sr[(n - 1) // 2] + sr[n // 2]) / 2
+    return bool(np.abs(mid_in - mid_ring).max() < PLAIN_TOL and (si[18] - si[6]).max() <= PLAIN_SPREAD)
 
 
 def turn_apart(a: float, b: float) -> float:
@@ -310,7 +413,18 @@ class Scene:
     table frames score 0.5 to 0.8, other shots about 0). To start, a frame is taken as the table camera
     when the mat fills the table window as it does there (a layout that knows its mat colour) or when
     at least five cards lie in it; if the view stays unrecognised but looks like a table again for a few
-    seconds (the camera itself moved), it learns again. The thumbnail is too coarse to show any card."""
+    seconds, with five cards of the table's size in it (the camera itself moved), it learns again. A mat's
+    colour alone is no proof: on a co-stream every shot, a player in a maroon shirt included, had it. The
+    thumbnail is too coarse to show any card.
+
+    Only the table window is scored: the panels beside it are laid over every shot, a close-up of a hand
+    included. It is scored in blocks (SCENE_GRID), and the score is their mean: an arm or a banner over the
+    table spoils a block or two, where a cut to another shot spoils them all.
+
+    What stays put through the cuts is not the table camera's at all: a co-streamer's webcam and chat, a scoreboard,
+    a sponsor banner, laid over every shot (`overlay`). Kept in the score, it makes every shot look like the table, so
+    it is left out once known; and a frame is learnt only when the one before was the table camera too, so the first
+    frame after a cut, another shot that happens to look alike, never teaches the scene what the table is."""
 
     def __init__(self, layout: Layout, corr: float = 0.45, learn_every: float = 2.0, relearn_after: float = 20.0):
         self.layout, self.corr, self.learn_every, self.relearn_after = layout, corr, learn_every, relearn_after
@@ -321,10 +435,58 @@ class Scene:
         self.away_since: float | None = None
         self.looks = 0  # table-like frames in a row while away (checked every learn_every)
         self.last_look = -1e9
+        self.was_on = False                   # the frame before was the table camera
+        self.prev: np.ndarray | None = None   # the frame before's thumbnail
+        self.same = np.zeros((54, 96), np.int32)  # cuts each thumbnail pixel stayed through, the board's own
+        self.cuts = 0
+        self.same_all = np.zeros((54, 96), np.int32)  # ... and with those seen before the board (`Recognizer.prime`)
+        self.cuts_all = 0
+        self.overlay: np.ndarray | None = None    # (54, 96) bool, once OVERLAY_CUTS cuts are seen
+        self.overlay_n = 0                    # how often it was worked out: the board drops what lies in it then
+        self.suspect: np.ndarray | None = None    # (54, 96) bool: what stayed through every cut so far, before then
+        self.cut_t: float | None = None       # when the last cut was (the cuts seen before the board, when it began)
+        self.cards_seen: list[tuple[float, int]] = []  # (t, card-sized boxes) on the table camera, its last minute
+        tx0, ty0, tx1, ty1 = layout.table
+        self.window = np.zeros((54, 96), bool)   # the thumbnail pixels in the table window: the only ones scored
+        self.window[math.floor(ty0 * 54):math.ceil(ty1 * 54), math.floor(tx0 * 96):math.ceil(tx1 * 96)] = True
 
     @staticmethod
     def small(image: np.ndarray) -> np.ndarray:
         return np.asarray(Image.fromarray(image).resize((96, 54), Image.BOX), np.float32)
+
+    def see(self, x: np.ndarray, before: bool = False) -> None:
+        """A cut, when half the thumbnail changed from the frame before (play changes a quarter at most): every pixel
+        that stayed counts once more as overlay, and the overlay is worked out again. A cut seen `before` the board (the
+        frames the table was looked for in) makes what stayed suspect, never overlay: a scoreboard that comes with the
+        table camera did not stay through the cut from a player cam to it, and is overlay all the same."""
+        if self.prev is not None:
+            moved = np.abs(x - self.prev).max(axis=2) >= OVERLAY_TOL
+            if int(moved.sum()) * 2 >= moved.size:
+                self.same_all += ~moved
+                self.cuts_all += 1
+                if not before:
+                    self.same += ~moved
+                    self.cuts += 1
+                self.cut_t = None  # stamped by on_table, with the time
+                if self.cuts >= OVERLAY_CUTS:
+                    self.overlay = overlay_patches(self.same, self.cuts, self.overlay)
+                    self.overlay_n += 1
+                    self.suspect = None
+                else:
+                    self.suspect = overlay_patches(self.same_all, self.cuts_all)
+        self.prev = x
+
+    def in_suspect(self, x: float, y: float, w: int, h: int) -> bool:
+        """The frame point (x, y) lies where the overlay may be, before the cuts have shown it."""
+        if self.suspect is None:
+            return False
+        return bool(self.suspect[min(53, max(0, math.floor(y * 54 / h))), min(95, max(0, math.floor(x * 96 / w)))])
+
+    def in_overlay(self, x: float, y: float, w: int, h: int) -> bool:
+        """The frame point (x, y) lies in the overlay."""
+        if self.overlay is None:
+            return False
+        return bool(self.overlay[min(53, max(0, math.floor(y * 54 / h))), min(95, max(0, math.floor(x * 96 / w)))])
 
     def table_like(self, image: np.ndarray, count) -> bool:
         if self.layout.mat is not None:
@@ -335,16 +497,45 @@ class Scene:
             return float((np.abs(a - mat).max(axis=2) < self.layout.mat_tol).mean()) >= self.layout.mat_share
         return count() >= 5
 
+    def saw_cards(self, t: float, n: int) -> None:
+        """The board found `n` card-sized boxes on a frame of the table camera at `t`."""
+        self.cards_seen = [(tt, c) for tt, c in self.cards_seen if t - tt < CARDS_S] + [(t, n)]
+
+    def table_again(self, image: np.ndarray, count) -> bool:
+        """A view to learn as the table camera again: table-like, with as many cards of the table's size in it as the
+        table camera showed in its last minute on screen (half the most, and at least RELEARN_CARDS). A close-up of one
+        side of the table, or of a hand over it, shows a few of its cards."""
+        if not self.table_like(image, count):
+            return False
+        n = count()
+        return n >= RELEARN_CARDS and n * 2 >= max((c for _, c in self.cards_seen), default=0)
+
     def score(self, x: np.ndarray) -> float | None:
-        """How well the frame's still parts match the table camera's, or None when those parts have no
-        pattern to match (a plain mat and no overlay): then the mat share or the cards decide."""
+        """How well the frame's still parts in the table window match the table camera's: the mean of their
+        correlations block by block (SCENE_GRID), or None when no block has a pattern to match (a plain mat):
+        then the mat share or the cards decide. The overlay laid over every shot is not the table camera's: it
+        is left out."""
         std = np.sqrt(self.var).max(axis=2)
         still = std < 12 if (std < 12).mean() >= 0.1 else std <= np.quantile(std, 0.3)
-        a, b = x[still].ravel(), self.mean[still].ravel()
-        if b.std() < 8:
-            return None
-        a, b = a - a.mean(), b - b.mean()
-        return float((a * b).sum() / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-6))
+        if self.overlay is not None:
+            still = still & ~self.overlay
+        still = still & self.window
+        gx, gy = SCENE_GRID
+        bw, bh = 96 // gx, 54 // gy
+        total, n = 0.0, 0
+        for by in range(gy):
+            for bx in range(gx):
+                sl = (slice(by * bh, (by + 1) * bh), slice(bx * bw, (bx + 1) * bw))
+                m = still[sl]
+                if int(m.sum()) < SCENE_BLOCK:
+                    continue
+                a, b = x[sl][m].ravel(), self.mean[sl][m].ravel()
+                if b.std() < 8:
+                    continue
+                a, b = a - a.mean(), b - b.mean()
+                total += float((a * b).sum() / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-6))
+                n += 1
+        return total / n if n else None
 
     def learn(self, t: float, x: np.ndarray) -> None:
         if t - self.last_learn < self.learn_every:
@@ -360,6 +551,11 @@ class Scene:
 
     def on_table(self, t: float, image: np.ndarray, count=lambda: 0) -> bool:
         x = self.small(image)
+        self.see(x)
+        if self.cuts_all and self.cut_t is None:
+            self.cut_t = t  # a cut now, or the ones seen before the board began
+        if self.suspect is not None and t - self.cut_t > SUSPECT_S:
+            self.suspect = None  # no cut for a minute: nothing there is held back any longer
         sc = self.score(x) if self.n >= 5 else None
         if sc is None:
             ok = self.table_like(image, count)
@@ -368,15 +564,38 @@ class Scene:
             if not ok and self.away_since is not None and t - self.away_since > self.relearn_after \
                     and t - self.last_look >= self.learn_every:
                 self.last_look = t
-                self.looks = self.looks + 1 if self.table_like(image, count) else 0
+                self.looks = self.looks + 1 if self.table_again(image, count) else 0
                 if self.looks >= 3:  # the table again, but not as it was learnt: the camera moved
                     self.n, self.mean, self.var, self.looks, ok = 0, None, None, 0, True
         if ok:
-            self.learn(t, x)
+            if self.was_on:  # not the first frame after a cut: another shot may look like the table for a frame
+                self.learn(t, x)
             self.away_since = None
         elif self.away_since is None:
             self.away_since = t
+        self.was_on = ok
         return ok
+
+
+def overlay_patches(same: np.ndarray, cuts: int, was: np.ndarray | None = None) -> np.ndarray:
+    """The overlay: the thumbnail pixels that stayed through OVERLAY_SHARE of the cuts, in patches reaching within
+    OVERLAY_EDGE pixels of the frame's edge (a broadcast lays its graphics along the edges; the mat lies inside),
+    each patch's holes filled (a webcam's frame stays, the face in it moves). The overlay worked out before, `was`,
+    stays where it stayed through OVERLAY_KEEP of the cuts: the face that moved at a cut also crossed the webcam's
+    frame, and a hole open to the table is not filled."""
+    from scipy import ndimage
+
+    ov = same * 10 >= cuts * round(OVERLAY_SHARE * 10)
+    if was is not None:
+        ov |= was & (same * 10 >= cuts * round(OVERLAY_KEEP * 10))
+    lab, _ = ndimage.label(ov)
+    keep = np.zeros_like(ov)
+    h, w = ov.shape
+    for i, sl in enumerate(ndimage.find_objects(lab), 1):
+        if sl is not None and (sl[0].start <= OVERLAY_EDGE or sl[1].start <= OVERLAY_EDGE
+                               or sl[0].stop >= h - OVERLAY_EDGE or sl[1].stop >= w - OVERLAY_EDGE):
+            keep |= lab == i
+    return ndimage.binary_fill_holes(keep)
 
 
 class Recognizer:
@@ -438,6 +657,12 @@ class Recognizer:
         self.anchor_pairs: list[tuple[tuple[float, float], tuple[float, float]]] = []  # (before, after) centres
         self.prev_seen: set[str] = set()     # confirmed tracks the last frame matched
         self.before_away: set[str] = set()   # ... the last frame before a cut away
+        self.still = StillTable()            # the table without the hands over it, for the hand rule
+        self.overlay_n = 0                   # the scene's overlay as last swept off the board (`drop_overlaid`)
+        self.first_named: list[float] = []   # when the cards first named lately were, for BURST
+        # The plays announced, by track (or flash) id: where they were, so a play read off the overlay before the cuts
+        # showed it can be withdrawn (`drop_overlaid`).
+        self.announced: dict[str, tuple[float, float, str, str | None, str]] = {}
 
     # --- finding ---------------------------------------------------------------
 
@@ -456,6 +681,37 @@ class Recognizer:
         for b in boxes:
             b.centre = (b.centre[0] + x0, b.centre[1] + y0)
         return boxes
+
+    def prime(self, frames: Sequence[np.ndarray]) -> None:
+        """The frames seen before the board began, while the table was looked for (`autolayout`), in order: a cut among
+        them (from a player cam to the table, most often) shows the scene some of the overlay from the start."""
+        for f in frames:
+            self.scene.see(Scene.small(f), before=True)
+
+    def keep(self, boxes: Sequence[CardBox], image: np.ndarray, w: int, h: int) -> list[CardBox]:
+        """The finder's boxes that can be cards: no longer than SIZE_MAX cards, off the overlay laid over every shot
+        (`Scene.overlay`), and not a zone printed on the mat (`plain_zone`)."""
+        px = self.layout.card_px(h)
+        return [b for b in boxes if b.long_px <= SIZE_MAX * px and not self.scene.in_overlay(*b.centre, w, h)
+                and not plain_zone(image, b)]
+
+    def drop_overlaid(self, t: float, w: int, h: int) -> list[dict]:
+        """What lies in the overlay, now that the cuts have shown it: the cards read off a webcam or a banner before
+        then go, a legend one of them gave its side with it, and the plays they made are withdrawn."""
+        self.overlay_n = self.scene.overlay_n
+        events = []
+        for key, (x, y, name, pid, side) in list(self.announced.items()):
+            if self.scene.in_overlay(x, y, w, h):
+                del self.announced[key]
+                events.append({"t": round(t, 2), "kind": "withdrawn", "text": f"{name} withdrawn: it was the stream's overlay",
+                               "printing_id": pid, "track": key, "side": side})
+        for tr in [tr for tr in self.tracks.values() if self.scene.in_overlay(*tr.box.centre, w, h)]:
+            del self.tracks[tr.id]
+            lg = self.legends.get(tr.side)
+            if lg is not None and tr.named is not None and (self.row_of.get(lg["printing_id"]) or {}).get("card_id") == tr.named:
+                del self.legends[tr.side]
+        self.ghosts = [gh for gh in self.ghosts if not self.scene.in_overlay(gh["x"], gh["y"], w, h)]
+        return events
 
     # --- tracking --------------------------------------------------------------
 
@@ -770,6 +1026,8 @@ class Recognizer:
         self.pending = [(when, b) for when, b in self.pending if when > t]
         card_long = self.layout.card_px(h)
         for bx0, by0, bx1, by1 in due:
+            if self.scene.in_overlay((bx0 + bx1) / 2, (by0 + by1) / 2, w, h) or self.scene.in_suspect((bx0 + bx1) / 2, (by0 + by1) / 2, w, h):
+                continue  # a webcam or a banner changing, laid over the table: not a card
             gx, gy = (bx1 - bx0) * 0.08, (by1 - by0) * 0.08
             box = (max(0, bx0 - gx), max(0, by0 - gy), min(w, bx1 + gx), min(h, by1 + gy))
             region = frame.crop(tuple(round(v) for v in box))
@@ -799,6 +1057,7 @@ class Recognizer:
                                  "kind": "card", "hidden": False})
             events.append({"t": round(t, 2), "kind": "played", "text": f"{r['name']} played", "printing_id": r["printing_id"],
                            "track": self.flashes[-1]["id"], "side": side})
+            self.announced[self.flashes[-1]["id"]] = (cx, cy, r["name"], r["printing_id"], side)
         return events
 
     def left(self, t: float, box: tuple[float, float, float, float]) -> list[dict]:
@@ -850,6 +1109,7 @@ class Recognizer:
         self.cut_at = t
         self.anchor_base = {k: tr.box for k, tr in self.tracks.items()}
         self.anchor_pairs = []
+        self.still = StillTable()  # another view of the table: its still picture is taken again
         if self.gate_settings is not None:
             self.gate = ChangeGate(self.gate_settings)
 
@@ -889,12 +1149,16 @@ class Recognizer:
         self.last_t = t
         boxes: list[CardBox] | None = None
 
-        def count() -> int:  # the scene asks only while it learns a broadcast with no known mat colour
-            nonlocal boxes
-            boxes = self.find(t, image)
-            return len(boxes)
+        def count() -> int:  # the scene asks while it learns a broadcast with no known mat colour, or learns it again:
+            nonlocal boxes   # the card-sized boxes (a close-up's cards are bigger)
+            if boxes is None:
+                boxes = self.find(t, image)
+            px = self.layout.card_px(h)
+            return sum(1 for b in boxes if b.long_px <= SIZE_MAX * px)
 
-        if not self.scene.on_table(t, image, count):
+        on = self.scene.on_table(t, image, count)
+        withdrawn = self.drop_overlaid(t, w, h) if self.scene.overlay_n != self.overlay_n else []
+        if not on:
             if not self.away:
                 self.away, self.before_away = True, set(self.prev_seen)
             self.pause(dt)
@@ -902,10 +1166,14 @@ class Recognizer:
             for tr in state["tracks"]:
                 tr["hidden"] = True  # the video is not the table: list the board, draw nothing on it
             state["status"], state["message"] = "away", "the table camera is off; nothing is looked at until it is back"
-            return state, []
+            return state, withdrawn
         back, self.away = self.away, False
+        small = StillTable.small(image)
+        self.still.feed(t, small)
         if boxes is None:
             boxes = self.find(t, image)
+        self.scene.saw_cards(t, count())  # what a view must show to be learnt as the table camera again
+        boxes = self.keep(boxes, image, w, h)
         tf = time.perf_counter()
         seen = self.match(t, boxes, w, h)
         before = self.before_away if back else self.prev_seen
@@ -920,7 +1188,8 @@ class Recognizer:
         # A box seen once may be the detector's slip (between two cards): only tracks seen twice are read.
         table, still = self.layout.box(w, h), HAND_STILL * self.layout.card_px(h)
         for tr in seen:  # a card in a hand is not read, and not shown until it has been put down (D-005)
-            if hand_share(image, tr.box, table, [o.box for o in seen if o is not tr]) >= HAND_SKIN:
+            if self.scene.in_suspect(*tr.box.centre, w, h) or \
+                    hand_share(image, tr.box, table, [o.box for o in seen if o is not tr], self.still.bg, small) >= HAND_SKIN:
                 tr.free_since = tr.free_at = None
             elif tr.free_since is None or math.dist(tr.box.centre, tr.free_at) > still:
                 tr.free_since, tr.free_at = t, tr.box.centre  # out of the hand, or moved since: still from now
@@ -929,7 +1198,7 @@ class Recognizer:
                       key=lambda tr: (tr.reads > 0, tr.last_read))[:budget]
         self.read(t, frame, todo)
         tr_ = time.perf_counter()
-        events = self.announce(t) + self.watch(t, image, frame)
+        events = withdrawn + self.announce(t) + self.watch(t, image, frame)
         self.flashes = [f for f in self.flashes if f["until"] > t]
         self.timing = {"find_ms": 1000 * (tf - tic), "read_ms": 1000 * (tr_ - tf), "gate_ms": 1000 * (time.perf_counter() - tr_),
                        "reads": len(todo), "boxes": len(boxes)}
@@ -969,9 +1238,12 @@ class Recognizer:
         """'played' when a card is first named, 'moved' when a named card that just vanished is named again
         elsewhere (it keeps its first id). A card out of sight keeps its track: an unnamed one `forget_s`,
         a named one `KEEP_S` or as long as something lies on it, a legend or battlefield all game. Then a
-        named card becomes a ghost (see `ghosts`). Runes, legends and battlefields are never announced."""
+        named card becomes a ghost (see `ghosts`). Runes, legends and battlefields are never announced, and nor are the
+        cards of a burst: BURST of them first named within BURST_S (a graphic of a deck, a view framed anew)."""
         events = []
+        played: list[tuple[Track, dict]] = []  # this step's plays, kept back until every card first named now is counted
         self.ghosts = [gh for gh in self.ghosts if t - gh["t"] < 60]
+        self.first_named = [ft for ft in self.first_named if t - ft < BURST_S]
         for tr in list(self.tracks.values()):
             if tr.id not in self.tracks:
                 continue  # merged into the track it moved from
@@ -1035,6 +1307,8 @@ class Recognizer:
                 if back and not changed:
                     self.ghosts.remove(back[0])  # the same card, found again
                     continue
+                if not changed:
+                    self.first_named.append(t)  # a card new to the board
                 if tr.first - (self.t0 or 0.0) < self.settle_s and not changed:
                     continue  # on the table when we tuned in, not played now
                 if after_cut and tr.first - self.cut_at < self.settle_s + 2:
@@ -1043,9 +1317,13 @@ class Recognizer:
                     events.append(self.event(t, "changed", f"{g[0]['name']} (read again)", tr, g[0]["printing_id"]))
                 elif not self.recently_played(t, tr.named, *tr.box.centre, skip=tr.id):
                     self.plays.append((t, tr.named, *tr.box.centre))
-                    events.append(self.event(t, "played", f"{g[0]['name']} played", tr, g[0]["printing_id"]))
+                    played.append((tr, self.event(t, "played", f"{g[0]['name']} played", tr, g[0]["printing_id"])))
                 else:
                     self.plays.append((t, tr.named, *tr.box.centre))
+        if len(self.first_named) < BURST:
+            for tr, ev in played:
+                self.announced[tr.id] = (*tr.box.centre, ev["text"][:-len(" played")], ev["printing_id"], tr.side)
+                events.append(ev)
         return events
 
     def event(self, t: float, kind: str, text: str, tr: Track, pid: str | None) -> dict:

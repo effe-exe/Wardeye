@@ -40,6 +40,8 @@ export class FakeParts implements Parts {
   /** The lists each readLists call was given, and the lists each board was given (by board). */
   listReads: string[][] = [];
   boardLists: unknown[][] = [];
+  /** How many frames each board was primed with (Board.prime), by board. */
+  primed: number[] = [];
 
   async decode(jpeg: Uint8Array): Promise<RgbImage> {
     this.hooks.decode?.();
@@ -70,8 +72,12 @@ export class FakeParts implements Parts {
     const id = this.made.length;
     this.made.push(layout);
     this.boardLists[id] = [];
+    this.primed[id] = 0;
     return {
       setLists: (lists: unknown) => this.boardLists[id]!.push(lists),
+      prime: (frames: readonly RgbImage[]) => {
+        this.primed[id] = frames.length;
+      },
       step: async (t: number, frame: RgbImage): Promise<BoardResult> => {
         if (this.fail) throw this.fail;
         this.hooks.step?.();

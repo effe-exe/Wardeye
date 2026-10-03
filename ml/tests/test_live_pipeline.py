@@ -77,10 +77,10 @@ def test_a_card_held_in_a_hand_over_the_table_is_not_read_until_it_is_put_down()
     box = CardBox((378.0, 239.0), 78.0, 56.0, 90.0, 1.0)  # the card pasted at (350, 200)
     rec.finder = lambda t, image: [box] if t >= 4 else []
     events, shown = [], {}
-    for k in range(60):  # 12 s at 5 fps: the card is held over the table from 4 s to 8 s, then put down
+    for k in range(60):  # 12 s at 5 fps: a hand brings the card over the table at 4 s, holds it there, puts it down at 8 s
         t = k / 5
         im = Image.fromarray(_frame([(art[3], 350, 200)] if t >= 4 else []))
-        if t < 8:
+        if 4 <= t < 8:
             im.paste((200, 140, 110), (326, 200, 350, 278))  # the fingers along its left edge
         state, ev = rec.step(t, np.asarray(im))
         events += ev
@@ -674,3 +674,217 @@ def test_a_tracks_crops_follow_its_side_and_the_rule_can_be_turned_off():
         assert a.reads == b.reads == 1
         assert ("blaze-fist" not in a.prob) is rule and "blaze-fist" in b.prob
         assert max(a.prob, key=a.prob.get) == ("hush-rune" if rule else "blaze-fist")
+
+
+def _on(background, cards, size=(960, 540)):
+    """A frame of one colour with each (image, x, y) pasted as a 56 x 78 card."""
+    im = Image.new("RGB", size, background)
+    for card, x, y in cards:
+        im.paste(card.resize((56, 78), Image.BOX), (x, y))
+    return im
+
+
+def test_on_a_wooden_table_a_card_beside_the_wood_is_read_and_one_in_a_hand_still_is_not():
+    # a co-stream: the table is wood, and wood is skin-coloured; to the hand rule every card beside it was in a
+    # hand, so legends, champions and battlefields were never named. A hand is what is not the still table.
+    from rifteye_ml.changegate import skin
+    from rifteye_ml.live.pipeline import hand_share
+
+    wood, fingers = (170, 120, 100), (230, 185, 160)
+    assert skin(np.array([[wood, fingers]], np.uint8)).all()  # both skin to the colour test alone
+    rows, art, base = _setup(gate=False)
+    layout = Layout("wood", "a wooden table", (0.0, 0.0, 1.0, 1.0), card_long_1080=156, mat=wood, mat_share=0.5)
+    rec = Recognizer(layout, rows, base.enc, base.gallery, fps=5.0, gate=False)
+    lying, held = CardBox((378.0, 239.0), 78.0, 56.0, 90.0, 1.0), CardBox((628.0, 239.0), 78.0, 56.0, 90.0, 1.0)
+    rec.finder = lambda t, image: [lying] + ([held] if t >= 6 else [])
+    named_at, held_reads = {}, []
+    for k in range(75):  # 15 s at 5 fps: card 0 lies on the wood throughout; a hand brings card 1 at 6 s, puts it down at 10 s
+        t = k / 5
+        im = _on(wood, [(art[0], 350, 200)] + ([(art[1], 600, 200)] if t >= 6 else []))
+        if 6 <= t < 10:
+            im.paste(fingers, (576, 200, 600, 278))
+        state, _ = rec.step(t, np.asarray(im))
+        for tr in state["tracks"]:
+            if tr["state"] == "named":
+                named_at.setdefault(tr["name"], t)
+        if 6 <= t < 10:
+            held_reads += [tr.reads for tr in rec.tracks.values() if tr.box.centre[0] > 500]
+    assert named_at[rows[0]["name"]] < 4  # named once the still table is known (2.4 s) and it has lain still 0.5 s
+    assert held_reads and not any(held_reads)  # never read while held
+    assert 10 <= named_at[rows[1]["name"]] < 12
+    plain = np.asarray(_on(wood, [(art[0], 350, 200)]))
+    assert hand_share(plain, lying, layout.box(960, 540)) == 1.0  # the colour test alone: all wood, all "skin"
+    from rifteye_ml.live.pipeline import StillTable
+    small = StillTable.small(plain)
+    assert hand_share(plain, lying, layout.box(960, 540), still=small, now=small) == 0.0
+    held = np.asarray(_on(wood, [(art[0], 350, 200)]))
+    held = held.copy()
+    held[200:278, 326:350] = fingers
+    assert hand_share(held, lying, layout.box(960, 540), still=small, now=StillTable.small(held)) >= 0.1
+
+
+def test_what_stays_put_through_the_cuts_is_the_overlay_and_nothing_on_it_is_read():
+    # a co-streamer's webcam in the corner of every shot: read as a legend, a battlefield and a play; and kept in the
+    # scene's score, it made close-ups look like the table
+    from rifteye_ml.live.pipeline import OVERLAY_CUTS
+
+    rows, art, rec = _setup(gate=False)
+    rng = np.random.default_rng(5)
+    webcam = Image.fromarray(rng.integers(40, 200, (120, 140, 3), dtype=np.uint8))
+    card = CardBox((378.0, 239.0), 78.0, 56.0, 90.0, 1.0)
+    on_cam = CardBox((888.0, 479.0), 78.0, 56.0, 90.0, 1.0)  # the card the co-streamer holds up to the webcam from 4 s
+    rec.finder = lambda t, image: [card] + ([on_cam] if t >= 4 else [])
+    table = [(0, 5), (6, 8), (9, 11), (12, 15)]  # the table camera; between, other shots (four cuts by 9 s)
+    status, cam_tracks, events = {}, {}, []
+    for k in range(75):
+        t = k / 5
+        if any(a <= t < b for a, b in table):
+            im = _on(MAT, [(art[0], 350, 200)])
+        else:
+            im = Image.fromarray(rng.integers(0, 255, (540, 960, 3), dtype=np.uint8))  # a player cam
+        cam = webcam.copy()
+        if t >= 4:
+            cam.paste(art[1].resize((56, 78), Image.BOX), (40, 20))
+        im.paste(cam, (820, 420))
+        state, ev = rec.step(t, np.asarray(im))
+        events += ev
+        status[t] = state["status"]
+        cam_tracks[t] = [tr for tr in rec.tracks.values() if tr.box.centre[0] > 800]
+    assert rec.scene.cuts >= OVERLAY_CUTS and rec.scene.overlay is not None
+    assert rec.scene.in_overlay(888, 479, 960, 540) and not rec.scene.in_overlay(378, 239, 960, 540)
+    assert cam_tracks[4.8] and not any(cam_tracks[t] for t in cam_tracks if t >= 9.2)  # read off the webcam, then never
+    assert all(status[t] == "away" for t in status if 11.2 <= t < 12) and status[13.0] == "live"
+    played = [e for e in events if e["kind"] == "played"]
+    withdrawn = [e for e in events if e["kind"] == "withdrawn"]
+    assert [e["text"] for e in played] == [f"{rows[1]['name']} played"]  # read off the webcam before the cuts showed it
+    assert [e["track"] for e in withdrawn] == [played[0]["track"]] and 9 <= withdrawn[0]["t"] < 10
+
+
+def test_a_zone_printed_on_the_mat_is_not_a_card_and_a_box_longer_than_a_card_is_none():
+    from rifteye_ml.live.pipeline import plain_zone
+
+    rows, art, rec = _setup(gate=False)
+    im = _on(MAT, [(art[0], 350, 200)])
+    from PIL import ImageDraw
+    ImageDraw.Draw(im).rectangle((600, 200, 656, 278), outline=(150, 130, 70), width=2)  # a card-sized zone, printed
+    im.paste((220, 90, 150), (200, 200, 256, 278))  # a face-down card in a pink sleeve
+    frame = np.asarray(im)
+    zone, card, sleeve = (CardBox((628.0, 239.0), 78.0, 56.0, 90.0, 1.0), CardBox((378.0, 239.0), 78.0, 56.0, 90.0, 1.0),
+                          CardBox((228.0, 239.0), 78.0, 56.0, 90.0, 1.0))
+    assert plain_zone(frame, zone) and not plain_zone(frame, card) and not plain_zone(frame, sleeve)
+    two = CardBox((450.0, 239.0), 160.0, 78.0, 0.0, 1.0)  # two cards side by side outlined as one: 2 cards long
+    rec.finder = lambda t, image: [zone, card, sleeve, two]
+    for k in range(10):
+        rec.step(k / 5, frame)
+    assert sorted(round(tr.box.centre[0]) for tr in rec.tracks.values()) == [228, 378]
+
+
+def test_a_burst_of_cards_named_at_once_is_not_that_many_plays():
+    # a sideboard graphic's eight cards, all "played" at once: nobody plays four cards in a second
+    rows, art, rec = _setup(n=7, gate=False)
+    events = []
+    for k in range(70):  # 14 s at 5 fps: card 0 from the start; cards 1 to 5 all at once at 5 s; card 6 alone at 9 s
+        t = k / 5
+        cards = [(art[0], 100, 100)]
+        if t >= 5:
+            cards += [(art[i], 100 + 150 * i, 300) for i in range(1, 6)]
+        if t >= 9:
+            cards.append((art[6], 400, 100))
+        _, ev = rec.step(t, _frame(cards))
+        events += ev
+    played = [e["text"] for e in events if e["kind"] == "played"]
+    assert played == [f"{rows[6]['name']} played"]
+
+
+def test_a_face_moving_in_a_corner_webcam_keeps_the_webcam_overlay():
+    # a co-stream: the co-streamer's webcam in the bottom right corner, and their face reaching the frame's bottom
+    # edge, so a hole open to it is never filled. The face moved at the fifth cut: on its own, that cut opened the
+    # webcam to the table, and the card on its wall was read and announced again 15 s later
+    from rifteye_ml.live.pipeline import overlay_patches
+
+    same = np.zeros((54, 96), np.int32)
+    same[40:, 80:] = 4  # the webcam stayed through the first four cuts
+    first = overlay_patches(same, 4)
+    assert first[40:, 80:].all() and int(first.sum()) == 14 * 16
+    same[40:, 80:] = 5
+    same[44:, 85:91] = 4  # the fifth cut: the face moved
+    assert not overlay_patches(same, 5)[48, 88]
+    assert overlay_patches(same, 5, first)[40:, 80:].all()  # what was overlay stays, while it stays through 60%
+    same[44:, 85:91] = 2  # what changed at three cuts of five is not
+    assert not overlay_patches(same, 5, first)[48, 88]
+
+
+def test_the_frames_the_table_was_looked_for_in_hold_the_overlay_back_from_the_start():
+    # a co-stream: Wardeye found the table at the cut from the player cams to it, then read the webcam for 25 s
+    # before enough cuts showed it; the cut among the frames it looked in shows the webcam at once
+    from rifteye_ml.live.pipeline import SUSPECT_S
+
+    rows, art, rec = _setup(gate=False)
+    rng = np.random.default_rng(5)
+    webcam = Image.fromarray(rng.integers(40, 200, (120, 140, 3), dtype=np.uint8))
+    cam = Image.fromarray(rng.integers(0, 255, (540, 960, 3), dtype=np.uint8))
+    cam.paste(webcam, (820, 420))
+    table = _on(MAT, [(art[0], 350, 200)])
+    table.paste(webcam, (820, 420))
+    rec.prime([np.asarray(cam)] * 4 + [np.asarray(table)])  # four looks at a player cam, then the table
+    assert (rec.scene.cuts, rec.scene.cuts_all) == (0, 1)  # suspect from the looks' cut, never overlay from it alone
+    assert rec.scene.in_suspect(888, 479, 960, 540) and not rec.scene.in_suspect(378, 239, 960, 540)
+    card = CardBox((378.0, 239.0), 78.0, 56.0, 90.0, 1.0)
+    on_cam = CardBox((888.0, 479.0), 78.0, 56.0, 90.0, 1.0)
+    rec.finder = lambda t, image: [card, on_cam]
+    events, shown = [], set()
+    for k in range(50):  # 10 s of the table camera, the webcam showing a card from the start
+        t = k / 5
+        im = table.copy()
+        shot = webcam.copy()
+        shot.paste(art[1].resize((56, 78), Image.BOX), (40, 20))
+        im.paste(shot, (820, 420))
+        state, ev = rec.step(t, np.asarray(im))
+        events += ev
+        shown |= {tr["name"] for tr in state["tracks"] if tr["state"] == "named"}
+    assert rows[0]["name"] in shown and rows[1]["name"] not in shown  # the table's card named, the webcam's held back
+    assert not [e for e in events if e["kind"] in ("played", "withdrawn")]
+    assert rec.scene.suspect is not None  # no cut since: held back for SUSPECT_S
+    rec.scene.on_table(10 + SUSPECT_S + 1, np.asarray(table))
+    assert rec.scene.suspect is None  # and then let go: one cut alone can be the camera reframed
+
+
+def _mat_frame(shift=0, arm=False):
+    """A 1920 x 1080 frame of la-rq's table window: the mat with a print of 40 px blocks (moved `shift` px when the
+    camera moves), plain but for a strong band along its top, like the score track printed on the Riftbound mat;
+    `arm`, a dark sleeve over that band."""
+    from rifteye_ml.live.layouts import LAYOUTS
+    lay = LAYOUTS["la-rq"]
+    y, x = np.mgrid[0:1080, 0:1920]
+    img = np.zeros((1080, 1920, 3), np.uint8)
+    x0, y0, x1, y1 = lay.box(1920, 1080)
+    bx, by = (x + shift) // 40, y // 40
+    for c in range(3):
+        v = bx * bx * 37 + by * by * 91 + bx * by * 13 + c * 50
+        img[..., c] = np.where((y < 340) & (x >= 1160), v % 200, lay.mat[c] + v % 32)
+    img[:y0], img[:, :x0], img[:, x1:] = 90, 90, 90  # the panels beside the window
+    if arm:
+        img[y0:340, 1160:x1] = 12
+    return lay, img
+
+
+def test_an_arm_over_the_table_leaves_it_the_table_and_a_close_up_of_one_side_is_never_learnt_as_it():
+    # the Barcelona final: with the panels left out of the score, an arm over the mat's printed score track took the
+    # table for another shot for 9 s. And a co-stream: away from the table camera for 20 s, the scene learnt a player
+    # cam as the table, its maroon shirt the mat's colour; then a close-up of one side of the table, with a few of its
+    # cards, that the detector boxed
+    from rifteye_ml.live.pipeline import Scene
+
+    lay, table = _mat_frame()
+    _, arm = _mat_frame(arm=True)
+    _, moved = _mat_frame(shift=40)
+    for side_cards, learnt in ((8, False), (12, True)):
+        sc = Scene(lay)
+        on = [sc.on_table(0.5 * k, table, lambda: 20) for k in range(21)]
+        for k in range(21):
+            sc.saw_cards(0.5 * k, 20)  # the board saw twenty cards on the table camera
+        on += [sc.on_table(10.5 + 0.5 * k, arm, lambda: 20) for k in range(10)]
+        assert all(on), "an arm over a block of the table is still the table"
+        away = [sc.on_table(15.5 + 0.5 * k, moved, lambda: side_cards) for k in range(80)]
+        assert not away[0]
+        assert away[-1] is learnt, f"{side_cards} cards where the table showed 20"

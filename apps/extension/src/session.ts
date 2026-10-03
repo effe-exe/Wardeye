@@ -39,6 +39,8 @@ export class Session {
   private board: Board | null = null;
   private lastT: number | null = null;
   private seen: RgbImage[] = [];
+  /** The frames the layout was found from, for the first board on it (Board.prime). */
+  private looked: RgbImage[] = [];
   private lastLook: number | null = null;
   private tries = 0;
   private complained = false;
@@ -78,6 +80,7 @@ export class Session {
     this.board = null;
     this.lastT = null;
     this.seen = [];
+    this.looked = [];
     this.lastLook = null;
     this.tries = 0;
     if (!this.cfg.layout) this.layout = null; // another video: its own table
@@ -92,6 +95,8 @@ export class Session {
     if (!this.board || jump) {
       this.board = parts.board(this.layout); // a jump: a new board on the same table
       if (this.lists) this.board.setLists?.(this.lists.lists);
+      if (this.looked.length) this.board.prime?.(this.looked); // the first board on a layout found: the looks' cut shows the overlay
+      this.looked = [];
     }
     this.lastT = t;
     return this.board.step(t, image);
@@ -117,6 +122,7 @@ export class Session {
         if (!found && ++this.tries >= this.presetAfter) found = matchPreset(image, parts.presets());
         if (found) {
           this.layout = found;
+          this.looked = this.seen;
           this.seen = [];
           this.lastT = null;
         }

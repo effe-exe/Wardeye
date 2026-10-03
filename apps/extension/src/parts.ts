@@ -49,6 +49,9 @@ export interface Board {
   step(t: number, frame: RgbImage): Promise<BoardResult>;
   /** The decklists to hold its sides to (Parts.readLists): a side whose pinned legend a list names reads only that list's cards. */
   setLists?(lists: unknown): void;
+  /** The frames the table was looked for in, before the board began (Recognizer.prime): a cut among them shows the overlay laid
+   * over every shot (a co-streamer's webcam) from the start. */
+  prime?(frames: readonly RgbImage[]): void;
 }
 
 export interface Parts {

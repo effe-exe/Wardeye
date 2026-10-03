@@ -63,6 +63,8 @@ Tournament broadcasts are composites. The overhead cam usually sits in a sub-win
 - **Layout presets** (`layouts/*.json`) are the community-maintained answer: one small JSON file per broadcaster, listing the regions of the composite frame. This is the easiest place for a new contributor to help.
 - **Auto-discovery** is the fallback. Detections accumulate into a heatmap over a few seconds, and the dense region is the table.
 - **Cut detection** uses frame-difference plus histogram distance. On a cut, tracks are frozen rather than dropped, and re-associated when the table view returns.
+- **The broadcast's overlay**, what it lays over every shot (a co-streamer's webcam and chat, a scoreboard, a banner), is what stays put through the cuts while the shots change under it. Nothing on it is read, and plays read on it before it was known are withdrawn ([D-030](decisions.md#d-030-what-stays-put-through-the-cuts-is-the-broadcasts-overlay)).
+- **The table camera is told by the table window alone**, scored block by block, so an arm over the mat leaves it the table and a close-up of a hand is not. A view is learnt again as the table camera only when it holds half the cards the table showed ([D-034](decisions.md#d-034-the-table-camera-is-told-by-the-table-window-block-by-block)).
 - **Close-ups and production graphics** (a full-screen card when it is played) go straight to the embedder. These are the highest-confidence identifications Wardeye will ever get.
 
 #### 3.1.1 Change gate (layer 1)

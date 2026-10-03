@@ -98,6 +98,14 @@ describe('the plays of a video', () => {
     expect(log.add('/videos/1', [play(30, 'Sivir played')])).toHaveLength(1);
   });
 
+  it('takes a play off the list when it is withdrawn: read off the stream overlay, not the table', () => {
+    const log = new PlayLog();
+    log.add('/a-co-stream', [play(26, 'Pendulum Blade played', 'right', 'played', 't75'), play(31, 'Steel Paws played', 'left', 'played', 't136')]);
+    const fresh = log.add('/a-co-stream', [play(44, 'Pendulum Blade withdrawn: it was the stream\'s overlay', 'right', 'withdrawn', 't75')]);
+    expect(fresh).toEqual([]);
+    expect(log.plays.map((e) => e.text)).toEqual(['Steel Paws played']);
+  });
+
   it('starts over for another video, and keeps the newest plays of a long one', () => {
     const log = new PlayLog();
     log.add('/videos/1', [play(5, 'Sivir played')]);

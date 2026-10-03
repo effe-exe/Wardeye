@@ -21,8 +21,10 @@ import {
   similarity,
   smooth,
   type Ghost,
+  StillTable,
   handShare,
   hiddenRunes,
+  plainZone,
 } from '../src/recognizer';
 import * as decklist from '../src/decklist';
 import { rgbImage } from '../src/image';
@@ -116,12 +118,23 @@ const V = JSON.parse(readFileSync(new URL('./vectors/recognizer.json', import.me
   boards: Board[];
   reanchor: { setup: Setup; after: unknown }[];
   on_table: { t: number; shift: number; ok: boolean; n: number; away_since: number | null; looks: number; last_look: number; last_learn: number }[];
+  on_table_nocards: { t: number; shift: number; ok: boolean; n: number; away_since: number | null; looks: number; last_look: number; last_learn: number }[];
+  on_table_few: { t: number; shift: number; ok: boolean; n: number; away_since: number | null; looks: number; last_look: number; last_learn: number }[];
   bootstrap: {
     t: number;
     cards: { centre: [number, number]; long: number; short: number; cos: number; sin: number; rgb: [number, number, number] }[];
     mat: [number, number, number];
     boxes: CardBox[];
   }[];
+  overlay: {
+    steps: { k: number; shot: string; cuts: number; overlay_n: number; suspect: number | null; corner: boolean; overlay: number | null; face: boolean }[];
+    same_sum: number;
+    overlay: number[] | null;
+    points: { x: number; y: number; in: boolean }[];
+  };
+  still: { steps: { t: number; last: number; first: number; bg: boolean; bg_sum: number | null; bg_head: number[] | null }[] };
+  hands: { box: CardBox; alone: number; held_alone: number; still: number; held: number }[];
+  plain: { name: string; box: CardBox; plain: boolean }[];
 };
 
 const [W, H] = V.frame;
@@ -302,10 +315,12 @@ describe('the scene on frames', () => {
     for (let y = 0, o = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
         const inside = x >= x0 && x < x1 && y >= y0 && y < y1;
-        const bx = Math.floor((x + shift) / 40);
+        // the overlay's print stays put; the mat's own print moves with the camera
+        const bx = Math.floor((inside ? x + shift : x) / 40);
         const by = Math.floor(y / 40);
         for (let c = 0; c < 3; c++, o++) {
-          im.data[o] = inside ? mat[c]! + ((x * 3 + y * 7 + c) % 5) : (bx * bx * 37 + by * by * 91 + bx * by * 13 + c * 50) % 256;
+          const v = bx * bx * 37 + by * by * 91 + bx * by * 13 + c * 50;
+          im.data[o] = inside ? mat[c]! + (v % 40) : v % 256;
         }
       }
     }
@@ -314,13 +329,20 @@ describe('the scene on frames', () => {
 
   it('learns the table camera, loses it when the camera moves, and learns the new view after 20 s', async () => {
     const frames = new Map([0, 40].map((s) => [s, sceneFrame(s)]));
-    const sc = new Scene(LAYOUT);
-    for (const s of V.on_table) {
-      const ok = await sc.onTable(s.t, frames.get(s.shift)!);
-      const { t: _t, shift: _shift, ...want } = s;
-      same({ ok, n: sc.n, away_since: sc.awaySince, looks: sc.looks, last_look: sc.lastLook, last_learn: sc.lastLearn }, want, `on_table t=${s.t}`);
+    for (const [cards, shown, steps] of [[6, 0, V.on_table], [0, 0, V.on_table_nocards], [6, 20, V.on_table_few]] as const) {
+      const sc = new Scene(LAYOUT);
+      sc.sawCards(0, shown);
+      for (const s of steps) {
+        const ok = await sc.onTable(s.t, frames.get(s.shift)!, async () => cards);
+        const { t: _t, shift: _shift, ...want } = s;
+        same({ ok, n: sc.n, away_since: sc.awaySince, looks: sc.looks, last_look: sc.lastLook, last_learn: sc.lastLearn }, want, `on_table cards=${cards}/${shown} t=${s.t}`);
+      }
     }
     expect(V.on_table.some((s) => !s.ok) && V.on_table.at(-1)!.ok).toBe(true);
+    // a view with no cards of the table's size in it is never learnt as the table, however much it looks like the mat,
+    // nor one with six where the table camera showed twenty (a close-up of one side of the table)
+    expect(V.on_table_nocards.at(-1)!.ok).toBe(false);
+    expect(V.on_table_few.at(-1)!.ok).toBe(false);
   }, 60_000);
 });
 
@@ -623,5 +645,124 @@ describe('the legend rule', () => {
       const best = [...a.prob].sort((p, q) => q[1] - p[1])[0]![0];
       expect(best).toBe(rule ? 'hush-rune' : 'blaze-fist');
     }
+  });
+});
+
+describe('the overlay laid over every shot', () => {
+  /** gen/recognizer.py's shot_thumb(): the table camera's pattern or another shot's, and the same corner in every one,
+   * with the co-streamer in it moving at the cut at k = 30. */
+  function shotThumb(k: number, shot: string): Float32Array {
+    const x = new Float32Array(54 * 96 * 3);
+    let o = 0;
+    for (let y = 0; y < 54; y++) {
+      for (let xx = 0; xx < 96; xx++) {
+        for (let c = 0; c < 3; c++, o++) {
+          let v: number;
+          if (shot === 'table') v = ((xx * 7 + y * 13 + c * 50) % 200) + 20 + ((xx * 31 + y * 17 + c * 5 + k * 11) % 7) - 3;
+          else {
+            const s = shot === 'cam' ? 1 : 2;
+            v = (xx * (3 + s) + y * (29 - s) + c * 71 + k * 13) % 256;
+          }
+          if (xx >= 80 && y >= 40) v = 100 + c * 40;
+          if (xx >= 85 && xx <= 90 && y >= 44) v = 100 + c * 40 + (k >= 30 ? 60 : 0);
+          x[o] = v;
+        }
+      }
+    }
+    return x;
+  }
+
+  it('is what stays put through the cuts, worked out as Python works it out', () => {
+    const sc = new Scene(LAYOUT);
+    for (const s of V.overlay.steps) {
+      sc.see(shotThumb(s.k, s.shot));
+      expect([sc.cuts, sc.overlayN], `k=${s.k}`).toEqual([s.cuts, s.overlay_n]);
+      // before OVERLAY_CUTS cuts, what stayed through every one so far is suspect
+      expect([sc.suspect === null ? null : sc.suspect.reduce((a, v) => a + v, 0), sc.inSuspect(1800, 950, W, H)], `k=${s.k}`).toEqual([s.suspect, s.corner]);
+      // the face that moved at the fifth cut stays overlay
+      expect([sc.overlay === null ? null : sc.overlay.reduce((a, v) => a + v, 0), sc.inOverlay(1760, 980, W, H)], `k=${s.k}`).toEqual([s.overlay, s.face]);
+    }
+    let sum = 0;
+    for (const v of sc.same) sum += v;
+    expect(sum).toBe(V.overlay.same_sum);
+    const at: number[] = [];
+    sc.overlay?.forEach((v, i) => v && at.push(i));
+    expect(sc.overlay === null ? null : at).toEqual(V.overlay.overlay);
+    for (const p of V.overlay.points) expect(sc.inOverlay(p.x, p.y, W, H), `${p.x},${p.y}`).toBe(p.in);
+  });
+
+  it('is only suspect from a cut seen before the board, as Python has it', () => {
+    // Recognizer.prime: the frames the table was looked for in, a player cam then the table, with the same corner
+    const sc = new Scene(LAYOUT);
+    sc.see(shotThumb(0, 'cam'), true);
+    sc.see(shotThumb(1, 'table'), true);
+    expect([sc.cuts, sc.cutsAll, sc.overlay, sc.inSuspect(1800, 950, W, H), sc.inSuspect(960, 540, W, H)]).toEqual([0, 1, null, true, false]);
+    for (const [k, shot] of ([[2, 'cam'], [3, 'table'], [4, 'wide'], [5, 'table']] as const)) sc.see(shotThumb(k, shot));
+    expect([sc.cuts, sc.cutsAll, sc.overlay === null, sc.suspect]).toEqual([4, 5, false, null]); // the board's own four cuts: overlay
+    expect(sc.inOverlay(1800, 950, W, H)).toBe(true);
+  });
+});
+
+describe('the still table', () => {
+  /** gen/recognizer.py's still_frame(): a table that slowly changes, and a hand over it in frames 2 and 6. */
+  function stillFrame(k: number): RgbImage {
+    const im = rgbImage(960, 540);
+    for (let y = 0, o = 0; y < 540; y++) {
+      for (let x = 0; x < 960; x++) {
+        const hand = (k === 2 || k === 6) && x >= 300 && x < 420 && y >= 200 && y < 300;
+        for (let c = 0; c < 3; c++, o++) im.data[o] = hand ? [230, 185, 160][c]! : (x * 5 + y * 3 + c * 40 + k * 7 * Math.floor(x / 120)) % 256;
+      }
+    }
+    return im;
+  }
+
+  it('is the median of five table frames, then steps nearer, in whole numbers as Python has it', () => {
+    const st = new StillTable();
+    for (const [k, s] of V.still.steps.entries()) {
+      st.feed(s.t, StillTable.small(stillFrame(k)));
+      expect([st.last, st.first.length, st.bg !== null], `t=${s.t}`).toEqual([s.last, s.first, s.bg]);
+      if (st.bg !== null) {
+        let sum = 0;
+        for (let i = 0; i < st.bg.data.length; i++) sum += st.bg.data[i]!;
+        expect(sum, `t=${s.t}`).toBe(s.bg_sum);
+        expect([...Array.from(st.bg.data).slice(0, 48)]).toEqual(s.bg_head);
+      }
+    }
+  });
+
+  it('tells a hand from a wooden table, which is skin-coloured too', () => {
+    const wood = rgbImage(960, 540, Uint8Array.from({ length: 960 * 540 * 3 }, (_, i) => [170, 120, 100][i % 3]!));
+    const held = rgbImage(960, 540, Uint8Array.from(wood.data));
+    for (let y = 200; y < 278; y++) for (let x = 576; x < 600; x++) held.data.set([230, 185, 160], (y * 960 + x) * 3);
+    const sw = StillTable.small(wood);
+    const sh = StillTable.small(held);
+    const table = [0, 0, 960, 540] as const;
+    for (const v of V.hands) {
+      expect([handShare(wood, v.box, table), handShare(held, v.box, table)]).toEqual([v.alone, v.held_alone]);
+      expect([handShare(wood, v.box, table, [], sw, sw), handShare(held, v.box, table, [], sw, sh)]).toEqual([v.still, v.held]);
+    }
+  });
+});
+
+describe('zones printed on the mat', () => {
+  /** gen/recognizer.py's plain_frame(): a printed zone, a card's face and a face-down card in a pink sleeve on the mat. */
+  function plainFrame(): RgbImage {
+    const im = rgbImage(960, 540);
+    for (let y = 0, o = 0; y < 540; y++) {
+      for (let x = 0; x < 960; x++) {
+        const outline = y >= 200 && y < 279 && x >= 600 && x < 657 && !(y >= 202 && y < 277 && x >= 602 && x < 655);
+        const face = y >= 200 && y < 278 && x >= 350 && x < 406;
+        const sleeve = y >= 200 && y < 278 && x >= 200 && x < 256;
+        for (let c = 0; c < 3; c++, o++) {
+          im.data[o] = outline ? [150, 130, 70][c]! : face ? (x * 37 + y * 11 + c * 90) % 256 : sleeve ? [220, 90, 150][c]! : [30, 40, 55][c]!;
+        }
+      }
+    }
+    return im;
+  }
+
+  it('are told from cards and face-down cards as Python tells them', () => {
+    const im = plainFrame();
+    for (const v of V.plain) expect(plainZone(im, v.box), v.name).toBe(v.plain);
   });
 });

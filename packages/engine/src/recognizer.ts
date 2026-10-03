@@ -35,6 +35,7 @@ import { box as layoutBox, cardPx, side as layoutSide, sides as layoutSides } fr
 import { linearSumAssignment } from './lsap';
 import { FACE_DOWN_DETAIL, detail, findCards, matColour, notmatMask, type Mask } from './matcrops';
 import { Catalogue, listMask, type Deck } from './decklist';
+import { binaryFillHoles, findObjects, label } from './ndimage';
 import { legendMask, tokenRows } from './priors';
 import { pyMod, pyRound } from './pynum';
 import { ROTATIONS, argsortDescending, bestSimilarities, type Pyramid } from './retrieval';
@@ -101,6 +102,51 @@ export const HAND_RING = [0.1, 0.2, 0.3] as const;
 export const HAND_POINTS = 8;
 /** Fewer of them off the other cards and in the window: no hand to see. */
 export const HAND_MIN_POINTS = 8;
+/** A skin-coloured point this unlike the still table there (`StillTable`) is a hand; one like it is the table itself: a
+ * wooden table is skin-coloured, and the cards lying beside it are not in a hand. */
+export const HAND_DIFF = 40;
+/** The still table: the frame at a quarter of 1080p, first the median of HAND_BG_FRAMES table frames HAND_BG_EVERY apart
+ * (hands move; the table does not), then every HAND_BG_EVERY HAND_BG_STEP nearer the frame, so a hand passing over it
+ * stays a hand. */
+export const HAND_BG: readonly [number, number] = [480, 270];
+export const HAND_BG_FRAMES = 5;
+export const HAND_BG_EVERY = 0.5;
+export const HAND_BG_STEP = 2;
+/** A box longer than this many cards is not one: the co-stream's chat, two cards or a card and the printed zone beside it
+ * outlined as one (named cards: 99.5% within 1.24 on two finals). */
+export const SIZE_MAX = 1.45;
+/** A box the mat's own colour inside as around it (medians, this close), and plain inside (the middle half of its points
+ * within PLAIN_SPREAD), is a zone printed on the mat, not a card. */
+export const PLAIN_TOL = 18;
+export const PLAIN_SPREAD = 24;
+/** This many cards named for the first time on the table within BURST_S are not that many plays: a graphic of cards (a
+ * sideboard, a decklist) or a view framed anew; nobody plays four cards a second. */
+export const BURST = 4;
+export const BURST_S = 1.0;
+/** A thumbnail pixel within this of the frame before, through a cut, stayed: the broadcast's overlay. */
+export const OVERLAY_TOL = 16;
+/** A frame whose thumbnail changed this much from the one before is a cut (play changes a quarter at most). */
+export const CUT_SHARE = 0.5;
+/** The overlay: what stayed through this share of the cuts, once there are OVERLAY_CUTS, in patches reaching within
+ * OVERLAY_EDGE pixels of the frame's edge (a co-streamer's webcam and chat, a scoreboard, a sponsor banner), holes filled. */
+export const OVERLAY_SHARE = 0.9;
+export const OVERLAY_CUTS = 4;
+export const OVERLAY_EDGE = 2;
+/** A pixel once overlay stays so while it stayed through this share of the cuts: a face moving in a webcam changes it
+ * at some cuts, and opens the webcam's frame to the table. */
+export const OVERLAY_KEEP = 0.6;
+/** Before then, what stayed through every cut so far is suspect: nothing there is read, until the cuts make it overlay,
+ * or for this long after the last cut (one cut alone can be the camera reframed). */
+export const SUSPECT_S = 60.0;
+/** The scene's score is the mean of its scores in a 6 x 3 grid of blocks of the thumbnail: an arm or a banner over the
+ * table spoils a block or two, another shot all of them. A block counts with SCENE_BLOCK still pixels of the table
+ * window in it. */
+export const SCENE_GRID: readonly [number, number] = [6, 3];
+export const SCENE_BLOCK = 20;
+/** The scene learns a moved camera again only when this many card-sized boxes lie in the view, and half the most the
+ * table camera showed in CARDS_S of its last time on screen. */
+export const RELEARN_CARDS = 5;
+export const CARDS_S = 60.0;
 export const KINDS: ReadonlyMap<string, string> = new Map([
   ['Legend', 'legend'],
   ['Battlefield', 'battlefield'],
@@ -296,10 +342,21 @@ export function onBox(box: CardBox, x: number, y: number): boolean {
   return Math.abs(dx * ux + dy * uy) <= box.long_px / 2 && Math.abs(dy * ux - dx * uy) <= box.short_px / 2;
 }
 
+/** A picture of whole numbers, three to a pixel, rows top to bottom: the still table (`StillTable.bg`). */
+export interface StillPicture {
+  width: number;
+  height: number;
+  data: ArrayLike<number>;
+}
+
 /** The share of skin-coloured points in a band around the box, inside the table window and off the other cards
  * (`others`): the fingers holding a card in a hand over the table, or putting it down. No card's art is looked at:
- * gold, faces and fire are skin-coloured too. Hemmed in by other cards, it sees no hand. */
-export function handShare(frame: RgbImage, box: CardBox, table: readonly [number, number, number, number], others: readonly CardBox[] = []): number {
+ * gold, faces and fire are skin-coloured too. Hemmed in by other cards, it sees no hand. With `still`, the still table
+ * (`StillTable`), and `now`, this frame at its size (HAND_BG), a point counts only where the frame there is HAND_DIFF
+ * unlike the table: on a wooden table the wood is skin-coloured too, and a hand is what is not the table (compared at
+ * the same size, so a mat's thin printed lines are the table too). */
+export function handShare(frame: RgbImage, box: CardBox, table: readonly [number, number, number, number], others: readonly CardBox[] = [],
+  still: StillPicture | null = null, now: StillPicture | null = null): number {
   const [x0, y0, x1, y1] = table;
   const { width: w, height: h, data } = frame;
   const a = box.angle_deg * (Math.PI / 180);
@@ -308,6 +365,7 @@ export function handShare(frame: RgbImage, box: CardBox, table: readonly [number
   const [cx, cy] = box.centre;
   const near = others.filter((o) => dist(o.centre, box.centre) < o.long_px + box.long_px);
   const px: number[] = [];
+  const at: number[] = []; // (yi, xi) of each point
   for (const f of HAND_RING) {
     const d = f * box.short_px;
     const hl = box.long_px / 2 + d;
@@ -323,6 +381,7 @@ export function handShare(frame: RgbImage, box: CardBox, table: readonly [number
         if (xi >= Math.max(x0, 0) && xi < Math.min(x1, w) && yi >= Math.max(y0, 0) && yi < Math.min(y1, h) && !near.some((o) => onBox(o, x, y))) {
           const o = (yi * w + xi) * 3;
           px.push(data[o]!, data[o + 1]!, data[o + 2]!);
+          at.push(yi, xi);
         }
       }
     }
@@ -331,8 +390,106 @@ export function handShare(frame: RgbImage, box: CardBox, table: readonly [number
   if (n < HAND_MIN_POINTS) return 0;
   const m = skin({ width: n, height: 1, data: Uint8Array.from(px) }).data;
   let k = 0;
-  for (const v of m) k += v;
+  for (let i = 0; i < n; i++) {
+    if (!m[i]) continue;
+    if (still !== null && now !== null) {
+      const by = Math.min(still.height - 1, Math.floor((at[2 * i]! * still.height) / h));
+      const bx = Math.min(still.width - 1, Math.floor((at[2 * i + 1]! * still.width) / w));
+      const o = (by * still.width + bx) * 3;
+      const d = Math.max(Math.abs(now.data[o]! - still.data[o]!), Math.abs(now.data[o + 1]! - still.data[o + 1]!), Math.abs(now.data[o + 2]! - still.data[o + 2]!));
+      if (d < HAND_DIFF) continue; // the table itself, however skin-coloured
+    }
+    k++;
+  }
   return k / n;
+}
+
+/** The table camera's picture without the hands over it, for the hand rule (`handShare`): HAND_BG_FRAMES table frames
+ * HAND_BG_EVERY apart, their median per pixel (hands move, the table does not), then every HAND_BG_EVERY a step of
+ * HAND_BG_STEP nearer the frame: a hand passing over the table for a few seconds stays unlike it, a card put down becomes
+ * part of it within half a minute. Whole numbers throughout, as pipeline.py's are. Fed the frames at its size (`small`). */
+export class StillTable {
+  first: Uint8Array[] = [];
+  bg: StillPicture | null = null;
+  last = -1e9;
+
+  /** A frame at the still table's size. */
+  static small(frame: RgbImage): RgbImage {
+    return image.resize(frame, HAND_BG, 'box');
+  }
+
+  feed(t: number, small: RgbImage): void {
+    if (t - this.last < HAND_BG_EVERY) return;
+    this.last = t;
+    const x = small.data;
+    if (this.bg === null) {
+      this.first.push(Uint8Array.from(x));
+      if (this.first.length === HAND_BG_FRAMES) {
+        const bg = new Int16Array(x.length);
+        const v = new Array<number>(HAND_BG_FRAMES);
+        for (let i = 0; i < x.length; i++) {
+          for (let f = 0; f < HAND_BG_FRAMES; f++) v[f] = this.first[f]![i]!;
+          v.sort((a, b) => a - b);
+          bg[i] = v[HAND_BG_FRAMES >> 1]!;
+        }
+        this.bg = { width: HAND_BG[0], height: HAND_BG[1], data: bg };
+        this.first = [];
+      }
+      return;
+    }
+    const bg = this.bg.data as Int16Array;
+    for (let i = 0; i < x.length; i++) {
+      const d = x[i]! - bg[i]!;
+      bg[i] = bg[i]! + (d > HAND_BG_STEP ? HAND_BG_STEP : d < -HAND_BG_STEP ? -HAND_BG_STEP : d);
+    }
+  }
+}
+
+/** A box of the mat's own colour inside as around it, and plain inside: a zone printed on the mat (outlined, a card's
+ * size) or the mat's logo, which the detector outlines like a card. A card's face is never plain, and a face-down card is
+ * plain in its sleeve's colour, not the mat's. Inside: 5 x 5 points over the middle 60% of the box; around: the band
+ * HAND_RING[1] out from its edges. Their medians, and the inside's quartiles, of whole numbers. */
+export function plainZone(frame: RgbImage, box: CardBox): boolean {
+  const { width: w, height: h, data } = frame;
+  const a = box.angle_deg * (Math.PI / 180);
+  const ux = Math.cos(a);
+  const uy = Math.sin(a);
+  const [cx, cy] = box.centre;
+  const inside: number[][] = [[], [], []];
+  const ring: number[][] = [[], [], []];
+  const take = (to: number[][], xi: number, yi: number): void => {
+    if (xi < 0 || xi >= w || yi < 0 || yi >= h) return;
+    const o = (yi * w + xi) * 3;
+    for (let c = 0; c < 3; c++) to[c]!.push(data[o + c]!);
+  };
+  for (let i = 0; i < 5; i++) {
+    for (let j = 0; j < 5; j++) {
+      const su = (i - 2) * 0.15 * box.long_px;
+      const sv = (j - 2) * 0.15 * box.short_px;
+      take(inside, Math.floor(cx + su * ux - sv * uy), Math.floor(cy + su * uy + sv * ux));
+    }
+  }
+  const d = HAND_RING[1] * box.short_px;
+  const hl = box.long_px / 2 + d;
+  const hs = box.short_px / 2 + d;
+  for (let k = 0; k < HAND_POINTS; k++) {
+    const alongL = ((k + 0.5) / HAND_POINTS) * 2 * hl - hl;
+    const alongS = ((k + 0.5) / HAND_POINTS) * 2 * hs - hs;
+    for (const [su, sv] of [[alongL, hs], [alongL, -hs], [hl, alongS], [-hl, alongS]] as const) {
+      take(ring, Math.floor(cx + su * ux - sv * uy), Math.floor(cy + su * uy + sv * ux));
+    }
+  }
+  const n = ring[0]!.length;
+  if (inside[0]!.length < 25 || n < 2 * HAND_POINTS) return false;
+  let near = 0;
+  let spread = 0;
+  for (let c = 0; c < 3; c++) {
+    const si = inside[c]!.sort((p, q) => p - q);
+    const sr = ring[c]!.sort((p, q) => p - q);
+    near = Math.max(near, Math.abs(si[12]! - (sr[(n - 1) >> 1]! + sr[n >> 1]!) / 2));
+    spread = Math.max(spread, si[18]! - si[6]!);
+  }
+  return near < PLAIN_TOL && spread <= PLAIN_SPREAD;
 }
 
 /** Out of a hand and still for HAND_FREE_S: a card on the table, not one held over it. */
@@ -515,6 +672,30 @@ function dot32(a: Float32Array, b: Float32Array): number {
   return f32(s);
 }
 
+/** The correlation of a frame's thumbnail with the scene's mean at the pixels `idx`, in float32 as numpy works it out,
+ * or null when the mean has no pattern there. */
+function correlation(x: Float32Array, mean: Float32Array, idx: readonly number[]): number | null {
+  const a = new Float32Array(idx.length * 3);
+  const b = new Float32Array(idx.length * 3);
+  idx.forEach((p, i) => {
+    for (let c = 0; c < 3; c++) {
+      a[3 * i + c] = x[3 * p + c]!;
+      b[3 * i + c] = mean[3 * p + c]!;
+    }
+  });
+  if (std32(b) < 8) return null;
+  const am = mean32(a);
+  const bm = mean32(b);
+  const ab = new Float32Array(a.length);
+  for (let i = 0; i < a.length; i++) {
+    a[i] = a[i]! - am;
+    b[i] = b[i]! - bm;
+    ab[i] = a[i]! * b[i]!;
+  }
+  const norms = f32(f32(Math.sqrt(dot32(a, a))) * f32(Math.sqrt(dot32(b, b))));
+  return f32(f32(0 + pairwiseSum32(ab)) / f32(norms + f32(1e-6)));
+}
+
 // --- the scene ----------------------------------------------------------------------------------------------------
 
 const SMALL_W = 96;
@@ -529,8 +710,18 @@ const SMALL_H = 54;
  * those parts match; a cut replaces them, play does not (the M0 final: table frames score 0.5 to 0.8, other shots
  * about 0). To start, a frame is taken as the table camera when the mat fills the table window as it does there (a
  * layout that knows its mat colour) or when at least five cards lie in it; if the view stays unrecognised but looks
- * like a table again for a few seconds (the camera itself moved), it learns again. The thumbnail is too coarse to
- * show any card. Its numbers are float32, as numpy's are. */
+ * like a table again for a few seconds, with five cards of the table's size in it (the camera itself moved), it learns
+ * again. A mat's colour alone is no proof: on a co-stream every shot, a player in a maroon shirt included, had it. The
+ * thumbnail is too coarse to show any card. Its numbers are float32, as numpy's are.
+ *
+ * Only the table window is scored: the panels beside it are laid over every shot, a close-up of a hand included. It
+ * is scored in blocks (SCENE_GRID), and the score is their mean: an arm or a banner over the table spoils a block or
+ * two, where a cut to another shot spoils them all.
+ *
+ * What stays put through the cuts is not the table camera's at all: a co-streamer's webcam and chat, a scoreboard, a
+ * sponsor banner, laid over every shot (`overlay`). Kept in the score, it makes every shot look like the table, so it is
+ * left out once known; and a frame is learnt only when the one before was the table camera too, so the first frame
+ * after a cut, another shot that happens to look alike, never teaches the scene what the table is. */
 export class Scene {
   layout: Layout;
   corr: number;
@@ -544,16 +735,95 @@ export class Scene {
   /** Table-like frames in a row while away (checked every learnEvery). */
   looks = 0;
   lastLook = -1e9;
+  /** The frame before was the table camera. */
+  wasOn = false;
+  /** The frame before's thumbnail. */
+  prev: Float32Array | null = null;
+  /** Cuts each thumbnail pixel stayed through, the board's own. */
+  same = new Int32Array(SMALL_W * SMALL_H);
+  cuts = 0;
+  /** ... and with those seen before the board (`Recognizer.prime`). */
+  sameAll = new Int32Array(SMALL_W * SMALL_H);
+  cutsAll = 0;
+  /** SMALL_H x SMALL_W, 1 where the overlay is, once OVERLAY_CUTS cuts are seen. */
+  overlay: Uint8Array | null = null;
+  /** How often it was worked out: the board drops what lies in it then. */
+  overlayN = 0;
+  /** SMALL_H x SMALL_W, 1 where what stayed through every cut so far is, before then. */
+  suspect: Uint8Array | null = null;
+  /** When the last cut was (the cuts seen before the board, when it began). */
+  cutT: number | null = null;
+  /** (t, card-sized boxes) on the table camera, in its last minute on screen (the board tells it). */
+  cardsSeen: [number, number][] = [];
+
+  /** SMALL_H x SMALL_W, 1 in the table window: the only pixels scored. */
+  window: Uint8Array;
 
   constructor(layout: Layout, corr = 0.45, learnEvery = 2.0, relearnAfter = 20.0) {
     this.layout = layout;
     this.corr = corr;
     this.learnEvery = learnEvery;
     this.relearnAfter = relearnAfter;
+    const [tx0, ty0, tx1, ty1] = layout.table;
+    this.window = new Uint8Array(SMALL_W * SMALL_H);
+    for (let r = Math.floor(ty0 * SMALL_H); r < Math.min(SMALL_H, Math.ceil(ty1 * SMALL_H)); r++)
+      for (let c = Math.floor(tx0 * SMALL_W); c < Math.min(SMALL_W, Math.ceil(tx1 * SMALL_W)); c++) this.window[r * SMALL_W + c] = 1;
   }
 
   static small(frame: RgbImage): Float32Array {
     return Float32Array.from(image.resize(frame, [SMALL_W, SMALL_H], 'box').data);
+  }
+
+  /** A cut, when half the thumbnail changed from the frame before (play changes a quarter at most): every pixel that
+   * stayed counts once more as overlay, and the overlay is worked out again. A cut seen `before` the board (the frames the
+   * table was looked for in) makes what stayed suspect, never overlay: a scoreboard that comes with the table camera did
+   * not stay through the cut from a player cam to it, and is overlay all the same. */
+  see(x: Float32Array, before = false): void {
+    if (this.prev !== null) {
+      const px = SMALL_W * SMALL_H;
+      const moved = new Uint8Array(px);
+      let n = 0;
+      for (let p = 0; p < px; p++) {
+        const d = Math.max(Math.abs(x[3 * p]! - this.prev[3 * p]!), Math.abs(x[3 * p + 1]! - this.prev[3 * p + 1]!), Math.abs(x[3 * p + 2]! - this.prev[3 * p + 2]!));
+        if (d >= OVERLAY_TOL) {
+          moved[p] = 1;
+          n++;
+        }
+      }
+      if (n * 2 >= px) {
+        for (let p = 0; p < px; p++) if (!moved[p]) this.sameAll[p] = this.sameAll[p]! + 1;
+        this.cutsAll += 1;
+        if (!before) {
+          for (let p = 0; p < px; p++) if (!moved[p]) this.same[p] = this.same[p]! + 1;
+          this.cuts += 1;
+        }
+        this.cutT = null; // stamped by onTable, with the time
+        if (this.cuts >= OVERLAY_CUTS) {
+          this.overlay = overlayPatches(this.same, this.cuts, this.overlay);
+          this.overlayN += 1;
+          this.suspect = null;
+        } else {
+          this.suspect = overlayPatches(this.sameAll, this.cutsAll);
+        }
+      }
+    }
+    this.prev = x;
+  }
+
+  /** The frame point (x, y) lies where the overlay may be, before the cuts have shown it. */
+  inSuspect(x: number, y: number, w: number, h: number): boolean {
+    if (this.suspect === null) return false;
+    const r = Math.min(SMALL_H - 1, Math.max(0, Math.floor((y * SMALL_H) / h)));
+    const c = Math.min(SMALL_W - 1, Math.max(0, Math.floor((x * SMALL_W) / w)));
+    return this.suspect[r * SMALL_W + c] === 1;
+  }
+
+  /** The frame point (x, y) lies in the overlay. */
+  inOverlay(x: number, y: number, w: number, h: number): boolean {
+    if (this.overlay === null) return false;
+    const r = Math.min(SMALL_H - 1, Math.max(0, Math.floor((y * SMALL_H) / h)));
+    const c = Math.min(SMALL_W - 1, Math.max(0, Math.floor((x * SMALL_W) / w)));
+    return this.overlay[r * SMALL_W + c] === 1;
   }
 
   async tableLike(frame: RgbImage, count: () => Promise<number>): Promise<boolean> {
@@ -571,8 +841,23 @@ export class Scene {
     return (await count()) >= 5;
   }
 
-  /** How well the frame's still parts match the table camera's, or null when those parts have no pattern to match
-   * (a plain mat and no overlay): then the mat share or the cards decide. */
+  /** The board found `n` card-sized boxes on a frame of the table camera at `t`. */
+  sawCards(t: number, n: number): void {
+    this.cardsSeen = [...this.cardsSeen.filter(([tt]) => t - tt < CARDS_S), [t, n]];
+  }
+
+  /** A view to learn as the table camera again: table-like, with as many cards of the table's size in it as the table
+   * camera showed in its last minute on screen (half the most, and at least RELEARN_CARDS). A close-up of one side of
+   * the table, or of a hand over it, shows a few of its cards. */
+  async tableAgain(frame: RgbImage, count: () => Promise<number>): Promise<boolean> {
+    if (!(await this.tableLike(frame, count))) return false;
+    const n = await count();
+    return n >= RELEARN_CARDS && n * 2 >= this.cardsSeen.reduce((m, [, c]) => Math.max(m, c), 0);
+  }
+
+  /** How well the frame's still parts in the table window match the table camera's: the mean of their correlations
+   * block by block (SCENE_GRID), or null when no block has a pattern to match (a plain mat): then the mat share or the
+   * cards decide. The overlay laid over every shot is not the table camera's: it is left out. As pipeline.py's. */
   score(x: Float32Array): number | null {
     const mean = this.mean!;
     const v = this.var!;
@@ -584,27 +869,26 @@ export class Scene {
       if (std[p]! < 12) steady++;
     }
     const cut = steady / px >= 0.1 ? null : quantile32(std, 0.3);
-    const idx: number[] = [];
-    for (let p = 0; p < px; p++) if (cut === null ? std[p]! < 12 : std[p]! <= cut) idx.push(p);
-    const a = new Float32Array(idx.length * 3);
-    const b = new Float32Array(idx.length * 3);
-    idx.forEach((p, i) => {
-      for (let c = 0; c < 3; c++) {
-        a[3 * i + c] = x[3 * p + c]!;
-        b[3 * i + c] = mean[3 * p + c]!;
+    const overlay = this.overlay;
+    const still = new Uint8Array(px);
+    for (let p = 0; p < px; p++) if ((cut === null ? std[p]! < 12 : std[p]! <= cut) && (overlay === null || !overlay[p]) && this.window[p]) still[p] = 1;
+    const [gx, gy] = SCENE_GRID;
+    const bw = Math.trunc(SMALL_W / gx);
+    const bh = Math.trunc(SMALL_H / gy);
+    let total = 0;
+    let n = 0;
+    for (let by = 0; by < gy; by++) {
+      for (let bx = 0; bx < gx; bx++) {
+        const idx: number[] = [];
+        for (let r = by * bh; r < (by + 1) * bh; r++) for (let c = bx * bw; c < (bx + 1) * bw; c++) if (still[r * SMALL_W + c]) idx.push(r * SMALL_W + c);
+        if (idx.length < SCENE_BLOCK) continue;
+        const sc = correlation(x, mean, idx);
+        if (sc === null) continue;
+        total += sc;
+        n += 1;
       }
-    });
-    if (std32(b) < 8) return null;
-    const am = mean32(a);
-    const bm = mean32(b);
-    const ab = new Float32Array(a.length);
-    for (let i = 0; i < a.length; i++) {
-      a[i] = a[i]! - am;
-      b[i] = b[i]! - bm;
-      ab[i] = a[i]! * b[i]!;
     }
-    const norms = f32(f32(Math.sqrt(dot32(a, a))) * f32(Math.sqrt(dot32(b, b))));
-    return f32(f32(0 + pairwiseSum32(ab)) / f32(norms + f32(1e-6)));
+    return n ? total / n : null;
   }
 
   learn(t: number, x: Float32Array): void {
@@ -628,6 +912,9 @@ export class Scene {
 
   async onTable(t: number, frame: RgbImage, count: () => Promise<number> = async () => 0): Promise<boolean> {
     const x = Scene.small(frame);
+    this.see(x);
+    if (this.cutsAll && this.cutT === null) this.cutT = t; // a cut now, or the ones seen before the board began
+    if (this.suspect !== null && t - this.cutT! > SUSPECT_S) this.suspect = null; // no cut for a minute: nothing there is held back any longer
     const sc = this.n >= 5 ? this.score(x) : null;
     let ok: boolean;
     if (sc === null) {
@@ -636,7 +923,7 @@ export class Scene {
       ok = sc >= this.corr;
       if (!ok && this.awaySince !== null && t - this.awaySince > this.relearnAfter && t - this.lastLook >= this.learnEvery) {
         this.lastLook = t;
-        this.looks = (await this.tableLike(frame, count)) ? this.looks + 1 : 0;
+        this.looks = (await this.tableAgain(frame, count)) ? this.looks + 1 : 0;
         if (this.looks >= 3) {
           // the table again, but not as it was learnt: the camera moved
           this.n = 0;
@@ -648,13 +935,41 @@ export class Scene {
       }
     }
     if (ok) {
-      this.learn(t, x);
+      if (this.wasOn) this.learn(t, x); // not the first frame after a cut: another shot may look like the table for a frame
       this.awaySince = null;
     } else if (this.awaySince === null) {
       this.awaySince = t;
     }
+    this.wasOn = ok;
     return ok;
   }
+}
+
+/** The overlay: the thumbnail pixels that stayed through OVERLAY_SHARE of the cuts, in patches reaching within
+ * OVERLAY_EDGE pixels of the frame's edge (a broadcast lays its graphics along the edges; the mat lies inside), each
+ * patch's holes filled (a webcam's frame stays, the face in it moves). The overlay worked out before, `was`, stays
+ * where it stayed through OVERLAY_KEEP of the cuts. As pipeline.py's `overlay_patches`. */
+export function overlayPatches(same: Int32Array, cuts: number, was: Uint8Array | null = null): Uint8Array {
+  const w = SMALL_W;
+  const h = SMALL_H;
+  const need = cuts * Math.round(OVERLAY_SHARE * 10);
+  const keepNeed = cuts * Math.round(OVERLAY_KEEP * 10);
+  const ov = new Uint8Array(w * h);
+  for (let p = 0; p < w * h; p++) {
+    const s = same[p]! * 10;
+    ov[p] = s >= need || (was !== null && was[p] === 1 && s >= keepNeed) ? 1 : 0;
+  }
+  const { labels, count } = label({ width: w, height: h, data: ov });
+  const objects = findObjects(labels, w, h, count);
+  const keepIds = new Set<number>();
+  objects.forEach((o, i) => {
+    if (o === null || o === undefined) return;
+    const [y0, y1, x0, x1] = o;
+    if (y0 <= OVERLAY_EDGE || x0 <= OVERLAY_EDGE || y1 >= h - OVERLAY_EDGE || x1 >= w - OVERLAY_EDGE) keepIds.add(i + 1);
+  });
+  const keep = new Uint8Array(w * h);
+  for (let p = 0; p < w * h; p++) if (keepIds.has(labels[p]!)) keep[p] = 1;
+  return binaryFillHoles({ width: w, height: h, data: keep }).data;
 }
 
 // --- the recogniser -----------------------------------------------------------------------------------------------
@@ -800,6 +1115,15 @@ export class Recognizer {
   prevSeen = new Set<string>();
   /** ... the last frame before a cut away. */
   beforeAway = new Set<string>();
+  /** The table without the hands over it, for the hand rule. */
+  still = new StillTable();
+  /** The scene's overlay as last swept off the board (`dropOverlaid`). */
+  overlayN = 0;
+  /** When the cards first named lately were, for BURST. */
+  firstNamed: number[] = [];
+  /** The plays announced, by track (or flash) id: where they were, so a play read off the overlay before the cuts showed
+   * it can be withdrawn (`dropOverlaid`). */
+  announced = new Map<string, [x: number, y: number, name: string, printingId: string | null, side: string]>();
 
   constructor(layout: Layout, rows: readonly CatalogRow[], encoder: Encoder, gallery: Pyramid, opts: RecognizerOptions = {}) {
     const { title = '', minP = 0.5, sureP = 0.85, recheckS = 8.0, forgetS = 4.0, maxReads = 12, settleS = 3.0 } = opts;
@@ -848,6 +1172,39 @@ export class Recognizer {
     }
     const boxes = findCards(roi, cardPx(this.layout, h), mask === undefined ? {} : { mask });
     return boxes.map((b) => ({ ...b, centre: [b.centre[0] + x0, b.centre[1] + y0] }));
+  }
+
+  /** The frames seen before the board began, while the table was looked for (`autoLayout`), in order: a cut among them
+   * (from a player cam to the table, most often) shows the scene some of the overlay from the start. */
+  prime(frames: readonly RgbImage[]): void {
+    for (const f of frames) this.scene.see(Scene.small(f), true);
+  }
+
+  /** The finder's boxes that can be cards: no longer than SIZE_MAX cards, off the overlay laid over every shot
+   * (`Scene.overlay`), and not a zone printed on the mat (`plainZone`). */
+  keep(boxes: readonly CardBox[], frame: RgbImage, w: number, h: number): CardBox[] {
+    const px = cardPx(this.layout, h);
+    return boxes.filter((b) => b.long_px <= SIZE_MAX * px && !this.scene.inOverlay(b.centre[0], b.centre[1], w, h) && !plainZone(frame, b));
+  }
+
+  /** What lies in the overlay, now that the cuts have shown it: the cards read off a webcam or a banner before then go,
+   * a legend one of them gave its side with it, and the plays they made are withdrawn. */
+  dropOverlaid(t: number, w: number, h: number): RecognizerEvent[] {
+    this.overlayN = this.scene.overlayN;
+    const events: RecognizerEvent[] = [];
+    for (const [key, [x, y, name, pid, side]] of [...this.announced]) {
+      if (!this.scene.inOverlay(x, y, w, h)) continue;
+      this.announced.delete(key);
+      events.push({ t: pyRound(t, 2), kind: 'withdrawn', text: `${name} withdrawn: it was the stream's overlay`, printing_id: pid, track: key, side });
+    }
+    for (const tr of [...this.tracks.values()]) {
+      if (!this.scene.inOverlay(tr.box.centre[0], tr.box.centre[1], w, h)) continue;
+      this.tracks.delete(tr.id);
+      const lg = this.legends.get(tr.side);
+      if (lg !== undefined && tr.named !== null && this.rowOf.get(lg.printing_id)?.card_id === tr.named) this.legends.delete(tr.side);
+    }
+    this.ghosts = this.ghosts.filter((gh) => !this.scene.inOverlay(gh.x, gh.y, w, h));
+    return events;
   }
 
   // --- tracking -----------------------------------------------------------------------------------------------------
@@ -1207,6 +1564,9 @@ export class Recognizer {
     this.pending = this.pending.filter(([when]) => when > t);
     const cardLong = cardPx(this.layout, h);
     for (const [bx0, by0, bx1, by1] of due) {
+      const mx = (bx0 + bx1) / 2;
+      const my = (by0 + by1) / 2;
+      if (this.scene.inOverlay(mx, my, w, h) || this.scene.inSuspect(mx, my, w, h)) continue; // a webcam or a banner changing, laid over the table: not a card
       const gx = (bx1 - bx0) * 0.08;
       const gy = (by1 - by0) * 0.08;
       const box: Box4 = [Math.max(0, bx0 - gx), Math.max(0, by0 - gy), Math.min(w, bx1 + gx), Math.min(h, by1 + gy)];
@@ -1249,6 +1609,7 @@ export class Recognizer {
       };
       this.flashes.push(flash);
       events.push({ t: pyRound(t, 2), kind: 'played', text: `${r.name} played`, printing_id: r.printing_id, track: flash.id, side });
+      this.announced.set(flash.id, [cx, cy, r.name, r.printing_id, side]);
     }
     return events;
   }
@@ -1308,6 +1669,7 @@ export class Recognizer {
     this.cutAt = t;
     this.anchorBase = new Map([...this.tracks].map(([k, tr]) => [k, tr.box]));
     this.anchorPairs = [];
+    this.still = new StillTable(); // another view of the table: its still picture is taken again
     if (this.gateSettings !== null) this.gate = new ChangeGate(this.gateSettings);
   }
 
@@ -1363,12 +1725,16 @@ export class Recognizer {
     const dt = this.lastT !== null ? t - this.lastT : 0.0;
     this.lastT = t;
     let boxes: CardBox[] | null = null;
-    // the scene asks only while it learns a broadcast with no known mat colour
+    // the scene asks while it learns a broadcast with no known mat colour, or learns it again: the card-sized boxes (a
+    // close-up's cards are bigger)
     const count = async (): Promise<number> => {
-      boxes = await this.find(t, frame);
-      return boxes.length;
+      if (boxes === null) boxes = await this.find(t, frame);
+      const px = cardPx(this.layout, h);
+      return boxes.filter((b) => b.long_px <= SIZE_MAX * px).length;
     };
-    if (!(await this.scene.onTable(t, frame, count))) {
+    const on = await this.scene.onTable(t, frame, count);
+    const withdrawn = this.scene.overlayN !== this.overlayN ? this.dropOverlaid(t, w, h) : [];
+    if (!on) {
       if (!this.away) {
         this.away = true;
         this.beforeAway = new Set(this.prevSeen);
@@ -1378,11 +1744,16 @@ export class Recognizer {
       for (const tr of state.tracks) tr.hidden = true; // the video is not the table: list the board, draw nothing on it
       state.status = 'away';
       state.message = 'the table camera is off; nothing is looked at until it is back';
-      return [state, []];
+      return [state, withdrawn];
     }
     const back = this.away;
     this.away = false;
-    const found: CardBox[] = boxes ?? (await this.find(t, frame));
+    const small = StillTable.small(frame);
+    this.still.feed(t, small);
+    const all = boxes ?? (await this.find(t, frame));
+    boxes = all;
+    this.scene.sawCards(t, await count()); // what a view must show to be learnt as the table camera again
+    const found: CardBox[] = this.keep(all, frame, w, h);
     const tf = performance.now();
     const seen = this.match(t, found, w, h);
     const before = back ? this.beforeAway : this.prevSeen;
@@ -1401,7 +1772,8 @@ export class Recognizer {
     const still = HAND_STILL * cardPx(this.layout, h);
     for (const tr of seen) {
       // a card in a hand is not read, and not shown until it has been put down (D-005)
-      if (handShare(frame, tr.box, table, seen.filter((o) => o !== tr).map((o) => o.box)) >= HAND_SKIN) {
+      if (this.scene.inSuspect(tr.box.centre[0], tr.box.centre[1], w, h)
+        || handShare(frame, tr.box, table, seen.filter((o) => o !== tr).map((o) => o.box), this.still.bg, small) >= HAND_SKIN) {
         tr.freeSince = tr.freeAt = null;
       } else if (tr.freeSince === null || dist(tr.box.centre, tr.freeAt!) > still) {
         tr.freeSince = t; // out of the hand, or moved since: still from now
@@ -1415,7 +1787,7 @@ export class Recognizer {
       .slice(0, budget);
     await this.read(t, frame, todo);
     const tr_ = performance.now();
-    const events = [...this.announce(t), ...(await this.watch(t, frame))];
+    const events = [...withdrawn, ...this.announce(t), ...(await this.watch(t, frame))];
     this.flashes = this.flashes.filter((f) => f.until > t);
     this.timing = { find_ms: tf - tic, read_ms: tr_ - tf, gate_ms: performance.now() - tr_, reads: todo.length, boxes: found.length };
     return [this.state(t, w, h), events];
@@ -1455,10 +1827,13 @@ export class Recognizer {
   /** 'played' when a card is first named, 'moved' when a named card that just vanished is named again elsewhere (it
    * keeps its first id). A card out of sight keeps its track: an unnamed one `forgetS`, a named one `KEEP_S` or as
    * long as something lies on it, a legend or battlefield all game. Then a named card becomes a ghost (see `ghosts`).
-   * Runes, legends and battlefields are never announced. */
+   * Runes, legends and battlefields are never announced, and nor are the cards of a burst: BURST of them first named
+   * within BURST_S (a graphic of a deck, a view framed anew). */
   announce(t: number): RecognizerEvent[] {
     const events: RecognizerEvent[] = [];
+    const played: RecognizerEvent[] = []; // this step's plays, kept back until every card first named now is counted
     this.ghosts = this.ghosts.filter((gh) => t - gh.t < 60);
+    this.firstNamed = this.firstNamed.filter((ft) => t - ft < BURST_S);
     for (const tr of [...this.tracks.values()]) {
       if (!this.tracks.has(tr.id)) continue; // merged into the track it moved from
       const gone = t - tr.last;
@@ -1557,16 +1932,24 @@ export class Recognizer {
           this.ghosts.splice(this.ghosts.indexOf(back[0]!), 1); // the same card, found again
           continue;
         }
+        if (!changed) this.firstNamed.push(t); // a card new to the board
         if (tr.first - (this.t0 ?? 0.0) < this.settleS && !changed) continue; // on the table when we tuned in, not played now
         if (afterCut && tr.first - cutAt < this.settleS + 2) continue; // on the table when the view changed
         if (changed) {
           events.push(this.event(t, 'changed', `${g[0]!.name} (read again)`, tr, g[0]!.printing_id));
         } else if (!this.recentlyPlayed(t, named, tr.box.centre[0], tr.box.centre[1], 12.0, tr.id)) {
           this.plays.push([t, named, tr.box.centre[0], tr.box.centre[1]]);
-          events.push(this.event(t, 'played', `${g[0]!.name} played`, tr, g[0]!.printing_id));
+          played.push(this.event(t, 'played', `${g[0]!.name} played`, tr, g[0]!.printing_id));
         } else {
           this.plays.push([t, named, tr.box.centre[0], tr.box.centre[1]]);
         }
+      }
+    }
+    if (this.firstNamed.length < BURST) {
+      for (const ev of played) {
+        const tr = this.tracks.get(ev.track);
+        if (tr !== undefined) this.announced.set(tr.id, [tr.box.centre[0], tr.box.centre[1], ev.text.slice(0, -' played'.length), ev.printing_id, tr.side]);
+        events.push(ev);
       }
     }
     return events;

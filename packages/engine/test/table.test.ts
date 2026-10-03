@@ -9,7 +9,7 @@
 
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { autoLayout, borders, cardSize, cardSizeFinder, tableWindow } from '../src/autolayout';
+import { aTable, autoLayout, borders, cardSize, cardSizeFinder, tableWindow, type SizedCard } from '../src/autolayout';
 import { ChangeGate, gateSettings, skin, viewHeight, viewToFrame, type GateSettings } from '../src/changegate';
 import * as image from '../src/image';
 import { box, cardPx, LAYOUTS, makeLayout, side, sides } from '../src/layouts';
@@ -706,4 +706,21 @@ describe('the layout finder', () => {
       if (tw !== null) expect(cardSizeFinder(frames, tw.window, tw.mat)).toBe(c.card_size_finder);
     }, 60_000); // each renders its frames and runs the finder, about a second and a half on a laptop
   }
+});
+
+describe('a table, not a close-up or a graphic', () => {
+  // as ml/tests/test_live_autolayout.py: a close-up of a player shuffling (cards 304 px, 3.3 cards high) was taken for the
+  // table, and a sideboard screen's grid of cards was read as eight plays
+  const whole: [number, number, number, number] = [0.0, 0.0, 1.0, 0.926];
+  it('holds five cards each way, with cards on both sides', () => {
+    expect(aTable(whole, 304, [[0.3, 304, 5.0], [0.7, 300, 3.0]], 16 / 9)).toBe(false);
+    expect(aTable(whole, 124, [[0.3, 124, 5.0], [0.7, 120, 3.0]], 16 / 9)).toBe(true);
+    expect(aTable(whole, 124, [[0.6, 124, 5.0], [0.7, 120, 3.0]], 16 / 9)).toBe(false);
+  });
+  it('is not six or more cards all square and of one size', () => {
+    const laid: SizedCard[] = [[0.3, 156, 6.0], [0.42, 160, 1.0], [0.55, 151, 3.5], [0.31, 157, 0.5], [0.44, 154, 2.0], [0.57, 158, 1.5]];
+    const square: SizedCard[] = laid.map(([x]) => [x, 156, 0.4]);
+    const window: [number, number, number, number] = [0.2, 0.0, 0.8, 1.0];
+    expect([aTable(window, 156, laid, 16 / 9), aTable(window, 156, square, 16 / 9)]).toEqual([true, false]);
+  });
 });
