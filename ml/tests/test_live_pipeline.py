@@ -590,6 +590,63 @@ def test_a_card_outlined_twice_is_drawn_once():
     assert [tr["name"] for tr in state["tracks"] if tr["state"] == "named"] == [rows[3]["name"]]  # shown once
 
 
+def _split(t, card, copy_from, copy_at, outline=(15, 99)):
+    """A card from the start; from `outline[0]` to `outline[1]` s a hand passing over it splits it into a second outline
+    a few pixels off (the detector outlines it twice); from `copy_from` s a second copy of it at `copy_at`."""
+    shown, found = [(card, 100, 100)], [CardBox((128.0, 139.0), 78.0, 56.0, 90.0, 1.0)]
+    if outline[0] <= t < outline[1]:
+        found.append(CardBox((133.0, 144.0), 82.0, 60.0, 90.0, 1.0))
+    if t >= copy_from:
+        shown.append((card, *copy_at))
+        found.append(CardBox((copy_at[0] + 28.0, copy_at[1] + 39.0), 78.0, 56.0, 90.0, 1.0))
+    return shown, found
+
+
+def _outline(rec):
+    return next(tr for tr in rec.tracks.values() if math.dist(tr.box.centre, (133.0, 144.0)) < 3)
+
+
+def test_a_second_outline_of_a_card_is_no_play_and_a_copy_put_beside_it_still_is():
+    rows, art, rec = _setup(gate=False)
+    events = []
+    for k in range(125):  # 25 s at 5 fps: the card from the start, its second outline from 15 s, a copy beside it from 20 s
+        t = k / 5
+        shown, found = _split(t, art[2], 20, (180, 100))
+        rec.finder = lambda t_, im, found=found: found
+        events += rec.step(t, _frame(shown))[1]
+    assert _outline(rec).named == rows[2]["card_id"]  # the outline is named as the card, ...
+    played = [e for e in events if e["kind"] == "played"]
+    assert [e["text"] for e in played] == [f"{rows[2]['name']} played"]  # ... but only the copy is a play
+    assert played[0]["t"] >= 20 and played[0]["track"] != _outline(rec).id
+
+
+def test_a_second_outline_gone_again_is_not_the_card_moved():
+    rows, art, rec = _setup(gate=False)
+    events = []
+    for k in range(110):  # 22 s: the card outlined twice from 15 to 17 s, then a copy of it put far off from 18 s
+        t = k / 5
+        shown, found = _split(t, art[2], 18, (600, 300), outline=(15, 17))
+        rec.finder = lambda t_, im, found=found: found
+        events += rec.step(t, _frame(shown))[1]
+    outline = _outline(rec)
+    assert outline.named == rows[2]["card_id"] and 16 < outline.last < 17.5  # named, then out of sight where the card lies
+    assert [(e["kind"], e["text"]) for e in events if e["kind"] in ("played", "moved")] == [
+        ("played", f"{rows[2]['name']} played")]  # a new card, not the outline moved
+
+
+def test_a_card_named_over_half_of_one_like_it_is_that_card_however_far_off_its_centre():
+    # a hand straightening a card left it outlined again a quarter of a card off on the Los Angeles final: one card, no play
+    rows, art, rec = _setup(gate=False)
+    events = []
+    for k in range(100):  # 20 s: from 15 s the card shows again over two thirds of itself, a third of a card down
+        t = k / 5
+        shown, found = _split(t, art[2], 15, (100, 126), outline=(0, 0))
+        rec.finder = lambda t_, im, found=found: found
+        events += rec.step(t, _frame(shown))[1]
+    assert sum(1 for tr in rec.tracks.values() if tr.named == rows[2]["card_id"]) == 2  # outlined twice, named twice
+    assert not [e for e in events if e["kind"] == "played"]
+
+
 # ---- the legend rule (D-026) --------------------------------------------------------------------------------
 # test_decklist.py's rows; gallery row i is the unit vector i, and the stub encoder gives every crop the same scores,
 # so a read's candidates are these scores less the rows the side's legend rules out. The engine's recognizer.test.ts

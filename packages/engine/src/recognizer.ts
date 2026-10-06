@@ -1391,11 +1391,21 @@ export class Recognizer {
     return null;
   }
 
-  /** Another track of `tr`'s card that went out of sight around when `tr` appeared: the card moved. */
+  /** Another track of `tr`'s card that went out of sight around when `tr` appeared: the card moved. Not one where
+   * another track of the card has been seen since: a card does not move from where it still lies, so that one was a
+   * second outline of it (a hand split it), and `tr` is another copy. */
   vanished(t: number, tr: Track): Track | null {
     let best: Track | null = null;
     for (const o of this.tracks.values()) {
       if (o !== tr && o.named === tr.named && !o.pinned && t - o.last > 0.5 && o.last < tr.first + 0.5 && t - o.last < MOVE_S && !this.covered(t, o)) {
+        let seen = false; // another outline of the card seen since where this one lay
+        for (const q of this.tracks.values()) {
+          if (q !== tr && q !== o && q.named === tr.named && q.last >= o.last && dist(q.box.centre, o.box.centre) < 0.6 * o.box.long_px) {
+            seen = true;
+            break;
+          }
+        }
+        if (seen) continue;
         if (best === null || o.last > best.last) best = o; // max(gone, key=last): the first of the latest
       }
     }
@@ -1636,13 +1646,15 @@ export class Recognizer {
     return [];
   }
 
-  /** The same card announced nearby a moment ago, by the gate or by another track. */
+  /** The same card announced nearby a moment ago, by the gate or by another track (not a second outline of a card on
+   * the board: that is no play). */
   recentlyPlayed(t: number, card: string, x: number, y: number, window = 12.0, skip = ''): boolean {
     const reach = 1.5 * this.layout.card_long_1080;
     this.plays = this.plays.filter((pl) => t - pl[0] < window);
     if (this.plays.some(([, c, px, py]) => c === card && dist([x, y], [px, py]) < reach)) return true;
     for (const tr of this.tracks.values()) {
-      if (tr.id !== skip && tr.named === card && t - tr.first < window && dist([x, y], tr.box.centre) < reach) return true;
+      if (tr.id !== skip && tr.named === card && t - tr.first < window && dist([x, y], tr.box.centre) < reach
+          && !this.twin(t, tr)) return true;
     }
     return false;
   }
@@ -1872,6 +1884,8 @@ export class Recognizer {
         const named = g[0]!.card_id;
         tr.named = named;
         tr.kind = this.rowOf.get(g[0]!.printing_id)?.type ?? '';
+        // a second outline of a card on the board (a hand passed over it): drawn once, not a play
+        if (!changed && this.twin(t, tr)) continue;
         const cutAt = this.cutAt;
         const afterCut = cutAt !== null && !changed && tr.first - cutAt >= 0 && tr.first - cutAt < 30;
         if (afterCut) {

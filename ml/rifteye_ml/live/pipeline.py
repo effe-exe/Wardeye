@@ -862,9 +862,14 @@ class Recognizer:
                     None)
 
     def vanished(self, t: float, tr: Track) -> Track | None:
-        """Another track of `tr`'s card that went out of sight around when `tr` appeared: the card moved."""
+        """Another track of `tr`'s card that went out of sight around when `tr` appeared: the card moved. Not one where
+        another track of the card has been seen since: a card does not move from where it still lies, so that one was a
+        second outline of it (a hand split it), and `tr` is another copy."""
         gone = [o for o in self.tracks.values() if o is not tr and o.named == tr.named and not o.pinned
                 and t - o.last > 0.5 and o.last < tr.first + 0.5 and t - o.last < MOVE_S and not self.covered(t, o)]
+        gone = [o for o in gone if not any(q is not tr and q is not o and q.named == tr.named and q.last >= o.last
+                                           and math.dist(q.box.centre, o.box.centre) < 0.6 * o.box.long_px
+                                           for q in self.tracks.values())]
         return max(gone, key=lambda o: o.last) if gone else None
 
     # --- naming ----------------------------------------------------------------
@@ -1079,13 +1084,14 @@ class Recognizer:
         return []
 
     def recently_played(self, t: float, card: str, x: float, y: float, window: float = 12.0, skip: str = "") -> bool:
-        """The same card announced nearby a moment ago, by the gate or by another track."""
+        """The same card announced nearby a moment ago, by the gate or by another track (not a second outline of a
+        card on the board: that is no play)."""
         reach = 1.5 * self.layout.card_long_1080
         self.plays = [pl for pl in self.plays if t - pl[0] < window]
         if any(c == card and math.dist((x, y), (px, py)) < reach for _, c, px, py in self.plays):
             return True
         return any(tr.id != skip and tr.named == card and t - tr.first < window and math.dist((x, y), tr.box.centre) < reach
-                   for tr in self.tracks.values())
+                   and not self.twin(t, tr) for tr in self.tracks.values())
 
     # --- one frame -------------------------------------------------------------
 
@@ -1269,6 +1275,8 @@ class Recognizer:
                 changed = tr.named is not None
                 tr.named = g[0]["card_id"]
                 tr.kind = (self.row_of.get(g[0]["printing_id"]) or {}).get("type", "")
+                if not changed and self.twin(t, tr):
+                    continue  # a second outline of a card on the board (a hand passed over it): drawn once, not a play
                 after_cut = self.cut_at is not None and not changed and 0 <= tr.first - self.cut_at < 30
                 if after_cut:  # a card on the table before the cut, found again by name in the new view
                     olds = [o for o in self.tracks.values() if o is not tr and o.named == tr.named

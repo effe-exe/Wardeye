@@ -360,10 +360,40 @@ def pins(rows, rec: pl.Recognizer, t: float) -> None:
     rec.boxes_now = {k: pl.aabb(tr.box) for k, tr in rec.tracks.items()}
 
 
+def twins(rows, rec: pl.Recognizer, t: float) -> None:
+    """Second outlines of cards on the board (a hand passed over them): one read now over its card (no play); one gone
+    again where its card still lies, then a copy of the card read far off (a play, not the outline moved); one read over
+    two thirds of its card, a third of a card off (no play either); a copy read beside a card and its named second
+    outline (a play); and a named outline over two thirds of its card."""
+    def add(k, cx, cy, first, last, named=None, reads=0, prob=None, size=(152.0, 108.0)):
+        tr = pl.Track(f"t{k}", det_box(cx, cy, *size, 90.0), first, last, side=LAYOUT.side(cx, cy, W, H))
+        tr.placed = True  # on the table: seen out of a hand
+        tr.hits, tr.reads, tr.named = 12, reads, named
+        tr.kind = rows[rec.first_row[named]]["type"] if named else ""
+        for c, p in (prob or {}).items():
+            tr.prob[c] = p
+            tr.best_row[c] = (0.8, rec.first_row[c])
+        rec.tracks[tr.id] = tr
+    add(0, 600.0, 300.0, 2.0, t, "card-00", 6, {"card-00": 5.9})
+    add(1, 606.0, 306.0, t - 2.0, t, None, 3, {"card-00": 2.9}, size=(158.0, 112.0))
+    add(2, 900.0, 300.0, 2.0, t, "card-01", 6, {"card-01": 5.9})
+    add(3, 906.0, 306.0, t - 5.0, t - 1.5, "card-01", 3, {"card-01": 2.9}, size=(158.0, 112.0))
+    add(4, 1400.0, 800.0, t - 1.4, t, None, 2, {"card-01": 1.95})
+    add(5, 600.0, 700.0, 2.0, t, "card-02", 6, {"card-02": 5.9})
+    add(6, 600.0, 750.0, t - 2.0, t, None, 3, {"card-02": 2.9})
+    add(7, 1200.0, 300.0, 2.0, t, "card-08", 6, {"card-08": 5.9})
+    add(8, 1206.0, 306.0, t - 5.0, t, "card-08", 3, {"card-08": 2.9}, size=(158.0, 112.0))
+    add(9, 1330.0, 300.0, t - 2.0, t, None, 3, {"card-08": 2.9})
+    add(10, 900.0, 700.0, 2.0, t, "card-09", 6, {"card-09": 5.9})
+    add(11, 900.0, 750.0, t - 5.0, t, "card-09", 3, {"card-09": 2.9})
+    rec.next_id, rec.t0 = 12, 0.0
+    rec.boxes_now = {k: pl.aabb(tr.box) for k, tr in rec.tracks.items()}
+
+
 def boards(rng) -> list[dict]:
     rows = catalogue()
     out = []
-    for n in range(12):
+    for n in range(13):
         t = float(rng.choice([20.0, 45.5, 90.0]))
         rec = recognizer(rows)
         if n == 10:
@@ -372,6 +402,9 @@ def boards(rng) -> list[dict]:
         elif n == 11:
             t = 80.0
             pins(rows, rec, t)
+        elif n == 12:
+            t = 80.0
+            twins(rows, rec, t)
         else:
             board(rng, rows, rec, t, cut=n % 4 == 3)
         setup = setup_json(rec)
@@ -390,6 +423,8 @@ def boards(rng) -> list[dict]:
         state = plain(rec.state(t, W, H))
         asks = [(str(rng.choice(sorted({r["card_id"] for r in rows}))), float(rng.uniform(400, 1500)), float(rng.uniform(100, 1000)))
                 for _ in range(3)]
+        if n == 12:  # beside a card's named second outline; under an outline a third of a card off; by one gone again
+            asks += [("card-08", 1330.0, 300.0), ("card-09", 900.0, 850.0), ("card-01", 1000.0, 300.0)]
         played = [[c, x, y, rec.recently_played(t, c, x, y)] for c, x, y in asks]
         events = plain(rec.announce(t))
         after = after_json(rec)
