@@ -16,11 +16,6 @@ export interface Mask {
   data: Uint8Array;
 }
 
-/** An empty (all 0) mask. */
-export function newMask(width: number, height: number): Mask {
-  return { width, height, data: new Uint8Array(width * height) };
-}
-
 /** binary_dilation with the default cross structure (4 neighbours), `iterations` times, the outside taken as 0. A few
  * dilations by the cross are one dilation by the diamond of that radius: every pixel within that many steps (rows plus
  * columns) of a set one, which two sweeps over the picture give (the city-block distance transform). */

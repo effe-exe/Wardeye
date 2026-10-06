@@ -11,6 +11,7 @@
 // How it looks is overlay.css (the brand book's section 8); this file makes the markup and never sets a colour.
 
 import { NAME, badge, badgeDetail, badgeParts, becameNamed, belowAnchor, boxClass, captureSize, contentRect, corners, drawn, frameInterval, hoverCard, label, labelAnchor, ticksClass, type State, type Track, type Under } from './geometry';
+import { b64Of } from './base64';
 import { MARK_SHAPES, MARK_VIEWBOX } from './mark';
 import type { BoardEvent } from './parts';
 import { PlayLog, sidesOf, type Snapshot } from './plays';
@@ -156,13 +157,6 @@ function setBadge(text: string): void {
   badgeStatus.textContent = parts.status;
 }
 
-function b64(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf);
-  let bin = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return btoa(bin);
-}
-
 function connect(): void {
   const p = chrome.runtime.connect({ name: 'rifteye' });
   p.onMessage.addListener((msg: { kind: string; online?: boolean; state?: State | null; events?: BoardEvent[]; printing_id?: string; jpeg?: string | null }) => {
@@ -206,7 +200,7 @@ async function capture(v: HTMLVideoElement): Promise<string | null> {
   grab.height = h;
   grab.getContext('2d')?.drawImage(v, 0, 0, w, h);
   const blob = await new Promise<Blob | null>((resolve) => grab.toBlob(resolve, 'image/jpeg', 0.85));
-  return blob ? b64(await blob.arrayBuffer()) : null;
+  return blob ? b64Of(await blob.arrayBuffer()) : null;
 }
 
 function tick(): void {
@@ -234,16 +228,21 @@ function place(): void {
   const host = document.fullscreenElement ?? document.body;
   if (root.parentElement !== host) host.append(root);
   if (!video || !shown) {
-    root.style.display = 'none';
+    if (root.style.display !== 'none') root.style.display = 'none';
     return;
   }
   const r = video.getBoundingClientRect();
   const c = contentRect({ left: r.left, top: r.top, width: r.width, height: r.height }, video.videoWidth, video.videoHeight);
-  root.style.display = '';
-  root.style.left = `${c.left}px`;
-  root.style.top = `${c.top}px`;
-  root.style.width = `${c.width}px`;
-  root.style.height = `${c.height}px`;
+  // this runs on every display frame: write to the page only when the picture moved or changed size
+  const spot = `${c.left},${c.top},${c.width},${c.height}`;
+  if (spot !== placedSpot || root.style.display === 'none') {
+    placedSpot = spot;
+    root.style.display = '';
+    root.style.left = `${c.left}px`;
+    root.style.top = `${c.top}px`;
+    root.style.width = `${c.width}px`;
+    root.style.height = `${c.height}px`;
+  }
   if (c.width !== placedSize[0] || c.height !== placedSize[1]) {
     placedSize = [c.width, c.height];
     root.style.setProperty('--rifteye-label-size', `${Math.min(13, Math.max(10, c.width * 0.0095)).toFixed(1)}px`); // the names grow with the player
@@ -251,6 +250,7 @@ function place(): void {
   }
 }
 let placedSize: [number, number] = [0, 0];
+let placedSpot = ''; // where the overlay was last put, as text, to tell when it has to move
 
 function draw(): void {
   setBadge(badge(online, state));
@@ -356,8 +356,12 @@ function unclutter(): void {
     const [bx, by] = belowAnchor(d.track.quad);
     const above: [number, number, number, number] = [ax * sx - cw / 2, ay * sy - CHIP_GAP - ch, ax * sx + cw / 2, ay * sy - CHIP_GAP];
     const below: [number, number, number, number] = [bx * sx - cw / 2, by * sy + CHIP_GAP, bx * sx + cw / 2, by * sy + CHIP_GAP + ch];
-    const where = free(above) ? 'above' : free(below) ? 'below' : 'none';
-    if (where !== 'none') taken.push(where === 'above' ? above : below);
+    // the name goes above its card if there is room, else below it, else it waits for the pointer
+    let where: 'above' | 'below' | 'none' = 'none';
+    if (free(above)) where = 'above';
+    else if (free(below)) where = 'below';
+    if (where === 'above') taken.push(above);
+    if (where === 'below') taken.push(below);
     place.set(d, where);
   }
   for (const [d, where] of place) {

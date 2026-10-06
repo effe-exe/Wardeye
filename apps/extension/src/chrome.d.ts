@@ -2,6 +2,9 @@
 // Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
 // The few extension APIs Wardeye uses, typed here so the repository needs no @types/chrome.
+//
+// Messages arrive typed `any`: they are JSON from another part of the extension, and each listener names the shape it
+// reads (and checks its `kind`) rather than narrowing an `unknown` first.
 
 declare namespace chrome.runtime {
   interface MessageSender {

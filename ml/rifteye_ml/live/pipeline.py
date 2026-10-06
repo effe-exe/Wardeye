@@ -455,13 +455,14 @@ class Scene:
         return np.asarray(Image.fromarray(image).resize((96, 54), Image.BOX), np.float32)
 
     def see(self, x: np.ndarray, before: bool = False) -> None:
-        """A cut, when half the thumbnail changed from the frame before (play changes a quarter at most): every pixel
-        that stayed counts once more as overlay, and the overlay is worked out again. A cut seen `before` the board (the
-        frames the table was looked for in) makes what stayed suspect, never overlay: a scoreboard that comes with the
-        table camera did not stay through the cut from a player cam to it, and is overlay all the same."""
+        """A cut, when CUT_SHARE of the thumbnail (half) changed from the frame before (play changes a quarter at
+        most): every pixel that stayed counts once more as overlay, and the overlay is worked out again. A cut seen
+        `before` the board (the frames the table was looked for in) makes what stayed suspect, never overlay: a
+        scoreboard that comes with the table camera did not stay through the cut from a player cam to it, and is
+        overlay all the same."""
         if self.prev is not None:
             moved = np.abs(x - self.prev).max(axis=2) >= OVERLAY_TOL
-            if int(moved.sum()) * 2 >= moved.size:
+            if int(moved.sum()) >= CUT_SHARE * moved.size:
                 self.same_all += ~moved
                 self.cuts_all += 1
                 if not before:

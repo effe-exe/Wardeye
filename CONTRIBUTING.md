@@ -64,6 +64,24 @@ pip install -e '.[dev]' && pytest -q
 | `ml/` | Catalogue, stream simulator, training, evaluation, the live runner | AGPL-3.0-only |
 | `assets/brand` | Tokens and build helper; fonts; logo | AGPL-3.0-only; fonts OFL-1.1; the logo is a trademark ([TRADEMARKS.md](TRADEMARKS.md)) |
 
+### Finding your way around
+
+How a frame travels through the extension:
+
+1. `apps/extension/src/content.ts` runs on twitch.tv. A few times a second it grabs a frame of the player, and it draws the overlay.
+2. `apps/extension/src/worker.ts`, the extension's background worker, passes the frame on.
+3. `apps/extension/src/offscreen.ts`, the engine document, queues the frames of every Twitch tab for the one engine.
+4. `apps/extension/src/engine-worker.ts` decodes the frame and runs the engine.
+5. In `packages/engine/src`, the detector finds the cards (`detector.ts`), the embedder names them (`embedder.ts`, `retrieval.ts`), and `recognizer.ts` tracks them and announces the plays.
+
+The board goes back the same way, and `content.ts` draws it. [apps/extension/README.md](apps/extension/README.md#files) describes every file.
+
+Where changes go:
+
+- **What counts as a card, a play or a move.** Change `ml/rifteye_ml/live/pipeline.py` first: it is the reference. Then make the same change in `packages/engine/src/recognizer.ts`, add a case to `packages/engine/test/gen/recognizer.py`, and regenerate its vectors (`RIFTEYE_DATA=/tmp python packages/engine/test/gen/recognizer.py`). The tests fail if the two disagree ([packages/engine/README.md](packages/engine/README.md#checks)).
+- **How the overlay looks.** `apps/extension/src/overlay.css` and `content.ts`. The side panel is `apps/extension/src/panel.*`.
+- **A new broadcast's table.** A layout preset ([§4](#4-layout-presets)).
+- **Why something is the way it is.** [docs/decisions.md](docs/decisions.md) keeps one short record per decision.
 
 ## 4. Layout presets
 

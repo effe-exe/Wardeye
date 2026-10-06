@@ -33,8 +33,6 @@ export function points(q: Corners): Point[] {
   return out;
 }
 
-export const CORNERS = ['top_left', 'top_right', 'bottom_right', 'bottom_left'] as const;
-
 /** The four corners of a card, the one up and left of its centre first, then clockwise on screen. */
 export function canonicalQuad(quad: Corners): Point[] {
   const q = points(quad);

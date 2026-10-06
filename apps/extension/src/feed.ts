@@ -58,9 +58,6 @@ export interface FeedCard {
   image_url: string;
 }
 
-/** What the engine's catalogue holds of a printing: a card less its picture's address. */
-export type CardRow = Omit<FeedCard, 'image_url'>;
-
 // --- the reading of the list: ml/rifteye_ml/catalog.py ------------------------------------------------------------------
 
 // catalog.py's `_CODE`. (Its `\d` matches the digits of every script, this one only ASCII digits: the gallery's codes have no others.)
@@ -98,6 +95,14 @@ const ANNOTATION = /\s*\((?:alternate art|alt art|showcase|signature|overnumbere
 export function slugify(name: string): string {
   const s = name.replace(ANNOTATION, ' ').normalize('NFKD').replace(/\p{M}/gu, '');
   return s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '') || 'unknown';
+}
+
+/** How many pages the card list has: what its metadata says, in pages or in items. When it says neither, one page
+ * more than this one while pages come back full. */
+function pageCount(meta: Record<string, unknown>, got: number, page: number, size: number): number {
+  if (typeof meta.totalPages === 'number') return meta.totalPages;
+  if (typeof meta.totalItems === 'number') return Math.ceil(meta.totalItems / size);
+  return got >= size ? page + 2 : page + 1;
 }
 
 const object = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
@@ -220,10 +225,7 @@ export class Feed {
       if (!Array.isArray(body.data)) throw new Error('the list has no data');
       read++;
       for (const c of parseFeed(body.data)) if (!all.has(c.printing_id)) all.set(c.printing_id, c);
-      const meta = object(body.metadata);
-      const total =
-        typeof meta.totalPages === 'number' ? meta.totalPages : typeof meta.totalItems === 'number' ? Math.ceil(meta.totalItems / size) : body.data.length >= size ? page + 2 : page + 1;
-      pages = Math.min(total, MAX_PAGES);
+      pages = Math.min(pageCount(object(body.metadata), body.data.length, page, size), MAX_PAGES);
       if (body.data.length === 0) break;
     }
     return read;

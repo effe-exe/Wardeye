@@ -95,8 +95,6 @@ export interface Trace {
   embed(count: number, rows: Float32Array): void;
 }
 
-export type LoadParts = (ctx: LoadContext) => Promise<Parts>;
-
 /** The state of a table not read yet: the live runner's own "starting" payload. */
 export function startingState(t: number, size: { width: number; height: number }, message: string, fps: number, title = 'Wardeye live'): BoardState {
   return {

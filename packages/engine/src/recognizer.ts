@@ -774,10 +774,10 @@ export class Scene {
     return Float32Array.from(image.resize(frame, [SMALL_W, SMALL_H], 'box').data);
   }
 
-  /** A cut, when half the thumbnail changed from the frame before (play changes a quarter at most): every pixel that
-   * stayed counts once more as overlay, and the overlay is worked out again. A cut seen `before` the board (the frames the
-   * table was looked for in) makes what stayed suspect, never overlay: a scoreboard that comes with the table camera did
-   * not stay through the cut from a player cam to it, and is overlay all the same. */
+  /** A cut, when CUT_SHARE of the thumbnail (half) changed from the frame before (play changes a quarter at most):
+   * every pixel that stayed counts once more as overlay, and the overlay is worked out again. A cut seen `before` the
+   * board (the frames the table was looked for in) makes what stayed suspect, never overlay: a scoreboard that comes
+   * with the table camera did not stay through the cut from a player cam to it, and is overlay all the same. */
   see(x: Float32Array, before = false): void {
     if (this.prev !== null) {
       const px = SMALL_W * SMALL_H;
@@ -790,7 +790,7 @@ export class Scene {
           n++;
         }
       }
-      if (n * 2 >= px) {
+      if (n >= CUT_SHARE * px) {
         for (let p = 0; p < px; p++) if (!moved[p]) this.sameAll[p] = this.sameAll[p]! + 1;
         this.cutsAll += 1;
         if (!before) {

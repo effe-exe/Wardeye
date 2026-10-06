@@ -21,7 +21,7 @@ It is made by Federico Vietti, who also makes [Gradeon](https://gradeon.ai), the
 
 ## Install
 
-Wardeye comes from the Chrome Web Store: **[Add Wardeye to Chrome](https://chromewebstore.google.com/detail/wardeye/hjglackjofehdfecoeehbdmbobafbjhn)**. The store has version 0.1.2; 0.2.2, with the plays panel and the settings below, is next.
+Wardeye comes from the Chrome Web Store: **[Add Wardeye to Chrome](https://chromewebstore.google.com/detail/wardeye/hjglackjofehdfecoeehbdmbobafbjhn)**. The store has version 0.2.1; 0.2.3 is next.
 
 - **Chrome:** open [Wardeye's page in the Chrome Web Store](https://chromewebstore.google.com/detail/wardeye/hjglackjofehdfecoeehbdmbobafbjhn) and click **Add to Chrome**.
 - **Edge:** open the same page in Edge. Edge asks once to **Allow extensions from other stores**; allow it, then click **Get**.
@@ -48,7 +48,7 @@ On the video, each card Wardeye has named is marked at its corners, with its nam
 
 Off, the overlay is hidden and nothing is read.
 
-**The plays panel** (from version 0.2.2): click the list button on the badge. A panel opens beside the page, with three tabs:
+**The plays panel** (from version 0.2.0): click the list button on the badge. A panel opens beside the page, with three tabs:
 
 - **Match:** each player's legend, their runes on the table (and how many of them are exhausted), the cards face up on their side, and the plays, newest first. Click a play and the replay goes back to just before it.
 - **Decklists:** a box for each player. Paste the player's published deck code or a deckbuilder's export (text, tourney sheet or JSON) and click **Use this list**. The box says which legend the list names and any line it could not read. A list counts only for the player whose legend it names, whichever box it is in, and it helps name only the cards face up on the table.
@@ -62,9 +62,9 @@ The plays and the lists stay in the tab and go when it closes. The two settings 
 
 What works today, on Twitch: the face-up cards on the table are outlined and named as they are played, with a hover card for each; cards stacked under others are remembered. The recognition runs in the browser, on WebGPU or, more slowly, on the processor.
 
-Not yet: the plays panel and the legends and decklists that narrow the search (next, [below](#next-plays-legends-and-decklists)), and YouTube ([roadmap](docs/ROADMAP.md)).
+Not yet: YouTube ([roadmap](docs/ROADMAP.md)).
 
-Known issues in 0.2.2: the rune count can be a rune or two off where runes are stacked tight, in a column or a fan, and the exhausted count is often short there. A card held still in a hand over the table can be read for a moment. A legend can be misread if you turn Wardeye on after its die is down. On a co-stream, what the streamer lays over the table (a webcam, a scoreboard) is known once the stream has cut away from the table a few times: before then a scoreboard's portraits can be read as cards, and Wardeye drops them, and withdraws their plays from the panel, once it knows. A part of a scoreboard that changes, such as its score track, can still be read as a card now and then.
+Known issues in 0.2.3: the rune count can be a rune or two off where runes are stacked tight, in a column or a fan, and the exhausted count is often short there. A card held still in a hand over the table can be read for a moment. A legend can be misread if you turn Wardeye on after its die is down. On a co-stream, what the streamer lays over the table (a webcam, a scoreboard) is known once the stream has cut away from the table a few times: before then a scoreboard's portraits can be read as cards, and Wardeye drops them, and withdraws their plays from the panel, once it knows. A part of a scoreboard that changes, such as its score track, can still be read as a card now and then.
 
 ## Measured, not claimed
 
@@ -74,9 +74,9 @@ Known issues in 0.2.2: the rune count can be a rune or two off where runes are s
 | Card identifier v1 | names 96.0% and 99.4% of the cards | two broadcasts held out of training: Barcelona and the Los Angeles grand final ([ml/README](ml/README.md#for-the-browser-m2-the-models-as-onnx)) |
 | In the browser | reads like the Python pipeline on 240 of 240 frames | the Los Angeles grand final, through the extension's own engine: the same cards, names and events |
 
-## Next: plays, legends and decklists
+## Plays, legends and decklists
 
-The plays panel, the legend rule and pasted decklists are built and come with the next update of the extension, 0.2.2 ([report](docs/reports/m2-decklist-prior.md)).
+The plays panel, the legend rule and pasted decklists are in the extension since 0.2.0 ([report](docs/reports/m2-decklist-prior.md)).
 
 - **The plays, beside the video.** The list button on the badge opens a panel in the browser's side panel, as the local version has one beside its player.
   - Each player's legend, and what is face up on their side of the table.

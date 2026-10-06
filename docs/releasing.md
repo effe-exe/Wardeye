@@ -104,3 +104,13 @@ The same listing as 0.2.1, with a new package:
   - The table camera is told by the table window alone, block by block: a close-up of a hand is not taken for it, an arm over the mat no longer takes it away, and a player cam is never learnt as the table ([D-034](decisions.md#d-034-the-table-camera-is-told-by-the-table-window-block-by-block)).
 - **Unchanged:** the description, the single purpose, the permissions and their justifications, no remote code, no data collected.
 - **On GitHub too:** the same zip goes on the release `v0.2.2` ([D-035](decisions.md#d-035-each-releases-zip-is-on-github-too)), with notes saying what changed and that the models inside are not under the AGPL.
+
+### The 0.2.3 update
+
+The same listing as 0.2.2, with a new package:
+
+- **Package:** the 0.2.3 store zip, built and checked as above (the embedder in both precisions). 0.2.3 is 0.2.2 with a tracker fix and a calmer page:
+  - A card a hand has split into two outlines is drawn once and is no longer announced as a play, and is not taken for a card that moved ([D-036](decisions.md#d-036-a-second-outline-of-a-card-is-no-play)).
+  - A little less work on the page while Wardeye is off or the video is paused.
+- **Unchanged:** the description, the single purpose, the permissions and their justifications, no remote code, no data collected.
+- **On GitHub too:** the same zip goes on the release `v0.2.3` ([D-035](decisions.md#d-035-each-releases-zip-is-on-github-too)), with notes saying what changed and that the models inside are not under the AGPL.

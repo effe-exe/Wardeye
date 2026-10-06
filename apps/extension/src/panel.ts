@@ -114,6 +114,13 @@ function thumb(printingId: string | null, cls: string): HTMLImageElement {
 
 // --- drawing ----------------------------------------------------------------------------------------------------------
 
+/** A side's runes, as the panel says them: "3 runes · 1 exhausted", "1 rune", or nothing. */
+function runesText(runes: number, exhausted: number): string {
+  if (!runes) return '';
+  const count = `${runes} ${runes > 1 ? 'runes' : 'rune'}`;
+  return exhausted ? `${count} · ${exhausted} exhausted` : count;
+}
+
 function sideSection(s: Side): HTMLElement {
   const section = el('section', 'wd-player');
   section.append(el('h2', 'wd-eyebrow', s.label));
@@ -141,7 +148,7 @@ function sideSection(s: Side): HTMLElement {
   section.append(list);
   // and what is there but not named: runes, unsure reads, face-down cards, counted
   const bits = [
-    s.runes ? `${s.runes} ${s.runes > 1 ? 'runes' : 'rune'}${s.exhausted ? ` · ${s.exhausted} exhausted` : ''}` : '',
+    runesText(s.runes, s.exhausted),
     s.unsure ? `${s.unsure} unsure` : '',
     s.facedown ? `${s.facedown} face down` : '',
   ].filter(Boolean);

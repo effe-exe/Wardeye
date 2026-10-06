@@ -41,6 +41,13 @@ export interface Plan {
 
 const has = (m: ModelFiles, p: Precision): boolean => Boolean(m[p]);
 
+/** The file WASM runs of a model: its float32 file if the package holds one, else its float16 file, else none. */
+function wasmPrecision(m: ModelFiles): Precision | null {
+  if (has(m, 'fp32')) return 'fp32';
+  if (has(m, 'fp16')) return 'fp16';
+  return null;
+}
+
 /** The ways to run the engine, best first. WebGPU where the browser has it and can run the native build; WASM after
  * it, for a browser that has WebGPU but cannot run the native build (or whose GPU cannot run the embedder in the
  * precision the package holds); WASM alone when the package says so. With `store` (the Chrome Web Store build, which has no
@@ -64,8 +71,8 @@ export function plan(pkg: StandalonePackage, caps: Capabilities, setting: Runtim
   // plain WASM: asked for, or the way on for a browser that has WebGPU but could not use it (or, with no live runner to
   // leave the frames to, one that has none); float32 files first (a float16 file is computed in float32 inside, and slower)
   if (setting === 'wasm' || (setting === 'auto' && (caps.webgpu || store))) {
-    const det = has(detector, 'fp32') ? 'fp32' : has(detector, 'fp16') ? 'fp16' : null;
-    const emb = has(embedder, 'fp32') ? 'fp32' : has(embedder, 'fp16') ? 'fp16' : null;
+    const det = wasmPrecision(detector);
+    const emb = wasmPrecision(embedder);
     if (det && emb) attempts.push({ runtime: 'wasm', detector: det, embedder: emb });
     else why.push('the package holds no complete set of models');
   }
