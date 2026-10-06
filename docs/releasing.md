@@ -24,7 +24,7 @@ Then, on GitHub:
 
 ## B. The Chrome Web Store release
 
-**Live:** [Wardeye on the Chrome Web Store](https://chromewebstore.google.com/detail/wardeye/hjglackjofehdfecoeehbdmbobafbjhn), item `hjglackjofehdfecoeehbdmbobafbjhn`. Version 0.1.2 passed its first review. The first update is 0.2.1 (below): 0.2.0 was taken out of review before it was published, for the tracker fixes found on the Barcelona final.
+**Live:** [Wardeye on the Chrome Web Store](https://chromewebstore.google.com/detail/wardeye/hjglackjofehdfecoeehbdmbobafbjhn), item `hjglackjofehdfecoeehbdmbobafbjhn`. Version 0.1.2 passed its first review. The first update is 0.2.1 (below): 0.2.0 was taken out of review before it was published, for the tracker fixes found on the Barcelona final. 0.2.2 was never submitted; 0.2.3 (below) carries its changes and is live since 6 October 2026.
 
 Now, while Riot reviews the application ([D-025](decisions.md#d-025-release-on-the-chrome-web-store-now-and-apply-to-riot-in-parallel)). The store build:
 - is standalone only: no companion mode and no access to `127.0.0.1`;

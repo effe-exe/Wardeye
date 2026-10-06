@@ -21,7 +21,7 @@ It is made by Federico Vietti, who also makes [Gradeon](https://gradeon.ai), the
 
 ## Install
 
-Wardeye comes from the Chrome Web Store: **[Add Wardeye to Chrome](https://chromewebstore.google.com/detail/wardeye/hjglackjofehdfecoeehbdmbobafbjhn)**. The store has version 0.2.1; 0.2.3 is next.
+Wardeye comes from the Chrome Web Store: **[Add Wardeye to Chrome](https://chromewebstore.google.com/detail/wardeye/hjglackjofehdfecoeehbdmbobafbjhn)**. The store has version 0.2.3.
 
 - **Chrome:** open [Wardeye's page in the Chrome Web Store](https://chromewebstore.google.com/detail/wardeye/hjglackjofehdfecoeehbdmbobafbjhn) and click **Add to Chrome**.
 - **Edge:** open the same page in Edge. Edge asks once to **Allow extensions from other stores**; allow it, then click **Get**.
