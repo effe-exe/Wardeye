@@ -56,6 +56,7 @@ venv/
 node_modules/
 dist/
 dist-store/
+dist-firefox/
 build/
 .output/
 .wxt/

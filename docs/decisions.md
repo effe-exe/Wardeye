@@ -330,6 +330,7 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
   - **Hugging Face:** CORS, files of any size, a CDN; a third-party account, and the files sit in a public model repository.
   - **GitHub Pages:** CORS, under the project's own name; files under 100 MB each (the detector is 145 MB, so in two parts, which the extension does not read yet), a soft limit of 100 GB of traffic a month (about 500 first installs), and the files stay in a git history.
   - Either way, the address names a fixed version (a commit), so that a file never changes under it; the sha256 is checked regardless.
+  - **Where it is:** [huggingface.co/ilDoc/wardeye-models](https://huggingface.co/ilDoc/wardeye-models), the Maintainer's account, since 2026-10-12. 0.4.0 names commit `8b1c31ef`; each file's size and sha256 were checked on the Hub against the files the pack was made with, through the download a browser makes (a redirect to Hugging Face's CDN, both with CORS).
 - **Not done:** the extension cannot yet join a file sent in parts.
 
 ### D-039: Firefox, from the same code

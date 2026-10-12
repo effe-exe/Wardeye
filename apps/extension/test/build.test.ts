@@ -260,7 +260,7 @@ describe('the store build of the extension (node build.mjs --store)', () => {
     expect(JSON.stringify(manifest)).not.toContain('127.0.0.1');
     expect(manifest.host_permissions).toEqual(['https://content.publishing.riotgames.com/*', 'https://cmsassets.rgpub.io/*']); // exactly these two
     expect({ ...manifest, host_permissions: srcManifest.host_permissions }).toEqual(srcManifest); // every other key as it is in src/manifest.json
-    expect(manifest.version).toBe('0.3.0');
+    expect(manifest.version).toBe('0.4.0');
     // the engine's document, the plays panel beside the page, the settings, and YouTube once the viewer allows it (access.ts):
     // the script registered for its pages, and the toolbar button's tab, whose address says it is YouTube (D-037); and room for
     // the models downloaded the first time, which the browser then does not clear to make space (downloads.ts, D-038). None of

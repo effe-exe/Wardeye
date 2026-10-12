@@ -145,31 +145,40 @@ The same listing as 0.2.2, with a new package:
 8. Reload a YouTube video: Wardeye comes back by itself. Then take YouTube's access back (`chrome://extensions` → Wardeye → Details → Site access) and reload: Wardeye is gone.
 9. Twitch still works as before.
 
-### Downloaded models (0.4.0, not released yet)
+### Downloaded models (0.4.0)
 
-From 0.4.0 the store zip holds no model ([D-038](decisions.md#d-038-the-models-are-downloaded-the-first-time-not-shipped-in-the-zip)): 15.6 MB instead of 192 MB. Before the first such release:
+From 0.4.0 the store zip holds no model ([D-038](decisions.md#d-038-the-models-are-downloaded-the-first-time-not-shipped-in-the-zip)): 15.6 MB instead of 192 MB. The models are on Hugging Face, at [ilDoc/wardeye-models](https://huggingface.co/ilDoc/wardeye-models), and 0.4.0 downloads them from commit `8b1c31efef5662038f941035199374aac26d8d4f`:
 
-1. **The host is a Hugging Face model repository** (D-038), for example `effe-exe/wardeye-models`. Once:
-   - Create it, public, at [huggingface.co/new](https://huggingface.co/new).
-   - Upload its card: the top of [model-card.md](model-card.md) as `README.md`, the part after the line as `LICENSE.md`.
-   - Upload the three model files, exactly as the pack lists them, from `~/rifteye-data/models/onnx/` or from the `models/` folder of the 0.3.0 zip (the same bytes). In the browser: **Files** → **Add file** → **Upload files**. Or from a terminal, after `pip install -U huggingface_hub` and `hf auth login` (a token with write access):
+| File | Bytes | sha256 |
+|---|---|---|
+| `detector-v0.onnx` | 144,993,784 | `9e3617286c036913197a69bea7d90ba1833f7185a8b70a56d737c87336e3dc06` |
+| `embedder-v1.onnx` | 87,905,236 | `3f0a857c8cbbfc7b49c81fb8b44ba4290f492b488f25b11c5cf2f7e827b2ba28` |
+| `embedder-v1.fp16.onnx` | 44,453,867 | `40a9c263c8339a101ebce32c85f3a9580867e7481c4f8a61250a82094c184a1a` |
 
-     ```bash
-     hf upload OWNER/wardeye-models models/ . --commit-message "detector-v0 and embedder-v1"
-     ```
+The repository's `README.md` and `LICENSE.md` are the two halves of [model-card.md](model-card.md).
 
-   - Take the commit's full hash from the repository's **History** (or `git ls-remote https://huggingface.co/OWNER/wardeye-models refs/heads/main`). The address names that commit, so a file can never change under it.
-2. **Pack with the host's address**, naming a fixed version (a commit), so that a file never changes under its address:
+**Pack** (the address names a commit, so a file can never change under it):
+
+```bash
+RIFTEYE_DATA=~/rifteye-data npm run pack:store -w @rifteye/extension -- --out wardeye-0.4.0.zip \
+  --precisions detector:fp32,embedder:fp32+fp16 \
+  --models-url https://huggingface.co/ilDoc/wardeye-models/resolve/8b1c31efef5662038f941035199374aac26d8d4f/
+```
+
+**When the models change** (a new detector or embedder):
+
+1. Upload the new files from a terminal, after `hf auth login` with a token that can write. Files at the repository's top level, not in a folder, since the address ends with the file's name. Run it from a folder that holds only the files to upload (`hf skills add` writes an `.agents/` folder that would go up too):
 
    ```bash
-   RIFTEYE_DATA=~/rifteye-data npm run pack:store -w @rifteye/extension -- --out wardeye-0.4.0.zip \
-     --precisions detector:fp32,embedder:fp32+fp16 --models-url https://huggingface.co/OWNER/REPO/resolve/COMMIT/
+   hf upload ilDoc/wardeye-models . . --include "*.onnx" --commit-message "detector-v1"
    ```
 
-   The pack prints the files to upload, with their sizes and sha256.
-3. **Upload those files, unchanged**, then check that each address serves them: `curl -sI -H 'Origin: chrome-extension://x' URL` shows `200` (or a redirect) and an `access-control-allow-origin` header, and `curl -sL URL | sha256sum` gives the hash the pack printed.
-4. **Test on a fresh profile:** load the zip unpacked, open a Riftbound video, and watch the badge say "downloading ..., the first time only" and then read the table. Reload: no download the second time.
-5. **Listing:** add the `unlimitedStorage` justification ("keeps the recognition models, downloaded once, without the browser clearing them") and say in the description that the first use downloads about 200 MB once. The privacy policy already says so.
+2. Take the new commit's full hash: `curl -s https://huggingface.co/api/models/ilDoc/wardeye-models | python3 -c 'import json,sys; print(json.load(sys.stdin)["sha"])'`.
+3. Pack with that commit in `--models-url`. The pack prints each file it expects, with its size and sha256.
+4. Check that each address serves them: `curl -sI -H 'Origin: chrome-extension://x' URL` shows a redirect and an `access-control-allow-origin` header, and `curl -sL URL | sha256sum` gives the hash the pack printed.
+5. Test on a fresh profile: load the zip unpacked, open a Riftbound video, and watch the badge say "downloading ..., the first time only" and then read the table. Reload: no download the second time. A copy that still has the old files deletes them once it has the new ones.
+
+**Listing:** add the `unlimitedStorage` justification ("keeps the recognition models, downloaded once, without the browser clearing them") and say in the description that the first use downloads about 200 MB once. The privacy policy already says so.
 
 ## Firefox
 
@@ -183,7 +192,8 @@ npm run build:firefox -w @rifteye/extension            # apps/extension/dist-fir
 RIFTEYE_DATA=~/rifteye-data npm run pack:firefox -w @rifteye/extension -- --out wardeye-firefox-test.zip --precisions detector:fp32,embedder:fp32+fp16
 # for AMO, the models downloaded from Hugging Face:
 RIFTEYE_DATA=~/rifteye-data npm run pack:firefox -w @rifteye/extension -- --out wardeye-firefox-0.4.0.zip \
-  --precisions detector:fp32,embedder:fp32+fp16 --models-url https://huggingface.co/OWNER/wardeye-models/resolve/COMMIT/
+  --precisions detector:fp32,embedder:fp32+fp16 \
+  --models-url https://huggingface.co/ilDoc/wardeye-models/resolve/8b1c31efef5662038f941035199374aac26d8d4f/
 ```
 
 **Test it in Firefox** (141 or newer; this list is the first real run, so note what fails):
