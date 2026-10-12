@@ -94,8 +94,10 @@ const env: ControllerEnv = {
   now: () => Date.now(),
   readPackage,
   probe,
-  // plain WASM reads a frame in seconds, and finds a layout in minutes: it is given the time
-  spawn: (attempt) => (attempt.runtime === 'webgpu' ? new WorkerEngine('engine-webgpu.js') : new WorkerEngine('engine-wasm.js', 10 * FRAME_MS)),
+  // plain WASM reads a frame in seconds, and finds a layout in minutes: it is given the time. So is Firefox's WebGPU, whose
+  // first look for the table (30 detector runs) outlasted the 30 s a frame gets, and the engine was restarted again and again
+  spawn: (attempt) =>
+    attempt.runtime === 'webgpu' && !__FIREFOX__ ? new WorkerEngine('engine-webgpu.js') : new WorkerEngine(`engine-${attempt.runtime}.js`, 10 * FRAME_MS),
   store: __STORE__,
   ...(riot
     ? {
