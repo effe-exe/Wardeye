@@ -23,6 +23,48 @@ function describe(e: unknown): string {
   return String(e);
 }
 
+/** What the GPU's shader compiler said of the shaders it would not compile, with the line it stopped at: the reason a WebGPU
+ * engine fails is otherwise only "ShaderModule with 'Clip' label is invalid" (Firefox's compiler is stricter than Chrome's). */
+const shaderErrors: string[] = [];
+const SHADER_ERRORS = 3;
+
+interface ShaderMessage {
+  type: string;
+  message: string;
+  lineNum: number;
+}
+interface ShaderModuleLike {
+  getCompilationInfo?: () => Promise<{ messages: readonly ShaderMessage[] }>;
+}
+type CreateShaderModule = (this: unknown, desc: { code: string; label?: string }) => ShaderModuleLike;
+
+/** Every shader module made in this worker is asked what its compiler said; errors are kept (a few, the first ones). */
+function watchShaders(): void {
+  const proto = (globalThis as { GPUDevice?: { prototype: { createShaderModule: CreateShaderModule; __wardeye?: boolean } } }).GPUDevice?.prototype;
+  if (!proto || proto.__wardeye) return;
+  proto.__wardeye = true;
+  const create = proto.createShaderModule;
+  proto.createShaderModule = function (desc) {
+    const module = create.call(this, desc);
+    void module.getCompilationInfo?.().then(
+      (info) => {
+        for (const m of info.messages) {
+          if (m.type !== 'error' || shaderErrors.length >= SHADER_ERRORS) continue;
+          const line = (desc.code.split('\n')[m.lineNum - 1] ?? '').trim().slice(0, 160);
+          shaderErrors.push(`${desc.label ?? 'a shader'}: ${m.message}${line ? ` (line ${m.lineNum}: ${line})` : ''}`);
+        }
+      },
+      () => {},
+    );
+    return module;
+  };
+}
+
+/** An error, with what the shader compiler said when it refused a shader. */
+function withShaders(e: unknown): string {
+  return shaderErrors.length ? `${describe(e)}; the shader compiler said: ${shaderErrors.join('; ')}` : describe(e);
+}
+
 /** WASM threads to ask for: up to 4 and never more than the cores, but 1 without cross-origin isolation. */
 export function wasmThreads(isolated: boolean, cores: number): number {
   return isolated ? Math.max(1, Math.min(4, cores || 1)) : 1;
@@ -55,6 +97,7 @@ export function serve(ort: Ort): void {
   let frameId = 0; // the frame being read: what the trace tells is of it
 
   async function init(m: Extract<ToEngine, { kind: 'init' }>): Promise<EngineHost> {
+    if (m.attempt.runtime === 'webgpu') watchShaders();
     ort.env.wasm.wasmPaths = new URL('ort/', base).href;
     ort.env.wasm.numThreads = m.pkg.threads ?? wasmThreads(self.crossOriginIsolated, navigator.hardwareConcurrency);
     ort.env.logLevel = 'warning';
@@ -88,7 +131,7 @@ export function serve(ort: Ort): void {
         host = await init(m);
         post({ kind: 'ready' });
       } catch (err) {
-        post({ kind: 'failed', error: describe(err) });
+        post({ kind: 'failed', error: withShaders(err) });
       }
     } else if (m.kind === 'frame') {
       try {
@@ -97,7 +140,7 @@ export function serve(ort: Ort): void {
         const out = await host.frame({ tab: m.tab, t: m.t, video: m.video, jpeg: bytesOfBase64(m.jpeg), ...(m.lists ? { lists: m.lists } : {}) });
         post({ kind: 'state', id: m.id, state: out.state, events: out.events });
       } catch (err) {
-        post({ kind: 'error', id: m.id, error: describe(err) });
+        post({ kind: 'error', id: m.id, error: withShaders(err) });
       }
     } else if (m.kind === 'forget') {
       host?.forget(m.tab);

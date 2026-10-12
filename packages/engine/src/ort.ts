@@ -13,6 +13,7 @@
 // caller imports the builds it ships (and bundles their .mjs and .wasm files, which `wasmPaths` points at).
 
 import { Detector, type DetectorOptions, type HeadOutputs, type TileRunner } from './detector';
+import { clipToMax } from './onnx-rewrite';
 import { OnnxEncoder, sha256Hex, stem, type EmbedRunner, type OnnxEncoderOptions } from './embedder';
 
 // ---- the parts of onnxruntime-web the engine uses (typeof import('onnxruntime-web') fits them)
@@ -152,7 +153,8 @@ export async function openModel(rt: Runtime, files: ModelFiles, batch: number | 
     const f = precision === 'fp16' && files.fp16 ? files.fp16 : files.fp32;
     const bytes = await f.bytes();
     const sha256 = hash ? await sha256Hex(bytes) : null;
-    const session = await ort.InferenceSession.create(bytes, sessionOptions(ep, batch));
+    // on WebGPU, a lower-bound Clip as Max (onnx-rewrite.ts): after the hash, which is of the file as published
+    const session = await ort.InferenceSession.create(ep === 'webgpu' ? clipToMax(bytes) : bytes, sessionOptions(ep, batch));
     return { session, ort, ep, precision: f === files.fp32 ? 'fp32' : 'fp16', file: f.name, sha256, batch, fallback: null };
   };
   if (rt.ep === 'wasm') return tryOpen(rt.wasm, 'wasm', 'fp32');
