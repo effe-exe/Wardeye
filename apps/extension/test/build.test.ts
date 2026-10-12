@@ -305,8 +305,68 @@ describe('the store build of the extension (node build.mjs --store)', () => {
   it('refuses what it does not know, and writes to dist-store/ (never over dist/) when no folder is named', () => {
     const run = spawnSync('node', [join(EXT, 'build.mjs'), '--store', '--nonsense'], { encoding: 'utf8' });
     expect(run.status).not.toBe(0);
-    expect(run.stderr).toContain('usage: node build.mjs [--store] [--out DIR]');
+    expect(run.stderr).toContain('usage: node build.mjs [--store | --firefox] [--out DIR]');
     const src = readFileSync(join(EXT, 'build.mjs'), 'utf8');
-    expect(src).toContain("here(store ? './dist-store' : './dist')");
+    expect(src).toContain("const folder = firefox ? 'dist-firefox' : store ? 'dist-store' : 'dist';");
+  });
+});
+
+describe('the Firefox build of the extension (node build.mjs --firefox)', () => {
+  let firefox: string;
+  let store: string;
+  let manifest: Manifest;
+  const read = (dir: string, f: string) => readFileSync(join(dir, f), 'utf8');
+
+  beforeAll(() => {
+    firefox = mkdtempSync(join(tmpdir(), 'wardeye-firefox-build-test-'));
+    store = mkdtempSync(join(tmpdir(), 'wardeye-store-build-test-'));
+    for (const [args, dir] of [[['--firefox'], firefox], [['--store'], store]] as const) {
+      const run = spawnSync('node', [join(EXT, 'build.mjs'), ...args, '--out', dir], { encoding: 'utf8' });
+      expect(run.status, run.stderr).toBe(0);
+    }
+    manifest = JSON.parse(read(firefox, 'manifest.json')) as Manifest;
+  }, 60_000);
+
+  afterAll(() => {
+    rmSync(firefox, { recursive: true, force: true });
+    rmSync(store, { recursive: true, force: true });
+  });
+
+  it("is the store's manifest in Firefox's terms: a background page, its sidebar, its id, and no data collected (D-039)", () => {
+    const chrome = JSON.parse(read(store, 'manifest.json')) as Manifest;
+    expect(manifest.background).toEqual({ scripts: ['worker.js'], type: 'module' }); // Firefox runs a page, not a service worker
+    expect(manifest.sidebar_action).toMatchObject({ default_panel: 'panel.html' });
+    expect(manifest.browser_specific_settings).toEqual({ gecko: { id: 'wardeye@effe-exe.github.io', strict_min_version: '141.0', data_collection_permissions: { required: ['none'] } } });
+    // no offscreen document, no side panel, no cross-origin isolation (Firefox has none of them for extensions)
+    expect(manifest.permissions).toEqual(['storage', 'scripting', 'activeTab', 'unlimitedStorage']);
+    for (const key of ['side_panel', 'cross_origin_embedder_policy', 'cross_origin_opener_policy']) expect(manifest[key], key).toBeUndefined();
+    // and everything else as the store's: the same sites, the same hosts of Riot's gallery, the same version
+    for (const key of ['version', 'description', 'content_scripts', 'host_permissions', 'optional_host_permissions', 'web_accessible_resources', 'content_security_policy', 'icons', 'action']) {
+      expect(manifest[key], key).toEqual(chrome[key]);
+    }
+  });
+
+  it("runs the engine in the background page: no engine document, and the worker's bundle holds the engine's page", () => {
+    expect(existsSync(join(firefox, 'offscreen.html'))).toBe(false);
+    expect(existsSync(join(firefox, 'offscreen.js'))).toBe(false);
+    expect(read(firefox, 'worker.js')).toContain('new WorkerEngine("engine-webgpu.js")');
+    expect(read(store, 'worker.js')).not.toContain('new WorkerEngine('); // Chrome's worker leaves the engine to its document
+  });
+
+  it("calls Firefox's own namespace, which returns promises, and no local name stands in for it", () => {
+    for (const f of ['worker.js', 'content.js', 'panel.js']) {
+      const js = read(firefox, f);
+      expect(js.match(/\bchrome\.[a-z]/gi), f).toBeNull();
+      expect(js, f).toContain('globalThis.browser.runtime.');
+      expect(js, f).not.toMatch(/\bbrowser2\b/);
+    }
+  });
+
+  it("takes onnxruntime-web's Asyncify WebGPU runtime (no JSPI), and finds the typefaces at moz-extension:// addresses", () => {
+    expect(read(firefox, 'engine-webgpu.js')).toContain('ort-wasm-simd-threaded.asyncify.mjs');
+    expect(read(firefox, 'engine-webgpu.js')).not.toContain('ort-wasm-simd-threaded.jspi.mjs');
+    expect(read(store, 'engine-webgpu.js')).toContain('ort-wasm-simd-threaded.jspi.mjs');
+    expect(read(firefox, 'overlay.css')).toContain('moz-extension://__MSG_@@extension_id__/fonts/');
+    expect(read(firefox, 'overlay.css')).not.toContain('chrome-extension://');
   });
 });

@@ -12,6 +12,7 @@
 
 import * as access from './access';
 import * as companion from './companion';
+import { here } from './engine-link';
 import { RETRY_AFTER_MS } from './mode';
 import { Standalone, cannotReadState, type Env } from './standalone';
 import type { State } from './geometry';
@@ -44,8 +45,9 @@ const env: Env = {
       return null; // not in this build
     }
   },
-  ensureDocument,
-  send: (request) => chrome.runtime.sendMessage(request),
+  // the engine's document (Chrome), or the engine in this very page (Firefox: engine-link.ts)
+  ensureDocument: () => (here() ? Promise.resolve() : ensureDocument()),
+  send: (request) => here()?.(request) ?? chrome.runtime.sendMessage(request),
 };
 
 const standalone = new Standalone(env, RETRY_AFTER_MS, __STORE__);
@@ -56,11 +58,11 @@ const ON_TITLE = 'Wardeye is on. Click to turn it off (Alt+R)';
 const OFF_TITLE = 'Wardeye is off. Click to turn it on (Alt+R)';
 void chrome.action.setBadgeBackgroundColor({ color: '#71717A' }).catch(() => {});
 // On YouTube the first click asks for access to it, and starts Wardeye in the tab (access.ts).
-const browser = access.chromeBrowser();
-chrome.action.onClicked.addListener((tab) => void access.clicked(browser, tab).catch((e: unknown) => console.warn(`Wardeye: ${e instanceof Error ? e.message : String(e)}`)));
+const apis = access.chromeBrowser();
+chrome.action.onClicked.addListener((tab) => void access.clicked(apis, tab).catch((e: unknown) => console.warn(`Wardeye: ${e instanceof Error ? e.message : String(e)}`)));
 // The overlay's script on YouTube follows the permission: when the worker starts, after an install or an update, and when the
 // viewer gives or takes back access in the browser's own settings.
-const syncAccess = (): void => void access.sync(browser).catch((e: unknown) => console.warn(`Wardeye: YouTube access: ${e instanceof Error ? e.message : String(e)}`));
+const syncAccess = (): void => void access.sync(apis).catch((e: unknown) => console.warn(`Wardeye: YouTube access: ${e instanceof Error ? e.message : String(e)}`));
 syncAccess();
 chrome.runtime.onInstalled.addListener(syncAccess);
 chrome.runtime.onStartup.addListener(syncAccess);
@@ -74,9 +76,20 @@ chrome.runtime.onMessage.addListener((msg: { kind?: unknown; on?: unknown }, sen
     void chrome.action.setTitle({ tabId, title: msg.on ? ON_TITLE : OFF_TITLE }).catch(() => {});
   } else if (msg?.kind === 'open-panel') {
     // the badge's plays button, clicked: the browser's side panel opens on the plays panel (a click in a content script may)
-    void chrome.sidePanel?.open({ tabId }).catch(() => {});
+    if (chrome.sidePanel) void chrome.sidePanel.open({ tabId }).catch(() => {});
+    else void openPanelWindow(tabId);
   }
 });
+
+/** Firefox: its sidebar opens only from a click on the browser's own buttons, not from a click relayed from the page. When it
+ * will not open, the plays panel opens in a small window of its own, on this tab (panel.html?tab=). */
+async function openPanelWindow(tabId: number): Promise<void> {
+  try {
+    await chrome.sidebarAction!.open();
+  } catch {
+    await chrome.windows.create({ url: chrome.runtime.getURL(`panel.html?tab=${tabId}`), type: 'popup', width: 400, height: 760 }).catch(() => {});
+  }
+}
 
 /** A card's hover picture, base64, for the overlay and the plays panel alike; null when there is none. */
 async function art(printingId: string): Promise<string | null> {

@@ -81,6 +81,16 @@ declare namespace chrome.scripting {
   function insertCSS(injection: { target: { tabId: number }; files: string[] }): Promise<void>;
 }
 
+/** Firefox's sidebar (the plays panel there); Chrome has none, and the namespace is not there. */
+declare namespace chrome {
+  const sidebarAction: { open(): Promise<void> } | undefined;
+}
+
+/** A small window for the plays panel, where the browser's sidebar will not open (Firefox). */
+declare namespace chrome.windows {
+  function create(createData: { url: string; type?: 'normal' | 'popup'; width?: number; height?: number }): Promise<unknown>;
+}
+
 declare namespace chrome.sidePanel {
   /** Chrome 116 and later, in answer to a click (the badge's plays button, forwarded by the content script). */
   function open(options: { tabId?: number; windowId?: number }): Promise<void>;

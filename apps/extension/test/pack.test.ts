@@ -318,6 +318,29 @@ describe.skipIf(!haveZip)('pack.mjs --store: the Chrome Web Store zip', () => {
     rmSync(zip);
   });
 
+  it('with --firefox, makes the zip from the Firefox build: no engine document, the Asyncify runtime, and the models downloaded (D-039)', () => {
+    const firefoxDist = join(root, 'dist-firefox');
+    build('--firefox', '--out', firefoxDist);
+    writeFileSync(join(ort, 'ort-wasm-simd-threaded.asyncify.mjs'), 'ort asyncify mjs');
+    writeFileSync(join(ort, 'ort-wasm-simd-threaded.asyncify.wasm'), 'ort asyncify wasm');
+    const zip = join(out, 'wardeye-firefox.zip');
+    const firefoxArgs = (...more: string[]) => ['--firefox', '--dist', firefoxDist, '--ort', ort, '--models', models, '--assets', assets, '--stage', stage, ...more];
+    // without --models-url it is refused: the models would make it too big for Firefox's store
+    const refused = run(firefoxArgs('--out', zip));
+    expect(refused.status).not.toBe(0);
+    expect(refused.stderr).toContain('--firefox needs --models-url');
+    const r = run(firefoxArgs('--out', zip, '--models-url', 'https://huggingface.co/owner/wardeye-models/resolve/0123abc/'));
+    expect(r.status, r.stderr).toBe(0);
+    const names = [...readZip(readFileSync(zip)).keys()];
+    expect(names.filter((n) => n.startsWith('ort/')).sort()).toEqual(['ort/ort-wasm-simd-threaded.asyncify.mjs', 'ort/ort-wasm-simd-threaded.asyncify.wasm', 'ort/ort-wasm-simd-threaded.mjs', 'ort/ort-wasm-simd-threaded.wasm']);
+    expect(names.filter((n) => n.startsWith('offscreen') || n.startsWith('models/'))).toEqual([]);
+    expect(r.stdout).toContain('the extension for Firefox');
+    // and the Chrome build is not taken for Firefox's, nor Firefox's for Chrome's
+    expect(run(firefoxArgs('--out', zip, '--models-url', 'https://x.example/m/', '--dist', dist)).stderr).toMatch(/offscreen|is not Firefox's/);
+    expect(run(args('--out', join(out, 'chrome.zip'), '--dist', firefoxDist)).stderr).toMatch(/missing|is Firefox's/);
+    rmSync(zip);
+  });
+
   it('refuses a --models-url that is not https', () => {
     const r = run(args('--out', join(out, 'x.zip'), '--models-url', 'http://example.com/models/'));
     expect(r.status).not.toBe(0);
@@ -367,7 +390,7 @@ describe.skipIf(!haveZip)('pack.mjs --store: the Chrome Web Store zip', () => {
   });
 
   it('refuses a build that is not built, models that are missing, and a gallery made for another embedder', () => {
-    expect(run(args('--out', join(out, 'e.zip'), '--dist', join(root, 'nowhere'))).stderr).toContain('build the store version first');
+    expect(run(args('--out', join(out, 'e.zip'), '--dist', join(root, 'nowhere'))).stderr).toContain('build it first (npm run build:store -w @rifteye/extension)');
     expect(run(args('--out', join(out, 'e.zip'), '--models', join(root, 'nowhere'))).stderr).toContain('does not exist');
     writeFileSync(join(models, 'embedder-v1.fp16.onnx'), 'another export');
     const r = run(args('--out', join(out, 'e.zip')));
