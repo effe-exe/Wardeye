@@ -335,7 +335,7 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 
 ### D-039: Firefox, from the same code
 
-- **Date:** 2026-10-12. **Status:** accepted; the Maintainer's decision ("we need it available for firefox"). Built, not yet run in Firefox: this environment has none, and the Maintainer tests it ([releasing.md](releasing.md#firefox)). Needs [D-038](#d-038-the-models-are-downloaded-the-first-time-not-shipped-in-the-zip).
+- **Date:** 2026-10-12. **Status:** accepted; the Maintainer's decision ("we need it available for firefox"). Runs in Firefox on the Maintainer's Mac (0.4.1, on WebGPU, on a Twitch replay of the Chengdu nationals); this environment has no Firefox, and the Maintainer tests it ([releasing.md](releasing.md#firefox)). Needs [D-038](#d-038-the-models-are-downloaded-the-first-time-not-shipped-in-the-zip).
 - **Decision:** One code base; `build.mjs --firefox` and `pack.mjs --firefox` make the Firefox add-on. What differs:
   - **The engine runs in the background page.** Firefox has no offscreen documents, and its background page is a page. The engine's page is `engine-document.ts`, and two things reach it:
     - in Chrome, `offscreen.ts`, by runtime messages, as before;
@@ -353,5 +353,10 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 - **What to expect:**
   - **WebGPU is on in Firefox for Windows (141 and newer) and Apple-silicon Macs (147 and newer).** On Linux and Intel Macs it may be off.
   - **Without WebGPU, the engine runs on the processor with one thread.** Firefox gives extension pages no cross-origin isolation (Mozilla bug 1673477), so no WASM threads. Not measured; estimated at several times slower than Chrome's four threads, which already take 7.5 s a frame on a 4-core CPU without a GPU. The badge says "on the processor".
-  - **Not checked in a real Firefox:** WebGPU in a background page's worker, the Asyncify runtime's speed, the typefaces' addresses in the overlay, the sidebar and the window fallback, and the YouTube prompt.
+  - **Checked in a real Firefox** (the Maintainer's Mac, 0.4.1): WebGPU in a background page's worker, and the Asyncify runtime reading a Twitch replay's table and outlining its cards. **Not checked yet:** the typefaces' addresses in the overlay, the sidebar and the window fallback, YouTube, and the speed on other GPUs.
 - **Why one code base:** a second extension would drift from the first. The differences are in the build (the manifest, the namespace, the runtime) and in one file each for the engine's host.
+- **What the first runs in Firefox found** (each fixed in 0.4.1, with its test):
+  - **The frame:** a content script's copy of the page's JPEG, byte by byte, failed; the frame is read as a data: URL (FileReader). A player whose picture cannot be read keeps its badge, which says so ([D-037](#d-037-youtube-is-asked-for-with-a-click-and-read-only-on-riftbound-videos)).
+  - **The embedder's one Clip** (`F.normalize`'s `clamp_min`): Firefox's shader compiler (naga) rejects onnxruntime's Clip shader. It runs as a Max, the same values bit for bit, rewritten as the model is opened on WebGPU after its sha256 is taken (`packages/engine/src/onnx-rewrite.ts`); the next export writes it so (`ml`: `clip_to_max`). The WebGPU engine also tries the float32 embedder before WASM, and a refused shader's compiler message goes with the reason on the badge.
+  - **Time:** the first look for the table runs the detector 30 times, longer than a frame's 30 s on Firefox's WebGPU; it gets WASM's 5 minutes there. And Firefox stops a background (event) page after 30 s with no event, the engine with it: the tab pings the worker every 10 s while a frame is read.
+  - **WASM is no way on in Firefox:** an extension page there has a single thread, and the detector cannot keep up. Firefox needs WebGPU (141 or newer; 147 on Apple-silicon Macs).

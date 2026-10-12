@@ -214,6 +214,6 @@ RIFTEYE_DATA=~/rifteye-data npm run pack:firefox -w @rifteye/extension -- --out 
 
 - **Listing:** the same name, summary and description as the Chrome Web Store's; category Entertainment. The privacy policy: [PRIVACY.md](PRIVACY.md).
 - **Data collection:** none (the manifest says so).
-- **Source code:** AMO asks for the sources of bundled code. Answer with the repository's URL and its commit, and the build command (`npm ci && npm run build:firefox -w @rifteye/extension`). onnxruntime-web's files in `ort/` are the npm package's own (version in `package-lock.json`).
+- **Source code:** AMO asks for the sources of bundled code, as a file. Upload `git archive --format=zip -o wardeye-<version>-source.zip <commit>` of the commit the add-on was packed from, and say how it is built: `npm ci && npm run build:firefox -w @rifteye/extension` gives `apps/extension/dist-firefox/`, whose `.js` files are the add-on's. The add-on's `data/` files (the gallery's vectors) and the downloaded models are data made from private files, not code; onnxruntime-web's files in `ort/` are the npm package's own (version in `package-lock.json`).
 - **Notes to the reviewer:** the models are data downloaded from Hugging Face the first time and checked against the sha256 in `standalone.json`; no code is downloaded.
 
