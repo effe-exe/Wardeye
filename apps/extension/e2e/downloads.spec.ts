@@ -22,6 +22,7 @@ test('the models are downloaded the first time, with no permission, then read fr
     // the package holds no model: the engine downloads both, checks them, and reads the table
     await expect(page.locator('polygon.rifteye-box')).toHaveCount(2, { timeout: 90_000 });
     expect(host.seen.sort()).toEqual(['/v1/standin-detector.onnx', '/v1/standin-embedder.onnx']);
+    expect(host.cdn.sort()).toEqual(['/standin-detector.onnx', '/standin-embedder.onnx']); // through the redirect, as on Hugging Face
 
     // the engine starts again (its document closed): the models come from the cache, and nothing is downloaded
     const before = await documentIds(context);
@@ -33,6 +34,7 @@ test('the models are downloaded the first time, with no permission, then read fr
     expect(after).toHaveLength(1);
     expect(after[0]).not.toBe(before[0]); // a new engine document, with a new engine in it
     expect(host.seen).toHaveLength(2);
+    expect(host.cdn).toHaveLength(2);
   } finally {
     await unload(loaded);
     await host?.close();
