@@ -672,6 +672,11 @@ setOn(true); // a page that loads again starts on, and the toolbar button says s
 
 if (site.early) connect(); // Twitch: the engine gets ready while the page loads; YouTube: once there is a video to read (tick)
 setInterval(tick, 100);
+// a frame the engine takes long to read (Firefox's first look for the table): the worker hears from the tab meanwhile, as
+// Firefox stops a background page that has no event for 30 s, and the engine in it
+setInterval(() => {
+  if (inFlight) port?.postMessage({ kind: 'ping' });
+}, 10_000);
 const follow = (): void => {
   place();
   requestAnimationFrame(follow);

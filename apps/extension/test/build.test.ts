@@ -349,7 +349,7 @@ describe('the Firefox build of the extension (node build.mjs --firefox)', () => 
   it("runs the engine in the background page: no engine document, and the worker's bundle holds the engine's page", () => {
     expect(existsSync(join(firefox, 'offscreen.html'))).toBe(false);
     expect(existsSync(join(firefox, 'offscreen.js'))).toBe(false);
-    expect(read(firefox, 'worker.js')).toContain('new WorkerEngine("engine-webgpu.js")');
+    expect(read(firefox, 'worker.js')).toMatch(/new WorkerEngine\(`engine-\$\{attempt.runtime\}.js`, 10 \* (3e4|FRAME_MS)\)/); // WebGPU in Firefox gets WASM's time
     expect(read(store, 'worker.js')).not.toContain('new WorkerEngine('); // Chrome's worker leaves the engine to its document
   });
 

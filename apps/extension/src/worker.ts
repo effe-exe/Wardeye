@@ -125,6 +125,7 @@ chrome.runtime.onConnect.addListener((port) => {
   void standalone.warm();
   port.onDisconnect.addListener(() => void standalone.forget(tab));
   port.onMessage.addListener(async (msg: FromContent) => {
+    if (msg.kind === 'ping') return; // the event that keeps Firefox's background page, and its engine, running
     try {
       if (msg.kind === 'frame') {
         const served = await standalone.frame(tab, msg);
