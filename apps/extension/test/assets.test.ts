@@ -40,6 +40,14 @@ describe('standalone.json', () => {
     expect(parsePackage({ ...pkg, data: 'gallery', runtime: 'wasm', layout: 'la-rq', fps: 2, threads: 2, trace: true })).toMatchObject({ data: 'gallery/', runtime: 'wasm', layout: 'la-rq', fps: 2, threads: 2, trace: true });
   });
 
+  it('names the files it does not hold, each with an https address, a sha256 and a size', () => {
+    const d = { url: 'https://models.example/detector.onnx', sha256: 'a'.repeat(64), bytes: 145 };
+    expect(parsePackage({ ...pkg, downloads: { 'models/detector.onnx': d } }).downloads).toEqual({ 'models/detector.onnx': d });
+    expect(() => parsePackage({ ...pkg, downloads: { 'models/detector.onnx': { ...d, url: 'http://models.example/d.onnx' } } })).toThrow('url must be https');
+    expect(() => parsePackage({ ...pkg, downloads: { 'models/detector.onnx': { ...d, sha256: 'ABC' } } })).toThrow('a sha256 in lowercase hex');
+    expect(() => parsePackage({ ...pkg, downloads: { 'models/detector.onnx': { ...d, bytes: 0 } } })).toThrow('bytes must be positive');
+  });
+
   it('is refused, with the field at fault, when it says too little', () => {
     expect(() => parsePackage(null)).toThrow('not an object');
     expect(() => parsePackage({ ...pkg, format: 2 })).toThrow('format 2');

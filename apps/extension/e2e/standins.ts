@@ -6,6 +6,7 @@
 // The embedder is the mean colour of an 8 x 8 crop; the gallery's rows are colours. The store build's package has no
 // catalogue and no hover pictures (`store`): its names, types and pictures come from a fake of Riot's gallery (fake-riot.ts).
 
+import { createHash } from 'node:crypto';
 import { encodeModel, floatToHalf, type TinyGraph } from '../../bench/src/tiny-onnx';
 import { thumbName } from '../src/thumbs';
 
@@ -90,6 +91,24 @@ export interface StandIn {
   embedderFp16?: boolean;
   /** The Chrome Web Store build's package: no catalog.json and no data/thumbs. */
   store?: boolean;
+  /** The models are not in the package: standalone.json lists them as downloads from this https address (D-038), and
+   * standInModels gives what to serve there. */
+  remote?: string;
+}
+
+/** The stand-in models, by their path in the package. */
+export function standInModels(opts: StandIn = {}): Record<string, Uint8Array> {
+  return {
+    'models/standin-detector.onnx': encodeModel(detectorGraph()),
+    ...(opts.embedderFp16 ? { 'models/standin-embedder.fp16.onnx': encodeModel(embedderGraph(true)) } : { 'models/standin-embedder.onnx': encodeModel(embedderGraph()) }),
+  };
+}
+
+/** standalone.json's downloads for `models`, served at `base` followed by each file's name. */
+function downloadsOf(base: string, models: Record<string, Uint8Array>): Record<string, { url: string; sha256: string; bytes: number }> {
+  return Object.fromEntries(
+    Object.entries(models).map(([path, bytes]) => [path, { url: `${base}${path.split('/').pop()}`, sha256: createHash('sha256').update(bytes).digest('hex'), bytes: bytes.length }]),
+  );
 }
 
 /** Every file of the package's private part, by its path in the package. */
@@ -101,6 +120,7 @@ export function standInFiles(opts: StandIn = {}): Record<string, Uint8Array | st
       runtime: opts.runtime ?? 'auto',
       detector: { id: 'standin-detector', fp32: 'models/standin-detector.onnx' },
       embedder: { id: 'standin-embedder', ...(opts.embedderFp16 ? { fp16: 'models/standin-embedder.fp16.onnx' } : { fp32: 'models/standin-embedder.onnx' }) },
+      ...(opts.remote ? { downloads: downloadsOf(opts.remote, standInModels(opts)) } : {}),
     }),
     'data/gallery/index.json': json({
       format: 1,
@@ -115,11 +135,7 @@ export function standInFiles(opts: StandIn = {}): Record<string, Uint8Array | st
     }),
   };
   if (!opts.store) files['data/catalog.json'] = json(ROWS.map(({ emb: _emb, ...r }) => r));
-  if (!opts.noModels) {
-    files['models/standin-detector.onnx'] = encodeModel(detectorGraph());
-    if (opts.embedderFp16) files['models/standin-embedder.fp16.onnx'] = encodeModel(embedderGraph(true));
-    else files['models/standin-embedder.onnx'] = encodeModel(embedderGraph());
-  }
+  if (!opts.noModels && !opts.remote) Object.assign(files, standInModels(opts));
   const half = new Uint8Array(ROWS.length * 4 * 2);
   const view = new DataView(half.buffer);
   ROWS.forEach((r, i) => r.emb.forEach((v, d) => view.setUint16((i * 4 + d) * 2, floatToHalf(v), true)));

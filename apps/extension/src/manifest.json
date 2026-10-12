@@ -24,7 +24,7 @@
       "matches": ["https://www.twitch.tv/*", "https://www.youtube.com/*"]
     }
   ],
-  "permissions": ["offscreen", "sidePanel", "storage", "scripting", "activeTab"],
+  "permissions": ["offscreen", "sidePanel", "storage", "scripting", "activeTab", "unlimitedStorage"],
   "host_permissions": ["http://127.0.0.1/*"],
   "optional_host_permissions": ["https://www.youtube.com/*"],
   "content_security_policy": {

@@ -77,10 +77,28 @@ describe('the link to the engine worker', () => {
     const slow = new WorkerEngine('engine-webgpu.js', 30_000, 60_000);
     const w2 = FakeWorker.last;
     const stuck = slow.init(pkg, attempt, () => {});
-    const caught = expect(stuck).rejects.toThrow('did not start in 60 s');
+    const caught = expect(stuck).rejects.toThrow('said nothing for 60 s while it started');
     await vi.advanceTimersByTimeAsync(60_000);
     await caught;
     expect(w2.terminated).toBe(true);
+  });
+
+  it('waits as long as a start says how far it is (the models downloading the first time), and no longer once it is silent', async () => {
+    const said: string[] = [];
+    const e = new WorkerEngine('engine-webgpu.js', 30_000, 60_000);
+    const w = FakeWorker.last;
+    const loading = e.init(pkg, attempt, (m) => said.push(m));
+    let settled = false;
+    void loading.then(() => (settled = true), () => (settled = true));
+    for (let i = 0; i < 5; i++) {
+      await vi.advanceTimersByTimeAsync(50_000);
+      w.say({ kind: 'progress', message: `downloading detector-v0.onnx, the first time only: ${i * 30} of 145 MB` });
+    }
+    expect(settled).toBe(false); // four minutes in, still going
+    expect(said).toHaveLength(5);
+    const caught = expect(loading).rejects.toThrow('said nothing for 60 s');
+    await vi.advanceTimersByTimeAsync(60_000);
+    await caught;
   });
 
   it('matches each frame to its answer by id, and to the state and the events', async () => {

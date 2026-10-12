@@ -12,7 +12,8 @@ import type { FromEngine, ToEngine } from './protocol';
 
 /** A frame that takes longer than this has hung the worker (the models load before the first frame is sent). */
 export const FRAME_MS = 30_000;
-/** Loading the models and the gallery, and the first runs, take a few seconds on a GPU and about a minute on WASM. */
+/** Loading the models and the gallery, and the first runs, take a few seconds on a GPU and about a minute on WASM; downloading
+ * the models the first time can take several minutes. A start that says nothing (no progress) for this long has hung. */
 export const INIT_MS = 180_000;
 
 export class WorkerEngine implements EngineWorker {
@@ -40,7 +41,7 @@ export class WorkerEngine implements EngineWorker {
 
   private on(m: FromEngine): void {
     if (m.kind === 'trace') this.onTrace?.(m);
-    else if (m.kind === 'progress') this.starting?.progress(m.message);
+    else if (m.kind === 'progress') this.heard(m.message);
     else if (m.kind === 'ready') this.settle(null);
     else if (m.kind === 'failed') this.settle(new Error(m.error));
     else {
@@ -51,6 +52,15 @@ export class WorkerEngine implements EngineWorker {
       if (m.kind === 'state') p.resolve({ state: m.state, events: m.events });
       else p.reject(new Error(m.error));
     }
+  }
+
+  /** A loading engine says how far it is: the time it may stay silent starts again. */
+  private heard(message: string): void {
+    const s = this.starting;
+    if (!s) return;
+    clearTimeout(s.timer);
+    s.timer = setTimeout(() => this.die(`the engine said nothing for ${this.initMs / 1000} s while it started`), this.initMs);
+    s.progress(message);
   }
 
   private settle(error: Error | null): void {
@@ -79,7 +89,7 @@ export class WorkerEngine implements EngineWorker {
 
   init(pkg: StandalonePackage, attempt: Attempt, progress: (message: string) => void, cards?: readonly CatalogRow[]): Promise<void> {
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => this.die(`the engine did not start in ${this.initMs / 1000} s`), this.initMs);
+      const timer = setTimeout(() => this.die(`the engine said nothing for ${this.initMs / 1000} s while it started`), this.initMs);
       this.starting = { resolve, reject, progress, timer };
       this.post({ kind: 'init', pkg, attempt, ...(cards ? { cards: [...cards] } : {}) });
     });

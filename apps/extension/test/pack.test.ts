@@ -298,6 +298,32 @@ describe.skipIf(!haveZip)('pack.mjs --store: the Chrome Web Store zip', () => {
     expect(readFileSync(join(models, 'embedder-v1.fp16.onnx'), 'utf8')).toContain('embedder-v1.fp16.onnx'); // and what they pointed to is not
   });
 
+  it('with --models-url, leaves the models out and lists each one in standalone.json: its address, sha256 and size (D-038)', () => {
+    const zip = join(out, 'wardeye-remote.zip');
+    const base = 'https://huggingface.co/owner/wardeye-models/resolve/0123abc/';
+    const r = run(args('--out', zip, '--precisions', 'detector:fp32,embedder:fp32+fp16', '--models-url', base.slice(0, -1))); // the / is added
+    expect(r.status, r.stderr).toBe(0);
+    const files = readZip(readFileSync(zip));
+    expect([...files.keys()].filter((n) => n.startsWith('models/'))).toEqual([]);
+    const pkg = JSON.parse(files.get('standalone.json')!.toString()) as { detector: object; embedder: object; downloads: Record<string, { url: string; sha256: string; bytes: number }> };
+    // the paths the engine asks for are the same; the files behind them are downloaded
+    expect(pkg.detector).toEqual({ id: 'detector-v0', fp32: 'models/detector-v0.onnx' });
+    expect(pkg.embedder).toEqual({ id: 'embedder-v1', fp32: 'models/embedder-v1.onnx', fp16: 'models/embedder-v1.fp16.onnx' });
+    expect(pkg.downloads).toEqual(
+      Object.fromEntries(['detector-v0.onnx', 'embedder-v1.onnx', 'embedder-v1.fp16.onnx'].map((f) => [`models/${f}`, { url: `${base}${f}`, sha256: sha(body(f)), bytes: body(f).length }])),
+    );
+    // and it says what to upload, and where
+    expect(r.stdout).toContain(`upload these files, unchanged, so that ${base}<name> serves each one`);
+    expect(r.stdout).toContain(`detector-v0.onnx  ${body('detector-v0.onnx').length} bytes  sha256 ${sha(body('detector-v0.onnx'))}`);
+    rmSync(zip);
+  });
+
+  it('refuses a --models-url that is not https', () => {
+    const r = run(args('--out', join(out, 'x.zip'), '--models-url', 'http://example.com/models/'));
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain('--models-url must be an https address');
+  });
+
   it('needs no catalogue and no thumbnails to be there', () => {
     const bare = join(root, 'bare-assets');
     mkdirSync(join(bare, 'gallery'), { recursive: true });

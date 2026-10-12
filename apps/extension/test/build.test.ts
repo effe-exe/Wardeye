@@ -262,9 +262,10 @@ describe('the store build of the extension (node build.mjs --store)', () => {
     expect({ ...manifest, host_permissions: srcManifest.host_permissions }).toEqual(srcManifest); // every other key as it is in src/manifest.json
     expect(manifest.version).toBe('0.3.0');
     // the engine's document, the plays panel beside the page, the settings, and YouTube once the viewer allows it (access.ts):
-    // the script registered for its pages, and the toolbar button's tab, whose address says it is YouTube. None of the five shows
-    // a warning, so an update that adds them leaves Wardeye on for everyone (D-037)
-    expect(manifest.permissions).toEqual(['offscreen', 'sidePanel', 'storage', 'scripting', 'activeTab']);
+    // the script registered for its pages, and the toolbar button's tab, whose address says it is YouTube (D-037); and room for
+    // the models downloaded the first time, which the browser then does not clear to make space (downloads.ts, D-038). None of
+    // the six shows a warning, so an update that adds them leaves Wardeye on for everyone
+    expect(manifest.permissions).toEqual(['offscreen', 'sidePanel', 'storage', 'scripting', 'activeTab', 'unlimitedStorage']);
     expect(manifest.optional_host_permissions).toEqual(YOUTUBE_ORIGINS); // asked for with a click, never at install
     expect((manifest.action as { default_title: string }).default_title).toBe('Wardeye is on. Click to turn it off (Alt+R)'); // the toolbar button, which turns it off
     expect(manifest.content_scripts.flatMap((c) => c.matches)).toEqual(['https://www.twitch.tv/*']); // on twitch.tv from the start; on YouTube once allowed

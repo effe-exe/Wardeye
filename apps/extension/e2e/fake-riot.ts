@@ -66,7 +66,7 @@ export interface FakeRiot {
 let certificate: { key: string; cert: string } | null = null;
 
 /** A certificate for the fake server, made once with the openssl command and thrown away with the folder. */
-function throwawayCertificate(): { key: string; cert: string } {
+export function throwawayCertificate(): { key: string; cert: string } {
   if (certificate) return certificate;
   const dir = mkdtempSync(join(tmpdir(), 'wardeye-fake-riot-'));
   try {
