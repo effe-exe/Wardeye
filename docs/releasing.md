@@ -210,6 +210,8 @@ RIFTEYE_DATA=~/rifteye-data npm run pack:firefox -w @rifteye/extension -- --out 
 8. On YouTube (a video whose title says Riftbound): click the toolbar button, allow YouTube, and it starts.
 9. Open `about:debugging`, then **Inspect** next to Wardeye: the console shows any error the background page had.
 
+**Submitted** to AMO (listed) on 2026-10-12: `wardeye-firefox-0.4.1.zip`, sha256 `3bc4480814161db3139ee6e191d90fbaff35bc243192288f172419662bcd522a`, packed from commit `0674673`, with its source `wardeye-0.4.1-source.zip` (`git archive` of that commit), sha256 `6b9b38bdc20254028700348c10a005f8f01ba080bc4e826a755cdf7ea99aa921`. Once approved, the AMO page is the Firefox install link.
+
 **Submit to AMO** (once the test passes and the models are on Hugging Face):
 
 - **Listing:** the same name, summary and description as the Chrome Web Store's; category Entertainment. The privacy policy: [PRIVACY.md](PRIVACY.md).
