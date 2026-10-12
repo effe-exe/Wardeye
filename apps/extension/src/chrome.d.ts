@@ -26,6 +26,8 @@ declare namespace chrome.runtime {
     addListener(cb: (message: any, sender: MessageSender, sendResponse: (response?: unknown) => void) => boolean | void): void;
   };
   function getContexts(filter: { contextTypes: string[] }): Promise<{ contextType: string }[]>;
+  // onInstalled, () => void, is declared in apps/bench/src/chrome.d.ts: the namespaces merge
+  const onStartup: { addListener(cb: () => void): void };
 }
 
 declare namespace chrome.offscreen {
@@ -44,12 +46,49 @@ declare namespace chrome.action {
 
 declare namespace chrome.tabs {
   function sendMessage(tabId: number, message: unknown): Promise<any>;
-  /** The plays panel's tab (and, in the tests, the worker's own view of the tabs): no "tabs" permission, so no addresses. */
-  function query(queryInfo: { active?: boolean; currentWindow?: boolean }): Promise<{ id?: number }[]>;
+  /** The plays panel's tab (and, in the tests, the worker's own view of the tabs): no "tabs" permission, so no addresses; a
+   * pattern of a site Wardeye may read (`url`) finds that site's tabs. */
+  function query(queryInfo: { active?: boolean; currentWindow?: boolean; url?: string }): Promise<{ id?: number }[]>;
   const onActivated: { addListener(cb: (info: { tabId: number; windowId: number }) => void): void };
   const onUpdated: { addListener(cb: (tabId: number, change: { status?: string }) => void): void };
   /** The plays panel's line to a tab's content script (its runtime.onConnect). */
   function connect(tabId: number, info?: { name?: string }): chrome.runtime.Port;
+}
+
+/** The optional site access (access.ts): YouTube, once the viewer allows it. */
+declare namespace chrome.permissions {
+  function contains(permissions: { origins?: string[] }): Promise<boolean>;
+  /** Shows the browser's prompt; only in answer to a click. */
+  function request(permissions: { origins?: string[] }): Promise<boolean>;
+  const onAdded: { addListener(cb: (permissions: { origins?: string[] }) => void): void };
+  const onRemoved: { addListener(cb: (permissions: { origins?: string[] }) => void): void };
+}
+
+/** The overlay's script on YouTube (access.ts): registered for its pages, or run in a tab that was open before. */
+declare namespace chrome.scripting {
+  interface RegisteredContentScript {
+    id: string;
+    matches?: string[];
+    js?: string[];
+    css?: string[];
+    runAt?: 'document_start' | 'document_end' | 'document_idle';
+    persistAcrossSessions?: boolean;
+  }
+  function registerContentScripts(scripts: RegisteredContentScript[]): Promise<void>;
+  function unregisterContentScripts(filter?: { ids?: string[] }): Promise<void>;
+  function getRegisteredContentScripts(filter?: { ids?: string[] }): Promise<RegisteredContentScript[]>;
+  function executeScript(injection: { target: { tabId: number }; files: string[] }): Promise<unknown[]>;
+  function insertCSS(injection: { target: { tabId: number }; files: string[] }): Promise<void>;
+}
+
+/** Firefox's sidebar (the plays panel there); Chrome has none, and the namespace is not there. */
+declare namespace chrome {
+  const sidebarAction: { open(): Promise<void>; close(): Promise<void> } | undefined;
+}
+
+/** A small window for the plays panel, where the browser's sidebar will not open (Firefox). */
+declare namespace chrome.windows {
+  function create(createData: { url: string; type?: 'normal' | 'popup'; width?: number; height?: number }): Promise<unknown>;
 }
 
 declare namespace chrome.sidePanel {

@@ -10,7 +10,9 @@
 // holds Riot's card list. Nothing is sent anywhere else. The worker keeps nothing the engine needs: a tab's board lives
 // in the engine document, so the worker can be put to sleep and woken at any time.
 
+import * as access from './access';
 import * as companion from './companion';
+import { here } from './engine-link';
 import { RETRY_AFTER_MS } from './mode';
 import { Standalone, cannotReadState, type Env } from './standalone';
 import type { State } from './geometry';
@@ -26,7 +28,7 @@ async function ensureDocument(): Promise<void> {
   const here = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
   if (here.length > 0) return;
   creating = chrome.offscreen
-    .createDocument({ url: OFFSCREEN, reasons: ['WORKERS'], justification: "Reads the Twitch player's frames with ONNX Runtime Web, in a worker, on this computer." })
+    .createDocument({ url: OFFSCREEN, reasons: ['WORKERS'], justification: "Reads the video player's frames with ONNX Runtime Web, in a worker, on this computer." })
     .finally(() => {
       creating = null;
     });
@@ -43,8 +45,9 @@ const env: Env = {
       return null; // not in this build
     }
   },
-  ensureDocument,
-  send: (request) => chrome.runtime.sendMessage(request),
+  // the engine's document (Chrome), or the engine in this very page (Firefox: engine-link.ts)
+  ensureDocument: () => (here() ? Promise.resolve() : ensureDocument()),
+  send: (request) => here()?.(request) ?? chrome.runtime.sendMessage(request),
 };
 
 const standalone = new Standalone(env, RETRY_AFTER_MS, __STORE__);
@@ -54,10 +57,17 @@ const standalone = new Standalone(env, RETRY_AFTER_MS, __STORE__);
 const ON_TITLE = 'Wardeye is on. Click to turn it off (Alt+R)';
 const OFF_TITLE = 'Wardeye is off. Click to turn it on (Alt+R)';
 void chrome.action.setBadgeBackgroundColor({ color: '#71717A' }).catch(() => {});
-chrome.action.onClicked.addListener((tab) => {
-  if (tab.id === undefined) return;
-  chrome.tabs.sendMessage(tab.id, { kind: 'toggle' }).catch(() => {}); // not a twitch.tv page: there is nothing to turn off
-});
+// On YouTube the first click asks for access to it, and starts Wardeye in the tab (access.ts).
+const apis = access.chromeBrowser();
+chrome.action.onClicked.addListener((tab) => void access.clicked(apis, tab).catch((e: unknown) => console.warn(`Wardeye: ${e instanceof Error ? e.message : String(e)}`)));
+// The overlay's script on YouTube follows the permission: when the worker starts, after an install or an update, and when the
+// viewer gives or takes back access in the browser's own settings.
+const syncAccess = (): void => void access.sync(apis).catch((e: unknown) => console.warn(`Wardeye: YouTube access: ${e instanceof Error ? e.message : String(e)}`));
+syncAccess();
+chrome.runtime.onInstalled.addListener(syncAccess);
+chrome.runtime.onStartup.addListener(syncAccess);
+chrome.permissions.onAdded.addListener(syncAccess);
+chrome.permissions.onRemoved.addListener(syncAccess);
 chrome.runtime.onMessage.addListener((msg: { kind?: unknown; on?: unknown }, sender) => {
   const tabId = sender.tab?.id;
   if (tabId === undefined) return;
@@ -66,9 +76,20 @@ chrome.runtime.onMessage.addListener((msg: { kind?: unknown; on?: unknown }, sen
     void chrome.action.setTitle({ tabId, title: msg.on ? ON_TITLE : OFF_TITLE }).catch(() => {});
   } else if (msg?.kind === 'open-panel') {
     // the badge's plays button, clicked: the browser's side panel opens on the plays panel (a click in a content script may)
-    void chrome.sidePanel?.open({ tabId }).catch(() => {});
+    if (chrome.sidePanel) void chrome.sidePanel.open({ tabId }).catch(() => {});
+    else void openPanelWindow(tabId);
   }
 });
+
+/** Firefox: its sidebar opens only from a click on the browser's own buttons, not from a click relayed from the page. When it
+ * will not open, the plays panel opens in a small window of its own, on this tab (panel.html?tab=). */
+async function openPanelWindow(tabId: number): Promise<void> {
+  try {
+    await chrome.sidebarAction!.open();
+  } catch {
+    await chrome.windows.create({ url: chrome.runtime.getURL(`panel.html?tab=${tabId}`), type: 'popup', width: 400, height: 760 }).catch(() => {});
+  }
+}
 
 /** A card's hover picture, base64, for the overlay and the plays panel alike; null when there is none. */
 async function art(printingId: string): Promise<string | null> {
@@ -104,6 +125,7 @@ chrome.runtime.onConnect.addListener((port) => {
   void standalone.warm();
   port.onDisconnect.addListener(() => void standalone.forget(tab));
   port.onMessage.addListener(async (msg: FromContent) => {
+    if (msg.kind === 'ping') return; // the event that keeps Firefox's background page, and its engine, running
     try {
       if (msg.kind === 'frame') {
         const served = await standalone.frame(tab, msg);

@@ -5,7 +5,7 @@
 // build), and the stand-in Twitch.
 
 import { spawnSync } from 'node:child_process';
-import { linkSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -43,6 +43,8 @@ export interface LoadOptions {
   store?: boolean;
   /** More arguments for Chromium (the fake Riot's: fake-riot.ts). */
   args?: readonly string[];
+  /** Sites the viewer has allowed (access.ts): granted in the copy's manifest, as the toolbar button's prompt would grant them. */
+  grant?: readonly string[];
 }
 
 /** A copy of the public build with the engine's stand-in bundles, onnxruntime-web's runtime files and (unless it is
@@ -59,6 +61,14 @@ export async function load(opts: LoadOptions = {}): Promise<Loaded> {
     if (built.status !== 0) throw new Error(`the store build failed: ${built.stderr}`);
   }
   mirror(dist, ext); // hard links: the engine's bundles are replaced below, never written through
+  if (opts.grant?.length) {
+    // a test cannot click the browser's prompt: the copy's manifest asks for the sites outright, which Chrome grants at install
+    const path = join(ext, 'manifest.json');
+    const manifest = JSON.parse(readFileSync(path, 'utf8')) as { host_permissions?: string[] };
+    manifest.host_permissions = [...(manifest.host_permissions ?? []), ...opts.grant];
+    rmSync(path); // the link, not the build's own file
+    writeFileSync(path, JSON.stringify(manifest, null, 2));
+  }
   if (opts.package !== null) {
     for (const name of ['engine-webgpu', 'engine-wasm']) {
       rmSync(join(ext, `${name}.js`));

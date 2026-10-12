@@ -1,7 +1,7 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 <!-- Copyright (C) 2026 Federico Vietti and Wardeye contributors -->
-<!-- The plays panel, in the browser's side panel beside the Twitch page. Three tabs: the match (each player's legend and what is
+<!-- The plays panel, in the browser's side panel beside the Twitch or YouTube page. Three tabs: the match (each player's legend and what is
      face up on their side of the table, and the plays as they happened, newest first; a play clicked jumps the replay to it),
      the decklists pasted for it, and the settings. panel.ts fills it. -->
 <html lang="en">
@@ -18,8 +18,11 @@
         <span id="mark" class="wd-mark-slot"></span>
         <div class="wd-head-text">
           <h1 class="wd-title">Wardeye</h1>
-          <p id="status" class="wd-status">Looking for the Twitch tab</p>
+          <p id="status" class="wd-status">Looking for the video's tab</p>
         </div>
+        <button id="close" class="wd-close" type="button" title="Close" aria-label="Close the plays panel">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+        </button>
       </header>
       <nav class="wd-tabs" role="tablist" aria-label="Panel">
         <button id="tab-match" class="wd-tab" type="button" role="tab" aria-selected="true" aria-controls="match">Match</button>
@@ -28,9 +31,19 @@
       </nav>
     </div>
     <main id="match" class="wd-pane" role="tabpanel" aria-labelledby="tab-match">
+      <div id="ask" class="wd-ask" role="status" hidden>
+        <p class="wd-ask-text">The table was cleared. Did a new match start?</p>
+        <div class="wd-ask-actions">
+          <button id="ask-new" class="wd-button" type="button">Start a new match</button>
+          <button id="ask-same" class="wd-quiet" type="button">Same match</button>
+        </div>
+      </div>
       <section id="players" class="wd-players" aria-label="Players"></section>
       <section class="wd-section" aria-labelledby="plays-head">
-        <h2 id="plays-head" class="wd-eyebrow">Plays</h2>
+        <div class="wd-section-head">
+          <h2 id="plays-head" class="wd-eyebrow">Plays</h2>
+          <button id="new-match" class="wd-quiet" type="button" title="Start the plays and the table over, for the next match in this video">New match</button>
+        </div>
         <p id="plays-note" class="wd-note" hidden></p>
         <ol id="plays" class="wd-plays"></ol>
       </section>

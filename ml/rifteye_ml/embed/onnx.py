@@ -39,6 +39,19 @@ def random_images(n: int, size: int, seed: int = 0) -> np.ndarray:
     return batch_of([g.resize((size, size), Image.BICUBIC) for g in grids], size)
 
 
+def clip_to_max(model):
+    """`Clip` with a lower bound alone (`F.normalize`'s `clamp_min(eps)`, the last step of the graph) written as `Max`:
+    the same values, bit for bit, and an operator every WebGPU shader compiler takes. Firefox's (naga) rejects
+    onnxruntime's Clip shader ("Invalid access into expression"), and the embedder could not run on WebGPU there.
+    Returns how many were rewritten; the model is changed in place."""
+    n = 0
+    for node in model.graph.node:
+        if node.op_type == "Clip" and len(node.input) == 2 and node.input[1] and not node.attribute:
+            node.op_type = "Max"
+            n += 1
+    return n
+
+
 def export(weights: str | Path, out_dir: str | Path, opset: int = OPSET,
            keep_fp32: Sequence[str] = ()) -> tuple[Path, Path]:
     """Write `<name>.onnx` (float32) and `<name>.fp16.onnx` for packed weights `<name>.pth`. `keep_fp32` names
@@ -59,6 +72,7 @@ def export(weights: str | Path, out_dir: str | Path, opset: int = OPSET,
                                     input_names=["crops"], output_names=["embedding"], external_data=False,
                                     dynamic_shapes=({0: torch.export.Dim("batch", min=1)},))
     model = program.model_proto
+    clip_to_max(model)
     onnx.checker.check_model(model)
     fp32, fp16 = out_dir / f"{weights.stem}.onnx", out_dir / f"{weights.stem}.fp16.onnx"
     onnx.save(model, fp32)

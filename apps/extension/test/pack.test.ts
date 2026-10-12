@@ -298,6 +298,56 @@ describe.skipIf(!haveZip)('pack.mjs --store: the Chrome Web Store zip', () => {
     expect(readFileSync(join(models, 'embedder-v1.fp16.onnx'), 'utf8')).toContain('embedder-v1.fp16.onnx'); // and what they pointed to is not
   });
 
+  it('with --models-url, leaves the models out and lists each one in standalone.json: its address, sha256 and size (D-038)', () => {
+    const zip = join(out, 'wardeye-remote.zip');
+    const base = 'https://huggingface.co/owner/wardeye-models/resolve/0123abc/';
+    const r = run(args('--out', zip, '--precisions', 'detector:fp32,embedder:fp32+fp16', '--models-url', base.slice(0, -1))); // the / is added
+    expect(r.status, r.stderr).toBe(0);
+    const files = readZip(readFileSync(zip));
+    expect([...files.keys()].filter((n) => n.startsWith('models/'))).toEqual([]);
+    const pkg = JSON.parse(files.get('standalone.json')!.toString()) as { detector: object; embedder: object; downloads: Record<string, { url: string; sha256: string; bytes: number }> };
+    // the paths the engine asks for are the same; the files behind them are downloaded
+    expect(pkg.detector).toEqual({ id: 'detector-v0', fp32: 'models/detector-v0.onnx' });
+    expect(pkg.embedder).toEqual({ id: 'embedder-v1', fp32: 'models/embedder-v1.onnx', fp16: 'models/embedder-v1.fp16.onnx' });
+    expect(pkg.downloads).toEqual(
+      Object.fromEntries(['detector-v0.onnx', 'embedder-v1.onnx', 'embedder-v1.fp16.onnx'].map((f) => [`models/${f}`, { url: `${base}${f}`, sha256: sha(body(f)), bytes: body(f).length }])),
+    );
+    // and it says what to upload, and where
+    expect(r.stdout).toContain(`upload these files, unchanged, so that ${base}<name> serves each one`);
+    expect(r.stdout).toContain(`detector-v0.onnx  ${body('detector-v0.onnx').length} bytes  sha256 ${sha(body('detector-v0.onnx'))}`);
+    rmSync(zip);
+  });
+
+  it('with --firefox, makes the zip from the Firefox build: no engine document, the Asyncify runtime, and the models downloaded (D-039)', () => {
+    const firefoxDist = join(root, 'dist-firefox');
+    build('--firefox', '--out', firefoxDist);
+    writeFileSync(join(ort, 'ort-wasm-simd-threaded.asyncify.mjs'), 'ort asyncify mjs');
+    writeFileSync(join(ort, 'ort-wasm-simd-threaded.asyncify.wasm'), 'ort asyncify wasm');
+    const zip = join(out, 'wardeye-firefox.zip');
+    const firefoxArgs = (...more: string[]) => ['--firefox', '--dist', firefoxDist, '--ort', ort, '--models', models, '--assets', assets, '--stage', stage, ...more];
+    // without --models-url the models go in, for a test in about:debugging, and it says the zip is too big for Firefox's store
+    const local = run(firefoxArgs('--out', zip));
+    expect(local.status, local.stderr).toBe(0);
+    expect(local.stderr).toContain('for a test in about:debugging only');
+    expect([...readZip(readFileSync(zip)).keys()]).toContain('models/detector-v0.onnx');
+    const r = run(firefoxArgs('--out', zip, '--models-url', 'https://huggingface.co/owner/wardeye-models/resolve/0123abc/'));
+    expect(r.status, r.stderr).toBe(0);
+    const names = [...readZip(readFileSync(zip)).keys()];
+    expect(names.filter((n) => n.startsWith('ort/')).sort()).toEqual(['ort/ort-wasm-simd-threaded.asyncify.mjs', 'ort/ort-wasm-simd-threaded.asyncify.wasm', 'ort/ort-wasm-simd-threaded.mjs', 'ort/ort-wasm-simd-threaded.wasm']);
+    expect(names.filter((n) => n.startsWith('offscreen') || n.startsWith('models/'))).toEqual([]);
+    expect(r.stdout).toContain('the extension for Firefox');
+    // and the Chrome build is not taken for Firefox's, nor Firefox's for Chrome's
+    expect(run(firefoxArgs('--out', zip, '--models-url', 'https://x.example/m/', '--dist', dist)).stderr).toMatch(/offscreen|is not Firefox's/);
+    expect(run(args('--out', join(out, 'chrome.zip'), '--dist', firefoxDist)).stderr).toMatch(/missing|is Firefox's/);
+    rmSync(zip);
+  });
+
+  it('refuses a --models-url that is not https', () => {
+    const r = run(args('--out', join(out, 'x.zip'), '--models-url', 'http://example.com/models/'));
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain('--models-url must be an https address');
+  });
+
   it('needs no catalogue and no thumbnails to be there', () => {
     const bare = join(root, 'bare-assets');
     mkdirSync(join(bare, 'gallery'), { recursive: true });
@@ -341,7 +391,7 @@ describe.skipIf(!haveZip)('pack.mjs --store: the Chrome Web Store zip', () => {
   });
 
   it('refuses a build that is not built, models that are missing, and a gallery made for another embedder', () => {
-    expect(run(args('--out', join(out, 'e.zip'), '--dist', join(root, 'nowhere'))).stderr).toContain('build the store version first');
+    expect(run(args('--out', join(out, 'e.zip'), '--dist', join(root, 'nowhere'))).stderr).toContain('build it first (npm run build:store -w @rifteye/extension)');
     expect(run(args('--out', join(out, 'e.zip'), '--models', join(root, 'nowhere'))).stderr).toContain('does not exist');
     writeFileSync(join(models, 'embedder-v1.fp16.onnx'), 'another export');
     const r = run(args('--out', join(out, 'e.zip')));

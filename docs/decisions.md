@@ -150,7 +150,7 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 - **Decision:**
   - The project is free for everyone. It offers no commercial licences, no paid tiers and no paid services.
   - The code stays AGPL-3.0-only, and contributors still sign the CLA, which keeps the licensing in one hand. [D-002](#d-002-permissive-dependencies-only)'s permissive-only rule stays for the same reason.
-  - The trained weights, and the data made from card art and broadcasts, are not published and are not open source. They ship only inside the extension.
+  - The trained weights, and the data made from card art and broadcasts, are not published and are not open source. They ship only inside the extension. (From [D-038](#d-038-the-models-are-downloaded-the-first-time-not-shipped-in-the-zip), the extension downloads them the first time instead; the terms are the same.)
   - Beyond its users, the project shows Gradeon's work on card recognition. The README credits the Maintainer and Gradeon; presenting the tool as Gradeon's waits for [D-021](#d-021-apply-to-riot-for-a-riftbound-app-key).
 - **Why:** the Maintainer's decision. Free and non-commercial also fits Riot's rules: the Legal Jibber Jabber's non-commercial licence, and the developer policies' "Charge money for your app or provide exclusive access" on the list of things not to do.
 
@@ -287,3 +287,87 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
   - On the replay the engine is checked against (Los Angeles' first 2 minutes at two frames a second), a Charm and the Grim Apothecary are gone, and nothing else changes.
   - A first version also asked the two centres to lie within a quarter of a card. It rested on the Vex, labelled by eye as a second copy, and let two of these false plays through. Five of the plays labelled by eye on Los Angeles were such cards announced again.
   - **Five frames a second is not always better than two.** On Barcelona's first 200 s, two frames a second announce 13 of the 15 plays labelled by eye and five 7 of them; on Los Angeles five find more. On Barcelona, where the hands stay low over the table, three ways a higher rate loses plays were found: a hand over the cards nearby keeps resetting the hand rule's half-second clock; an unsure card spends its 12 reads in under 2.5 s; and boxes settle faster, so a card's first reads come at another size. Pacing the hand rule and the re-reads every half second, and easing the boxes per second instead of per frame, found none of the missed plays, and were not adopted.
+
+### D-037: YouTube is asked for with a click, and read only on Riftbound videos
+
+- **Date:** 2026-10-12. **Status:** accepted; the Maintainer's decision ("enable on YouTube"). Ships in 0.3.0.
+- **Decision:**
+  - **One adapter per site** (`apps/extension/src/sites.ts`). It knows the site's pages, what names a video, which `<video>` is the player, ads and live streams. Nothing else in the extension knows a site's addresses or page structure.
+  - **On YouTube:**
+    - Wardeye reads only a video's own page (`/watch?v=…`, `/live/…`) and only the main player (`#movie_player`). It never reads the home page, search, Shorts, a channel's page or the previews of other videos.
+    - A video is its `?v=` id, so a playlist or a start time in the address is the same video.
+    - Nothing is read, and the overlay is hidden, while an ad plays.
+  - **YouTube is an optional permission** (`apps/extension/src/access.ts`). The first click on Wardeye's toolbar button on a YouTube page asks for it, registers the overlay's script for youtube.com and starts Wardeye in that tab. Taking the permission back, in the browser's extension settings, unregisters the script. The manifest's new permissions, `scripting` and `activeTab`, show no warning.
+  - **Wardeye starts by itself on YouTube only on a video whose title names Riftbound.** Any other video is read once the viewer turns Wardeye on for it, with the toolbar button or Alt+R. The engine, and Riot's card list, are reached only once there is a video to read.
+  - **Twitch reads as before:** every page, started as soon as it opens.
+- **Why:**
+  - **The permission.** An update that adds a site to the manifest switches the extension off for every user until they accept the new permission. And nobody who never watches Riftbound on YouTube should have to give Wardeye access to it.
+  - **The title rule.** YouTube is mostly other videos, and running the models on them would cost the viewer's computer for nothing.
+  - **The adapter.** Sites change their pages; the adapter keeps that breakage in one file with its own tests (R8 in [09](research/09-risks-and-open-questions.md)).
+  - **Checked so far:** the YouTube player's classes (`ad-showing`, `ad-interrupting`, the clock's `ytp-live`) were read from YouTube's own player stylesheet and script in October 2026. Everything else is tested on a stand-in YouTube page in the browser tests. Before 0.3.0 is submitted, the Maintainer checks it on real YouTube ([releasing.md](releasing.md#the-030-update)).
+- **Not done:** embedded YouTube players on other sites, the mobile site, and YouTube Shorts.
+
+### D-038: The models are downloaded the first time, not shipped in the zip
+
+- **Date:** 2026-10-12. **Status:** accepted; the Maintainer's decision ("go with dynamic model loading"). Amends how [D-022](#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)'s weights reach the viewer; their terms do not change. The host is Hugging Face (the Maintainer's choice, "go with hugging face").
+- **Decision:**
+  - **The zip does not hold the models.** `standalone.json` lists each one under `downloads`: an https address, its sha256 and its size (`pack.mjs --models-url`).
+  - **The first time the engine needs a model, it downloads it, checks its size and hash, and keeps it** in the browser's Cache Storage under its hash (`apps/extension/src/downloads.ts`). From then on it is read from there, with no network.
+    - A file that is not exactly what the package names is refused and not kept.
+    - Kept files the package no longer names are deleted, so an update does not leave old models behind.
+    - The gallery stays in the zip, and its check that the embedder is the one it was made with ([§8 of the architecture](ARCHITECTURE.md#8-model-and-index-versioning)) still applies.
+  - **Only what this browser runs is downloaded.** A GPU with `shader-f16` gets the detector in float32 and the embedder in float16, about 190 MB; WASM gets both in float32, about 233 MB.
+  - **The host needs no permission.** It must allow the download from any origin (CORS). Hugging Face and GitHub Pages do; GitHub release assets do not, and would need a host permission that switches the extension off for everyone until they accept it.
+  - **The download sends no cookie and no referrer.** The host sees the viewer's IP address and that a Wardeye extension asked; nothing else leaves the computer.
+  - **`unlimitedStorage`,** so that the browser does not clear the models to make room. It shows no warning.
+  - **The engine may take as long as it needs to start while it reports progress;** 180 s with no word is a hang. Before, 180 s in all was the limit.
+- **Why:**
+  - Firefox's add-on store takes at most 200 MB, and the store zip is 192 MB (318 MB unpacked). Without the models it is 15.6 MB (40.3 MB unpacked; measured on the 0.3.0 build).
+  - A smaller zip for every install and update.
+  - New models without a new store review, and models for other kinds of streams (virtual tabletops) that only their viewers download.
+  - The weights are no more exposed than before: the zip with them is already public on each GitHub release ([D-035](#d-035-each-releases-zip-is-on-github-too)). They stay closed: all rights reserved, usable only to run Wardeye.
+- **The host: Hugging Face,** a public model repository whose card says the files' terms ([docs/model-card.md](model-card.md)). The options weighed:
+  - **Hugging Face:** CORS, files of any size, a CDN; a third-party account, and the files sit in a public model repository.
+  - **GitHub Pages:** CORS, under the project's own name; files under 100 MB each (the detector is 145 MB, so in two parts, which the extension does not read yet), a soft limit of 100 GB of traffic a month (about 500 first installs), and the files stay in a git history.
+  - Either way, the address names a fixed version (a commit), so that a file never changes under it; the sha256 is checked regardless.
+  - **Where it is:** [huggingface.co/ilDoc/wardeye-models](https://huggingface.co/ilDoc/wardeye-models), the Maintainer's account, since 2026-10-12. 0.4.0 names commit `8b1c31ef`; each file's size and sha256 were checked on the Hub against the files the pack was made with, through the download a browser makes (a redirect to Hugging Face's CDN, both with CORS).
+- **Not done:** the extension cannot yet join a file sent in parts.
+
+### D-039: Firefox, from the same code
+
+- **Date:** 2026-10-12. **Status:** accepted; the Maintainer's decision ("we need it available for firefox"). Runs in Firefox on the Maintainer's Mac (0.4.1, on WebGPU, on a Twitch replay of the Chengdu nationals); this environment has no Firefox, and the Maintainer tests it ([releasing.md](releasing.md#firefox)). Needs [D-038](#d-038-the-models-are-downloaded-the-first-time-not-shipped-in-the-zip).
+- **Decision:** One code base; `build.mjs --firefox` and `pack.mjs --firefox` make the Firefox add-on. What differs:
+  - **The engine runs in the background page.** Firefox has no offscreen documents, and its background page is a page. The engine's page is `engine-document.ts`, and two things reach it:
+    - in Chrome, `offscreen.ts`, by runtime messages, as before;
+    - in Firefox, `background-firefox.ts`, which holds it together with the worker's code (`engine-link.ts`).
+  - **The manifest:**
+    - a background script (`background.scripts`), not a service worker;
+    - Firefox's sidebar for the plays panel. Where it will not open from a click on the badge, the panel opens in a small window of its own;
+    - the add-on's id, `wardeye@effe-exe.github.io`, which never changes once published;
+    - Firefox 141 or newer, the first with WebGPU;
+    - `data_collection_permissions: none`, which Mozilla's store asks of every new add-on;
+    - no offscreen, side panel or cross-origin isolation keys.
+  - **The code calls Firefox's own `browser` namespace,** whose calls all return promises: the build rewrites `chrome` to `globalThis.browser`.
+  - **WebGPU through onnxruntime-web's Asyncify runtime,** the same native WebGPU backend as Chrome's but built without JSPI, which Firefox has only lately or not at all.
+  - **The models are downloaded** (D-038): Mozilla's store takes at most 200 MB. A zip with the models in it is for a test only.
+- **What to expect:**
+  - **WebGPU is on in Firefox for Windows (141 and newer) and Apple-silicon Macs (147 and newer).** On Linux and Intel Macs it may be off.
+  - **Without WebGPU, the engine runs on the processor with one thread.** Firefox gives extension pages no cross-origin isolation (Mozilla bug 1673477), so no WASM threads. Not measured; estimated at several times slower than Chrome's four threads, which already take 7.5 s a frame on a 4-core CPU without a GPU. The badge says "on the processor".
+  - **Checked in a real Firefox** (the Maintainer's Mac, 0.4.1): WebGPU in a background page's worker, and the Asyncify runtime reading a Twitch replay's table and outlining its cards. **Not checked yet:** the typefaces' addresses in the overlay, the sidebar and the window fallback, YouTube, and the speed on other GPUs.
+- **Why one code base:** a second extension would drift from the first. The differences are in the build (the manifest, the namespace, the runtime) and in one file each for the engine's host.
+- **What the first runs in Firefox found** (each fixed in 0.4.1, with its test):
+  - **The frame:** a content script's copy of the page's JPEG, byte by byte, failed; the frame is read as a data: URL (FileReader). A player whose picture cannot be read keeps its badge, which says so ([D-037](#d-037-youtube-is-asked-for-with-a-click-and-read-only-on-riftbound-videos)).
+  - **The embedder's one Clip** (`F.normalize`'s `clamp_min`): Firefox's shader compiler (naga) rejects onnxruntime's Clip shader. It runs as a Max, the same values bit for bit, rewritten as the model is opened on WebGPU after its sha256 is taken (`packages/engine/src/onnx-rewrite.ts`); the next export writes it so (`ml`: `clip_to_max`). The WebGPU engine also tries the float32 embedder before WASM, and a refused shader's compiler message goes with the reason on the badge.
+  - **Time:** the first look for the table runs the detector 30 times, longer than a frame's 30 s on Firefox's WebGPU; it gets WASM's 5 minutes there. And Firefox stops a background (event) page after 30 s with no event, the engine with it: the tab pings the worker every 10 s while a frame is read.
+  - **WASM is no way on in Firefox:** an extension page there has a single thread, and the detector cannot keep up. Firefox needs WebGPU (141 or newer; 147 on Apple-silicon Macs).
+
+### D-040: A new match in the same video is asked about, never assumed
+
+- **Date:** 2026-10-12. **Status:** accepted; the Maintainer's request ("we need to ask if new match started"). For 0.4.2.
+- **Context:** a VOD of a whole event, or a live stream, plays one game after another. Wardeye kept the first game's legends pinned and its plays on the list through the next ones.
+- **Decision:**
+  - **The plays panel asks** "The table was cleared. Did a new match start?" when a table that held a game (6 or more cards, legends aside) has held one card or none for 20 s of the video. A card only out of sight stays on the board, so a cleared table means the cards were taken off it. Pauses and slow computers change nothing (the video's clock); a seek starts the timing again (`apps/extension/src/match.ts`).
+  - **Start a new match:** the tab gives the match a number of its own, and the engine reads it as another video: a new board, legends and table learnt afresh, the plays list empty. The decklists stay (the same players, often). **Same match:** nothing changes, and it is asked again only after another game on the table.
+  - **A "New match" button** by the plays' heading does it at any time.
+- **Why ask:** a wrong guess would lose a game's plays, and a long pause between turns can look like a cleared table.
+- **Not done:** the question is in the panel only; with the panel closed, nothing asks.

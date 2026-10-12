@@ -36,7 +36,13 @@ export interface ArtMessage {
   printing_id: string;
 }
 
-export type FromContent = FrameMessage | ArtMessage;
+/** While a frame is being read, every few seconds: an event for Firefox's background page, which Firefox stops after 30 s
+ * with none (and with it the engine, mid-look). Nothing answers it. */
+export interface PingMessage {
+  kind: 'ping';
+}
+
+export type FromContent = FrameMessage | ArtMessage | PingMessage;
 
 export type ToContent =
   /** `events`: what happened on the table in that frame (a card played, left), for the plays panel; none from the live runner. */

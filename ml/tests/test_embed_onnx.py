@@ -117,3 +117,41 @@ def test_the_live_runner_calibrates_the_export_like_the_embedder():
     assert temperature_for("onnx:/x/embedder-v1.fp16.onnx", object(), None) == EMBEDDER_T
     assert temperature_for("onnx:/x/embedder-v1.onnx", object(), 0.02) == 0.02
     assert temperature_for("colorgrid", object(), None) is None
+
+
+def test_the_exported_graph_has_no_clip_which_firefoxs_webgpu_cannot_compile(exported):
+    import onnx
+
+    for f in exported[2]:
+        ops = {n.op_type for n in onnx.load(str(f)).graph.node}
+        assert "Clip" not in ops, f.name
+
+
+def test_a_lower_bound_clip_written_as_max_gives_the_same_values():
+    for mod in ("onnx", "onnxruntime"):
+        pytest.importorskip(mod)
+    import onnx
+    import onnxruntime as ort
+    from onnx import TensorProto, helper
+
+    from rifteye_ml.embed.onnx import clip_to_max
+
+    def graph():
+        eps = helper.make_tensor("eps", TensorProto.FLOAT, [], [1e-12])
+        node = helper.make_node("Clip", ["x", "eps"], ["y"], name="node_clamp_min")
+        g = helper.make_graph([node], "g", [helper.make_tensor_value_info("x", TensorProto.FLOAT, [4, 1])],
+                              [helper.make_tensor_value_info("y", TensorProto.FLOAT, [4, 1])], [eps])
+        return helper.make_model(g, opset_imports=[helper.make_opsetid("", 20)], ir_version=10)
+
+    x = np.array([[0.0], [1e-20], [0.5], [3.0]], np.float32)
+    before = ort.InferenceSession(graph().SerializeToString(), providers=["CPUExecutionProvider"]).run(None, {"x": x})[0]
+    m = graph()
+    assert clip_to_max(m) == 1
+    onnx.checker.check_model(m)
+    assert [n.op_type for n in m.graph.node] == ["Max"]
+    after = ort.InferenceSession(m.SerializeToString(), providers=["CPUExecutionProvider"]).run(None, {"x": x})[0]
+    np.testing.assert_array_equal(after, before)
+    # a Clip with an upper bound, or with attributes (an older opset), is left alone
+    m2 = graph()
+    m2.graph.node[0].input.append("eps")
+    assert clip_to_max(m2) == 0

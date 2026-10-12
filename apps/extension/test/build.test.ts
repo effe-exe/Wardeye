@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { YOUTUBE_ORIGINS } from '../src/access';
 import { FEED_URL, IMAGE_ORIGIN } from '../src/feed';
 import { MARK_SHAPES } from '../src/mark';
 
@@ -75,6 +76,12 @@ describe('the build of the extension', () => {
     expect(JSON.stringify(manifest)).not.toMatch(/rifteye/i);
   });
 
+  it('runs the overlay once in a page, however often it is injected (the toolbar button injects it into YouTube tabs)', () => {
+    const js = built('content.js');
+    expect(js.startsWith('if (!globalThis.__wardeye) { globalThis.__wardeye = true;\n')).toBe(true);
+    expect(js.trimEnd().endsWith('\n}')).toBe(true);
+  });
+
   it('declares its four icons, and ships them: PNGs of the sizes they are named for', () => {
     expect(Object.keys(manifest.icons).sort((a, b) => Number(a) - Number(b))).toEqual(['16', '32', '48', '128']);
     for (const [size, path] of Object.entries(manifest.icons)) {
@@ -84,10 +91,10 @@ describe('the build of the extension', () => {
     }
   });
 
-  it('copies the three typefaces, and each one licence, into dist/fonts, and makes those typefaces web accessible to twitch.tv and nothing else', () => {
+  it('copies the three typefaces, and each one licence, into dist/fonts, and makes those typefaces web accessible to the two sites and nothing else', () => {
     for (const { file } of brand.FONTS) expect(readFileSync(join(dist, file)).equals(readFileSync(join(BRAND, file))), file).toBe(true);
     expect(readdirSync(join(dist, 'fonts')).filter((n) => n.startsWith('OFL-')).sort()).toEqual(['OFL-Inter.txt', 'OFL-JetBrainsMono.txt', 'OFL-SpaceGrotesk.txt']);
-    expect(manifest.web_accessible_resources).toEqual([{ resources: brand.FONTS.map((f) => f.file), matches: ['https://www.twitch.tv/*'] }]);
+    expect(manifest.web_accessible_resources).toEqual([{ resources: brand.FONTS.map((f) => f.file), matches: ['https://www.twitch.tv/*', ...YOUTUBE_ORIGINS] }]);
     for (const r of manifest.web_accessible_resources.flatMap((w) => w.resources)) expect(existsSync(join(dist, r)), r).toBe(true);
   });
 
@@ -165,7 +172,7 @@ describe('the build of the extension', () => {
 
   it('builds the plays panel and opens it in the side panel: its page loads its own script and stylesheet, and nothing else', () => {
     expect(manifest.side_panel).toEqual({ default_path: 'panel.html' });
-    expect(manifest.permissions).toEqual(['offscreen', 'sidePanel', 'storage']);
+    expect(manifest.permissions).toContain('sidePanel');
     const html = built('panel.html');
     expect([...html.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1])).toEqual(['panel.css', 'panel.js']);
     expect(html).not.toMatch(/https?:\/\//);
@@ -253,10 +260,15 @@ describe('the store build of the extension (node build.mjs --store)', () => {
     expect(JSON.stringify(manifest)).not.toContain('127.0.0.1');
     expect(manifest.host_permissions).toEqual(['https://content.publishing.riotgames.com/*', 'https://cmsassets.rgpub.io/*']); // exactly these two
     expect({ ...manifest, host_permissions: srcManifest.host_permissions }).toEqual(srcManifest); // every other key as it is in src/manifest.json
-    expect(manifest.version).toBe('0.2.3');
-    expect(manifest.permissions).toEqual(['offscreen', 'sidePanel', 'storage']); // the engine's document, and the plays panel beside the page
+    expect(manifest.version).toBe('0.4.2');
+    // the engine's document, the plays panel beside the page, the settings, and YouTube once the viewer allows it (access.ts):
+    // the script registered for its pages, and the toolbar button's tab, whose address says it is YouTube (D-037); and room for
+    // the models downloaded the first time, which the browser then does not clear to make space (downloads.ts, D-038). None of
+    // the six shows a warning, so an update that adds them leaves Wardeye on for everyone
+    expect(manifest.permissions).toEqual(['offscreen', 'sidePanel', 'storage', 'scripting', 'activeTab', 'unlimitedStorage']);
+    expect(manifest.optional_host_permissions).toEqual(YOUTUBE_ORIGINS); // asked for with a click, never at install
     expect((manifest.action as { default_title: string }).default_title).toBe('Wardeye is on. Click to turn it off (Alt+R)'); // the toolbar button, which turns it off
-    expect(manifest.content_scripts.flatMap((c) => c.matches)).toEqual(['https://www.twitch.tv/*']); // it runs on twitch.tv and nowhere else
+    expect(manifest.content_scripts.flatMap((c) => c.matches)).toEqual(['https://www.twitch.tv/*']); // on twitch.tv from the start; on YouTube once allowed
   });
 
   it("asks for the hosts the code reads from: the card list's and the pictures'", () => {
@@ -293,8 +305,68 @@ describe('the store build of the extension (node build.mjs --store)', () => {
   it('refuses what it does not know, and writes to dist-store/ (never over dist/) when no folder is named', () => {
     const run = spawnSync('node', [join(EXT, 'build.mjs'), '--store', '--nonsense'], { encoding: 'utf8' });
     expect(run.status).not.toBe(0);
-    expect(run.stderr).toContain('usage: node build.mjs [--store] [--out DIR]');
+    expect(run.stderr).toContain('usage: node build.mjs [--store | --firefox] [--out DIR]');
     const src = readFileSync(join(EXT, 'build.mjs'), 'utf8');
-    expect(src).toContain("here(store ? './dist-store' : './dist')");
+    expect(src).toContain("const folder = firefox ? 'dist-firefox' : store ? 'dist-store' : 'dist';");
+  });
+});
+
+describe('the Firefox build of the extension (node build.mjs --firefox)', () => {
+  let firefox: string;
+  let store: string;
+  let manifest: Manifest;
+  const read = (dir: string, f: string) => readFileSync(join(dir, f), 'utf8');
+
+  beforeAll(() => {
+    firefox = mkdtempSync(join(tmpdir(), 'wardeye-firefox-build-test-'));
+    store = mkdtempSync(join(tmpdir(), 'wardeye-store-build-test-'));
+    for (const [args, dir] of [[['--firefox'], firefox], [['--store'], store]] as const) {
+      const run = spawnSync('node', [join(EXT, 'build.mjs'), ...args, '--out', dir], { encoding: 'utf8' });
+      expect(run.status, run.stderr).toBe(0);
+    }
+    manifest = JSON.parse(read(firefox, 'manifest.json')) as Manifest;
+  }, 60_000);
+
+  afterAll(() => {
+    rmSync(firefox, { recursive: true, force: true });
+    rmSync(store, { recursive: true, force: true });
+  });
+
+  it("is the store's manifest in Firefox's terms: a background page, its sidebar, its id, and no data collected (D-039)", () => {
+    const chrome = JSON.parse(read(store, 'manifest.json')) as Manifest;
+    expect(manifest.background).toEqual({ scripts: ['worker.js'], type: 'module' }); // Firefox runs a page, not a service worker
+    expect(manifest.sidebar_action).toMatchObject({ default_panel: 'panel.html' });
+    expect(manifest.browser_specific_settings).toEqual({ gecko: { id: 'wardeye@effe-exe.github.io', strict_min_version: '141.0', data_collection_permissions: { required: ['none'] } } });
+    // no offscreen document, no side panel, no cross-origin isolation (Firefox has none of them for extensions)
+    expect(manifest.permissions).toEqual(['storage', 'scripting', 'activeTab', 'unlimitedStorage']);
+    for (const key of ['side_panel', 'cross_origin_embedder_policy', 'cross_origin_opener_policy']) expect(manifest[key], key).toBeUndefined();
+    // and everything else as the store's: the same sites, the same hosts of Riot's gallery, the same version
+    for (const key of ['version', 'description', 'content_scripts', 'host_permissions', 'optional_host_permissions', 'web_accessible_resources', 'content_security_policy', 'icons', 'action']) {
+      expect(manifest[key], key).toEqual(chrome[key]);
+    }
+  });
+
+  it("runs the engine in the background page: no engine document, and the worker's bundle holds the engine's page", () => {
+    expect(existsSync(join(firefox, 'offscreen.html'))).toBe(false);
+    expect(existsSync(join(firefox, 'offscreen.js'))).toBe(false);
+    expect(read(firefox, 'worker.js')).toMatch(/new WorkerEngine\(`engine-\$\{attempt.runtime\}.js`, 10 \* (3e4|FRAME_MS)\)/); // WebGPU in Firefox gets WASM's time
+    expect(read(store, 'worker.js')).not.toContain('new WorkerEngine('); // Chrome's worker leaves the engine to its document
+  });
+
+  it("calls Firefox's own namespace, which returns promises, and no local name stands in for it", () => {
+    for (const f of ['worker.js', 'content.js', 'panel.js']) {
+      const js = read(firefox, f);
+      expect(js.match(/\bchrome\.[a-z]/gi), f).toBeNull();
+      expect(js, f).toContain('globalThis.browser.runtime.');
+      expect(js, f).not.toMatch(/\bbrowser2\b/);
+    }
+  });
+
+  it("takes onnxruntime-web's Asyncify WebGPU runtime (no JSPI), and finds the typefaces at moz-extension:// addresses", () => {
+    expect(read(firefox, 'engine-webgpu.js')).toContain('ort-wasm-simd-threaded.asyncify.mjs');
+    expect(read(firefox, 'engine-webgpu.js')).not.toContain('ort-wasm-simd-threaded.jspi.mjs');
+    expect(read(store, 'engine-webgpu.js')).toContain('ort-wasm-simd-threaded.jspi.mjs');
+    expect(read(firefox, 'overlay.css')).toContain('moz-extension://__MSG_@@extension_id__/fonts/');
+    expect(read(firefox, 'overlay.css')).not.toContain('chrome-extension://');
   });
 });

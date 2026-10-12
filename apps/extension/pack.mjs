@@ -11,8 +11,9 @@
 //
 //   node pack.mjs --out OUT.zip [--models DIR] [--assets DIR] [--precisions detector:fp32,embedder:fp16] [--size-only]
 //                 [--part-bytes N] [--runtime auto|webgpu|wasm|companion] [--layout NAME]
-//                 [--dist DIR] [--ort DIR] [--stage DIR] [--no-verify]
+//                 [--dist DIR] [--ort DIR] [--stage DIR] [--no-verify] [--models-url URL]
 //   node pack.mjs --store --out OUT.zip [--models DIR] [--assets DIR] [--precisions ...] [--dist DIR] [--ort DIR] [--stage DIR]
+//                 [--models-url URL]
 //
 // --out         the parts are OUT.part-aa, OUT.part-ab, ...; OUT ends in .zip
 // --models      where the ONNX files are (default $RIFTEYE_DATA/models/onnx)
@@ -26,6 +27,13 @@
 // --size-only   builds nothing: streams the zip through a byte counter and prints what it would be
 // --no-verify   skips the check of the parts (their sha256 and every file of the joined zip)
 // --stage       where the staging folder of symlinks goes (default: a folder of its own under the temp folder)
+// --firefox     the Firefox zip (decision D-039), for addons.mozilla.org: --store's zip, from the Firefox build (npm run build:firefox
+//               -w @rifteye/extension: --dist defaults to dist-firefox/), with onnxruntime-web's Asyncify WebGPU runtime instead of
+//               the JSPI one. Firefox's store takes at most 200 MB, so the zip for it is made with --models-url; without, the
+//               models go in, and the zip is for a test only (about:debugging, Load Temporary Add-on).
+// --models-url  the models are not put in the zip (decision D-038): the extension downloads each the first time it needs it,
+//               from this https address followed by the file's name, and checks it against the size and sha256 written in
+//               standalone.json. Upload the files it lists there, unchanged, before the zip is published.
 // --store       the Chrome Web Store zip (decision D-025) instead of the private build: ONE zip whose root is the extension
 //               (manifest.json at the root), from the store build (npm run build:store -w @rifteye/extension: --dist defaults to
 //               dist-store/, and is refused when it is not the store's). It holds the extension, ort/, models/ (the detector in
@@ -62,6 +70,9 @@ const DIST_FILES = [
 ];
 // onnxruntime-web's runtime: the native WebGPU build (JSPI) and the plain WASM build; not JSEP (broken for GridSample in fp16)
 const ORT_FILES = ['ort-wasm-simd-threaded.jspi.mjs', 'ort-wasm-simd-threaded.jspi.wasm', 'ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm'];
+// Firefox: no engine document (the engine runs in the background page), and the Asyncify build of the WebGPU runtime
+const FIREFOX_DIST_FILES = DIST_FILES.filter((f) => f !== 'offscreen.html' && f !== 'offscreen.js');
+const FIREFOX_ORT_FILES = ['ort-wasm-simd-threaded.asyncify.mjs', 'ort-wasm-simd-threaded.asyncify.wasm', 'ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm'];
 const PORTABLE = /^[A-Za-z0-9._-]+$/; // a file name that every system unzips
 const MODELS = ['detector-v0', 'embedder-v1'];
 // the store's manifest: access to Riot's public card gallery and nothing else (build.mjs --store writes it)
@@ -69,7 +80,9 @@ const RIOT_HOSTS = ['https://content.publishing.riotgames.com/*', 'https://cmsas
 const USAGE =
   'usage: node pack.mjs --out FILE.zip [--models DIR] [--assets DIR] [--precisions detector:fp32,embedder:fp16] [--size-only] [--part-bytes N] ' +
   '[--runtime auto|webgpu|wasm|companion] [--layout NAME] [--dist DIR] [--ort DIR] [--stage DIR] [--no-verify]\n' +
-  '   or: node pack.mjs --store --out FILE.zip [--models DIR] [--assets DIR] [--precisions ...] [--dist DIR] [--ort DIR] [--stage DIR]';
+  '   or: node pack.mjs --store --out FILE.zip [--models DIR] [--assets DIR] [--precisions ...] [--dist DIR] [--ort DIR] [--stage DIR]\n' +
+  '   or: node pack.mjs --firefox --out FILE.zip --models-url https://HOST/PATH/ [the --store options]\n' +
+  '   either with [--models-url https://HOST/PATH/]: the models are downloaded by the extension, not put in the zip';
 
 class PackError extends Error {}
 const fail = (message) => {
@@ -101,7 +114,7 @@ function parseArgs(argv) {
   const data = process.env.RIFTEYE_DATA || null;
   const o = {
     out: null, models: data && join(data, 'models', 'onnx'), assets: data && join(data, 'm3', 'web-assets'), precisions: parsePrecisions('detector:fp32,embedder:fp16'), sizeOnly: false, partBytes: 30_800_000,
-    runtime: 'auto', layout: null, dist: null, ort: null, stage: null, verify: true, store: false,
+    runtime: 'auto', layout: null, dist: null, ort: null, stage: null, verify: true, store: false, firefox: false, modelsUrl: null,
   };
   const given = new Set();
   for (let i = 0; i < argv.length; i++) {
@@ -109,6 +122,7 @@ function parseArgs(argv) {
     given.add(flag);
     const value = () => inline ?? argv[++i] ?? fail(USAGE);
     if (flag === '--store') o.store = true;
+    else if (flag === '--firefox') o.firefox = o.store = true; // Firefox's zip is the store's, in Firefox's terms
     else if (flag === '--out') o.out = value();
     else if (flag === '--models') o.models = value();
     else if (flag === '--assets') o.assets = value();
@@ -121,16 +135,23 @@ function parseArgs(argv) {
     else if (flag === '--stage') o.stage = value();
     else if (flag === '--size-only') o.sizeOnly = true;
     else if (flag === '--no-verify') o.verify = false;
+    else if (flag === '--models-url') o.modelsUrl = value();
     else fail(USAGE);
   }
   if (!['auto', 'webgpu', 'wasm', 'companion'].includes(o.runtime)) fail('--runtime is auto, webgpu, wasm or companion');
+  if (o.modelsUrl !== null) {
+    if (!/^https:\/\/[^/]+\//.test(o.modelsUrl)) fail('--models-url must be an https address, e.g. https://huggingface.co/OWNER/REPO/resolve/COMMIT/');
+    if (!o.modelsUrl.endsWith('/')) o.modelsUrl += '/';
+  }
   if (!Number.isInteger(o.partBytes) || o.partBytes < 1000) fail('--part-bytes must be a whole number of at least 1000');
   if (o.store) {
     // one zip, made the way the store takes it: nothing of the private build's parts, and its runtime is the browser's to choose
     for (const flag of ['--part-bytes', '--size-only', '--runtime', '--layout', '--no-verify']) if (given.has(flag)) fail(`${flag} does not apply to --store (one zip, always checked, its runtime is auto)`);
     if (!o.out) fail(USAGE);
+    // with the models in it, the zip is too big for Firefox's store (200 MB at most), but loads as a temporary add-on, for a test
+    if (o.firefox && !o.modelsUrl) console.warn('pack: the models go in the zip: for a test in about:debugging only. addons.mozilla.org takes at most 200 MB: pack it with --models-url (D-039)');
   } else if (!o.sizeOnly && !o.out) fail(USAGE);
-  o.dist ??= here(o.store ? './dist-store' : './dist');
+  o.dist ??= here(o.firefox ? './dist-firefox' : o.store ? './dist-store' : './dist');
   if (!o.models) fail('--models: name the folder with the ONNX files, or set RIFTEYE_DATA to the private data folder');
   if (!o.assets) fail('--assets: name the folder web_assets.py wrote, or set RIFTEYE_DATA to the private data folder');
   return o;
@@ -216,11 +237,31 @@ async function checkAssets(assetsDir, modelsDir, models, store = false) {
 }
 
 /** standalone.json: what the extension is told about the package. */
-function standaloneJson(o, models) {
+function standaloneJson(o, models, downloads = null) {
   const files = (id) => ({ id, ...Object.fromEntries(Object.entries(models[id]).map(([p, name]) => [p, `models/${name}`])) });
   return `${JSON.stringify({
     format: 1, runtime: o.runtime, detector: files('detector-v0'), embedder: files('embedder-v1'), data: 'data/', ...(o.layout ? { layout: o.layout } : {}),
+    ...(downloads ? { downloads } : {}),
   }, null, 2)}\n`;
+}
+
+/** With --models-url: each model file the zip does not hold, by its path in the package: the address it is downloaded from, its
+ * sha256 and its size (standalone.json's downloads, which the extension checks a download against). */
+async function downloadsOf(base, modelsDir, models) {
+  const out = {};
+  for (const id of Object.keys(models)) {
+    for (const name of Object.values(models[id])) {
+      const file = join(modelsDir, name);
+      out[`models/${name}`] = { url: `${base}${name}`, sha256: await sha256File(file), bytes: statSync(file).size };
+    }
+  }
+  return out;
+}
+
+/** What to upload to the --models-url address, said once the zip is made. */
+function sayUploads(base, downloads) {
+  console.log(`the models are not in the zip: upload these files, unchanged, so that ${base}<name> serves each one`);
+  for (const [path, d] of Object.entries(downloads)) console.log(`  ${path.replace(/^models\//, '')}  ${d.bytes} bytes  sha256 ${d.sha256}`);
 }
 
 const INSTALL = `Wardeye, standalone build (private)
@@ -323,8 +364,11 @@ function stager(stageRoot, made) {
 }
 
 /** The store's manifest, checked: access to Riot's public card gallery (its two hosts) and to nothing else, never to 127.0.0.1. */
-function checkStoreManifest(manifest, where) {
+function checkStoreManifest(manifest, where, firefox = false) {
   const hosts = JSON.stringify(manifest.host_permissions ?? []);
+  const gecko = manifest.browser_specific_settings?.gecko;
+  if (firefox && !gecko?.id) fail(`${where} is not Firefox's (no browser_specific_settings.gecko.id): npm run build:firefox -w @rifteye/extension`);
+  if (!firefox && gecko) fail(`${where} is Firefox's: the Chrome Web Store zip is made from npm run build:store -w @rifteye/extension`);
   if (JSON.stringify(manifest).includes('127.0.0.1')) fail(`${where} mentions 127.0.0.1: it is not the store build (npm run build:store -w @rifteye/extension)`);
   if (hosts !== JSON.stringify(RIOT_HOSTS)) fail(`${where}: host_permissions are ${hosts}, the store's are ${JSON.stringify(RIOT_HOSTS)} (npm run build:store -w @rifteye/extension)`);
 }
@@ -343,7 +387,7 @@ const storeForbidden = (n) => n === 'data/catalog.json' || n.startsWith('data/th
 
 /** The store zip, checked: every entry passes its CRC, its entries are what was staged and no more, manifest.json is at its root,
  * nothing that must not be there is, and its manifest is the store's. Returns what it holds. */
-function verifyStoreZip(file, staged) {
+function verifyStoreZip(file, staged, remote = false, firefox = false) {
   const t = unzip(['-tq', file]);
   if (t.status !== 0) fail(`the zip does not pass unzip -t: ${`${t.stdout}${t.stderr}`.trim().split('\n').pop()}`);
   const names = unzip(['-Z1', file]).stdout.split('\n').filter(Boolean);
@@ -354,11 +398,19 @@ function verifyStoreZip(file, staged) {
   if (!names.includes('manifest.json')) fail('manifest.json is not at the root of the zip');
   const bad = names.filter(storeForbidden);
   if (bad.length) fail(`the store zip holds what it must not (no card picture, name or text; D-015, D-025): ${bad.slice(0, 5).join(', ')}`);
-  const absent = STORE_REQUIRED.filter((n) => !names.includes(n));
+  const absent = STORE_REQUIRED.filter((n) => !names.includes(n) && !(remote && n.startsWith('models/')));
+  if (firefox) for (const n of FIREFOX_ORT_FILES) if (!names.includes(`ort/${n}`)) absent.push(`ort/${n}`);
+  if (remote) {
+    // the models are downloaded: none is in the zip, and standalone.json lists every one, with what it must be
+    const held = names.filter((n) => n.startsWith('models/'));
+    if (held.length) fail(`the store zip holds models although they are downloaded: ${held.join(', ')}`);
+    const listed = Object.keys(JSON.parse(unzip(['-p', file, 'standalone.json']).stdout).downloads ?? {});
+    for (const n of STORE_REQUIRED.filter((r) => r.startsWith('models/'))) if (!listed.includes(n)) absent.push(`standalone.json's download of ${n}`);
+  }
   if (!names.some((n) => /^licenses\/onnxruntime-.+-ThirdPartyNotices\.txt$/.test(n))) absent.push('licenses/onnxruntime-*-ThirdPartyNotices.txt');
   if (names.filter((n) => /^fonts\/OFL-.+\.txt$/.test(n)).length < 3) absent.push('fonts/OFL-*.txt');
   if (absent.length) fail(`the store zip lacks ${absent.join(', ')}`);
-  checkStoreManifest(JSON.parse(unzip(['-p', file, 'manifest.json']).stdout), 'the zip\'s manifest.json');
+  checkStoreManifest(JSON.parse(unzip(['-p', file, 'manifest.json']).stdout), 'the zip\'s manifest.json', firefox);
   return { names, top: [...new Set(names.map((n) => (n.includes('/') ? `${n.split('/')[0]}/` : n)))] };
 }
 
@@ -367,12 +419,15 @@ async function mainStore(o, made) {
   const outFile = resolve(o.out);
   if (!outFile.endsWith('.zip')) fail(`${outFile}: the output must end in .zip`);
   const dist = resolve(o.dist);
-  for (const f of DIST_FILES) if (!existsSync(join(dist, f))) fail(`${join(dist, f)} is missing: build the store version first (npm run build:store -w @rifteye/extension)`);
-  const extra = listFiles(dist).filter((f) => !DIST_FILES.includes(f.split(sep).join('/')));
+  const distFiles = o.firefox ? FIREFOX_DIST_FILES : DIST_FILES;
+  const ortFiles = o.firefox ? FIREFOX_ORT_FILES : ORT_FILES;
+  const build = o.firefox ? 'npm run build:firefox -w @rifteye/extension' : 'npm run build:store -w @rifteye/extension';
+  for (const f of distFiles) if (!existsSync(join(dist, f))) fail(`${join(dist, f)} is missing: build it first (${build})`);
+  const extra = listFiles(dist).filter((f) => !distFiles.includes(f.split(sep).join('/')));
   if (extra.length) fail(`${dist} holds files the store zip does not: ${extra.slice(0, 5).join(', ')}`);
-  checkStoreManifest(JSON.parse(readFileSync(join(dist, 'manifest.json'), 'utf8')), `${join(dist, 'manifest.json')}`);
+  checkStoreManifest(JSON.parse(readFileSync(join(dist, 'manifest.json'), 'utf8')), `${join(dist, 'manifest.json')}`, o.firefox);
   const ort = ortDir(o.ort);
-  for (const f of ORT_FILES) if (!existsSync(join(ort, f))) fail(`${join(ort, f)} is missing (onnxruntime-web's runtime file)`);
+  for (const f of ortFiles) if (!existsSync(join(ort, f))) fail(`${join(ort, f)} is missing (onnxruntime-web's runtime file)`);
   const modelsDir = resolve(o.models);
   const assetsDir = resolve(o.assets);
   const models = chooseModels(modelsDir, o.precisions);
@@ -388,14 +443,15 @@ async function mainStore(o, made) {
   const top = join(stageRoot, 'wardeye');
   if (existsSync(top)) fail(`${top} exists already; remove it or pass another --stage`);
   const st = stager(stageRoot, made);
-  for (const f of DIST_FILES) st.link(join(dist, f), join(top, f));
-  for (const f of ORT_FILES) st.link(join(ort, f), join(top, 'ort', f));
-  for (const id of Object.keys(models)) for (const name of Object.values(models[id])) st.link(join(modelsDir, name), join(top, 'models', name));
+  for (const f of distFiles) st.link(join(dist, f), join(top, f));
+  for (const f of ortFiles) st.link(join(ort, f), join(top, 'ort', f));
+  const downloads = o.modelsUrl ? await downloadsOf(o.modelsUrl, modelsDir, models) : null;
+  if (!downloads) for (const id of Object.keys(models)) for (const name of Object.values(models[id])) st.link(join(modelsDir, name), join(top, 'models', name));
   st.link(join(assetsDir, 'gallery', 'index.json'), join(top, 'data', 'gallery', 'index.json'));
   for (const l of index.levels) st.link(join(assetsDir, 'gallery', `L${l}.bin`), join(top, 'data', 'gallery', `L${l}.bin`));
   for (const f of ['LICENSE', 'NOTICE']) st.link(join(root, f), join(top, f));
   for (const n of notices) st.link(join(root, 'licenses', n), join(top, 'licenses', n));
-  st.write(join(top, 'standalone.json'), standaloneJson(o, models));
+  st.write(join(top, 'standalone.json'), standaloneJson(o, models, downloads));
   const staged = made.files.map((f) => relative(top, f).split(sep).join('/'));
 
   // one zip, written beside its final name and moved there once it checks out (an earlier zip of the name is replaced)
@@ -408,14 +464,15 @@ async function mainStore(o, made) {
       zip.on('error', (e) => reject(e.code === 'ENOENT' ? new PackError('the zip command is not installed') : e));
       zip.on('close', (code) => (code === 0 ? done() : reject(new PackError(`zip exited with code ${code}`))));
     });
-    const held = verifyStoreZip(partial, staged);
+    const held = verifyStoreZip(partial, staged, downloads !== null, o.firefox);
     renameSync(partial, outFile);
     const bytes = statSync(outFile).size;
-    console.log(`  ${held.names.length} files: the extension, ${ORT_FILES.length} onnxruntime-web files, models (${MODELS.map((id) => `${id.split('-')[0]} ${o.precisions[id].join('+')}`).join(', ')}), ` +
+    console.log(`  ${held.names.length} files: the extension${o.firefox ? ' for Firefox' : ''}, ${ortFiles.length} onnxruntime-web files, models (${MODELS.map((id) => `${id.split('-')[0]} ${o.precisions[id].join('+')}`).join(', ')}${downloads ? ', downloaded, not in the zip' : ''}), ` +
       `${index.levels.length} gallery levels of ${index.rows.length} printings, notices; ${mb(st.unpacked)} unpacked; no catalogue, no thumbnails`);
     console.log(`${outFile}: ${bytes} bytes (${mb(bytes)}), sha256 ${await sha256File(outFile)}`);
     console.log(`top level: ${held.top.join(' ')}`);
     console.log('verified: unzip -t passes for every entry; the entries are the ones staged; manifest.json is at the root and is the store\'s (no 127.0.0.1); no card picture, name or text');
+    if (downloads) sayUploads(o.modelsUrl, downloads);
   } finally {
     rmSync(partial, { force: true });
   }
@@ -444,7 +501,8 @@ async function main(o, made) {
   const { link, write } = st;
   for (const f of DIST_FILES) link(join(dist, f), join(top, f));
   for (const f of ORT_FILES) link(join(ort, f), join(top, 'ort', f));
-  for (const id of Object.keys(models)) for (const name of Object.values(models[id])) link(join(modelsDir, name), join(top, 'models', name));
+  const downloads = o.modelsUrl ? await downloadsOf(o.modelsUrl, modelsDir, models) : null;
+  if (!downloads) for (const id of Object.keys(models)) for (const name of Object.values(models[id])) link(join(modelsDir, name), join(top, 'models', name));
   link(join(assetsDir, 'catalog.json'), join(top, 'data', 'catalog.json'));
   link(join(assetsDir, 'gallery', 'index.json'), join(top, 'data', 'gallery', 'index.json'));
   for (const l of index.levels) link(join(assetsDir, 'gallery', `L${l}.bin`), join(top, 'data', 'gallery', `L${l}.bin`));
@@ -453,7 +511,7 @@ async function main(o, made) {
     link(join(assetsDir, 'thumbs', name), join(top, 'data', 'thumbs', name));
   }
   for (const f of ['LICENSE', 'NOTICE']) if (existsSync(join(root, f))) link(join(root, f), join(top, f));
-  write(join(top, 'standalone.json'), standaloneJson(o, models));
+  write(join(top, 'standalone.json'), standaloneJson(o, models, downloads));
   write(join(top, 'INSTALL.txt'), INSTALL);
 
   const fileCount = made.files.length;
@@ -498,6 +556,7 @@ async function main(o, made) {
     console.log(`verified: the parts join to the zip that was streamed (sha256 ${v.sha.slice(0, 12)}...)${v.files === null ? '' : `, and every one of its ${v.files} entries passes its CRC`}${v.note ? `; ${v.note}` : ''}`);
   }
   console.log(`to rebuild the zip: cat ${basename(outFile)}.part-* > ${basename(outFile)}`);
+  if (downloads) sayUploads(o.modelsUrl, downloads);
 }
 
 // what a run makes in the staging folder is removed at the end: the links and the two generated files (never what the

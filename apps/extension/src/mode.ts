@@ -64,9 +64,13 @@ export function plan(pkg: StandalonePackage, caps: Capabilities, setting: Runtim
     if (!caps.webgpu) why.push(`this browser has no WebGPU adapter${caps.gpu ? ` (${caps.gpu})` : ''}`);
     else if (!caps.jspi) why.push('this browser has no WebAssembly JSPI (the native WebGPU runtime needs it)');
     else if (!has(detector, 'fp32')) why.push('the package holds no float32 detector (its float16 file fails on WebGPU)');
-    else if (caps.shaderF16 && has(embedder, 'fp16')) attempts.push({ runtime: 'webgpu', detector: 'fp32', embedder: 'fp16' });
-    else if (has(embedder, 'fp32')) attempts.push({ runtime: 'webgpu', detector: 'fp32', embedder: 'fp32' });
-    else why.push('the GPU has no shader-f16 and the package holds no float32 embedder');
+    else {
+      // the embedder in float16 where the GPU can; then in float32, for a browser whose WebGPU has shader-f16 but rejects one
+      // of the float16 shaders (Firefox: "ShaderModule with 'Clip' label is invalid")
+      if (caps.shaderF16 && has(embedder, 'fp16')) attempts.push({ runtime: 'webgpu', detector: 'fp32', embedder: 'fp16' });
+      if (has(embedder, 'fp32')) attempts.push({ runtime: 'webgpu', detector: 'fp32', embedder: 'fp32' });
+      if (attempts.length === 0) why.push('the GPU has no shader-f16 and the package holds no float32 embedder');
+    }
   }
   // plain WASM: asked for, or the way on for a browser that has WebGPU but could not use it (or, with no live runner to
   // leave the frames to, one that has none); float32 files first (a float16 file is computed in float32 inside, and slower)

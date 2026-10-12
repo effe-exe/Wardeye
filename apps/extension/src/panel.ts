@@ -26,6 +26,7 @@ const playersEl = document.getElementById('players')!;
 const playsEl = document.getElementById('plays')!;
 const noteEl = document.getElementById('plays-note')!;
 const listsEl = document.getElementById('lists')!;
+const askEl = document.getElementById('ask')!;
 const SLOTS = 2; // a box for each player, as the content script keeps them
 
 let tabId: number | null = null;
@@ -57,6 +58,14 @@ function mark(): SVGSVGElement {
   return svg;
 }
 document.getElementById('mark')!.append(mark());
+
+/** Closes the panel. Chrome's side panel and the panel's own window close as a window does; Firefox's sidebar has a call of
+ * its own, which Firefox allows only in answer to a click (the close button's, not the badge's: that one opens a window). */
+function closePanel(): void {
+  if (FIXED === null && chrome.sidebarAction) void chrome.sidebarAction.close().catch(() => window.close());
+  else window.close();
+}
+document.getElementById('close')!.addEventListener('click', closePanel);
 
 // --- pictures ---------------------------------------------------------------------------------------------------------
 
@@ -243,15 +252,17 @@ function drawSlots(s: Snapshot | null): void {
 
 function render(s: Snapshot | null): void {
   if (!s) {
+    askEl.hidden = true;
     if (shownLists !== 'none') drawSlots(null);
     shownLists = 'none';
-    statusEl.textContent = 'Open a Riftbound video on Twitch: its plays are listed here as Wardeye reads the table.';
+    statusEl.textContent = 'Open a Riftbound video on Twitch or YouTube: its plays are listed here as Wardeye reads the table. On YouTube, click Wardeye\'s toolbar button once to allow it there.';
     playersEl.replaceChildren();
     playsEl.replaceChildren();
     noteEl.hidden = true;
     shownPlays = '';
     return;
   }
+  askEl.hidden = !s.asking;
   statusEl.textContent = !s.on ? 'Off in this tab: nothing is read. Turn it on from the badge, the toolbar button or Alt+R.' : s.message || 'Reading the table';
   playersEl.replaceChildren(...s.sides.map(sideSection));
   const lists = s.lists ?? [];
@@ -287,15 +298,31 @@ async function follow(force = false): Promise<void> {
   p.onMessage.addListener((m: unknown) => {
     retries = 0;
     if (isSnapshot(m)) render(m);
+    else if ((m as { kind?: unknown } | null)?.kind === 'close') closePanel(); // the badge's plays button, clicked again
   });
   p.onDisconnect.addListener(() => {
     if (line !== p) return;
     line = null;
-    render(null); // not a Twitch page, or its page is loading: asked again in a moment
+    render(null); // not a page Wardeye reads, or its page is loading: asked again in a moment
     if (++retries <= RETRIES) retry = setTimeout(() => void follow(true), RETRY_MS);
   });
   line = p;
 }
+
+// --- a new match in the same video: the answers, and the button ---------------------------------------------------
+
+/** Tells the tab: a new match started (its plays and board start over), or the cleared table was the same match. */
+function answer(kind: 'new-match' | 'same-match'): void {
+  try {
+    line?.postMessage({ kind });
+  } catch {
+    // the tab is gone: there is nothing to start over
+  }
+  askEl.hidden = true;
+}
+document.getElementById('ask-new')!.addEventListener('click', () => answer('new-match'));
+document.getElementById('ask-same')!.addEventListener('click', () => answer('same-match'));
+document.getElementById('new-match')!.addEventListener('click', () => answer('new-match'));
 
 // --- the tabs: the match, the decklists, and the settings ------------------------------------------------------------
 

@@ -7,6 +7,7 @@
 // no files and no browser.
 
 import type { CatalogRow } from '@rifteye/engine';
+import type { Download } from './downloads';
 
 /** How the engine is asked to run: 'auto' chooses from the browser; the others force one way (a package's
  * standalone.json can say, for a machine that needs it). */
@@ -35,6 +36,8 @@ export interface StandalonePackage {
   threads?: number;
   /** The engine worker says what the finder and the embedder gave, for a check against a reference (the browser replay). */
   trace?: boolean;
+  /** Files the package names but does not hold, by their path in it: downloaded once and kept (downloads.ts, D-038). */
+  downloads?: Record<string, Download>;
 }
 
 export interface GalleryIndex {
@@ -105,6 +108,25 @@ export function parsePackage(x: unknown): StandalonePackage {
     const threads = x.threads;
     if (typeof threads !== 'number' || !Number.isInteger(threads) || threads < 1 || threads > 8) throw new Error('standalone.json: threads must be a whole number from 1 to 8');
     out.threads = threads;
+  }
+  if (x.downloads !== undefined) out.downloads = downloads(x.downloads);
+  return out;
+}
+
+/** standalone.json's downloads: for each path, an https address, a sha256 and a size. */
+function downloads(x: unknown): Record<string, Download> {
+  const where = 'standalone.json: downloads';
+  if (!isObject(x)) throw new Error(`${where} must be an object`);
+  const out: Record<string, Download> = {};
+  for (const [path, d] of Object.entries(x)) {
+    const at = `${where}: ${path}`;
+    if (!isObject(d)) throw new Error(`${at} must be an object`);
+    const url = field(d, 'url', isString, 'an address', at);
+    if (!url.startsWith('https://')) throw new Error(`${at}: url must be https`);
+    const sha256 = field(d, 'sha256', (v): v is string => typeof v === 'string' && /^[0-9a-f]{64}$/.test(v), 'a sha256 in lowercase hex', at);
+    const bytes = field(d, 'bytes', isInt, 'a whole number', at);
+    if (bytes < 1) throw new Error(`${at}: bytes must be positive`);
+    out[path] = { url, sha256, bytes };
   }
   return out;
 }
