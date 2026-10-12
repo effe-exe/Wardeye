@@ -4,7 +4,13 @@ import { loadedFonts } from './brand';
 import { load, offscreenDocuments, unload, type Loaded } from './harness';
 import { youtube } from './youtube';
 
-const worker = async (context: BrowserContext) => context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+/** The extension's service worker (not any other worker the browser runs). */
+const worker = async (context: BrowserContext) =>
+  context.serviceWorkers().find((w) => w.url().startsWith('chrome-extension://')) ??
+  (await context.waitForEvent('serviceworker', { predicate: (w) => w.url().startsWith('chrome-extension://') }));
+/** The overlay scripts the worker registered; none yet while the worker is still starting (its APIs not bound). */
+const registered = async (context: BrowserContext): Promise<string[]> =>
+  (await worker(context)).evaluate(async () => ((await chrome.scripting?.getRegisteredContentScripts()) ?? []).map((s) => s.id));
 
 /** What the plays panel would be told of the YouTube tab: its video's key and title, and its plays. */
 async function snapshot(context: BrowserContext): Promise<{ video: string; title: string; on: boolean; plays: unknown[] }> {
@@ -27,9 +33,7 @@ test('on YouTube, once allowed, Wardeye reads the player of a video\'s page and 
     loaded = await load({ grant: YOUTUBE_ORIGINS });
     const { context } = loaded;
     // allowed: the worker registers the overlay's script for YouTube's pages
-    await expect
-      .poll(async () => (await worker(context)).evaluate(async () => (await chrome.scripting.getRegisteredContentScripts()).map((s) => s.id)), { timeout: 20_000 })
-      .toEqual([SCRIPT_ID]);
+    await expect.poll(() => registered(context), { timeout: 20_000 }).toEqual([SCRIPT_ID]);
     const page = await youtube(context);
     const root = page.locator('.rifteye-root');
 
@@ -86,7 +90,7 @@ test('on YouTube, a video whose title does not name Riftbound is read only once 
   try {
     loaded = await load({ grant: YOUTUBE_ORIGINS });
     const { context } = loaded;
-    await expect.poll(async () => (await worker(context)).evaluate(async () => (await chrome.scripting.getRegisteredContentScripts()).length), { timeout: 20_000 }).toBe(1);
+    await expect.poll(() => registered(context), { timeout: 20_000 }).toEqual([SCRIPT_ID]);
     const page = await youtube(context, 16, 'Pasta carbonara in 10 minutes');
     await page.goto('https://www.youtube.com/watch?v=CCCCCCCCCCC');
     const root = page.locator('.rifteye-root');
@@ -110,6 +114,22 @@ test('on YouTube, a video whose title does not name Riftbound is read only once 
     await toggle();
     await expect(root).toBeHidden();
     expect(await snapshot(context)).toMatchObject({ on: false });
+  } finally {
+    await unload(loaded);
+  }
+});
+
+test("on YouTube, a video in the player whose picture cannot be read (another site's, like an ad) is passed over", async () => {
+  test.setTimeout(180_000);
+  let loaded: Loaded | null = null;
+  try {
+    loaded = await load({ grant: YOUTUBE_ORIGINS });
+    const { context } = loaded;
+    await expect.poll(() => registered(context), { timeout: 20_000 }).toEqual([SCRIPT_ID]);
+    const page = await youtube(context, 16, 'Riftbound test', true);
+    await page.goto('https://www.youtube.com/watch?v=AAAAAAAAAAA');
+    await expect(page.locator('polygon.rifteye-box')).toHaveCount(2, { timeout: 90_000 });
+    await expect(page.locator('.rifteye-label', { hasText: /\S/ })).toHaveText(['Test Unit']);
   } finally {
     await unload(loaded);
   }

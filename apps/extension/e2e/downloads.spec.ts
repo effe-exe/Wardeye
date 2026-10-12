@@ -1,5 +1,6 @@
 import { expect, test, type BrowserContext } from '@playwright/test';
 import { MODELS_URL, fakeModels, type FakeModels } from './fake-models';
+import { fakeRiot, type FakeRiot } from './fake-riot';
 import { documentIds, load, offscreenDocuments, twitch, unload, type Loaded } from './harness';
 import { standInModels } from './standins';
 
@@ -9,13 +10,29 @@ async function closeEngine(context: BrowserContext): Promise<void> {
   await sw.evaluate(() => chrome.offscreen.closeDocument());
 }
 
+const RULES = '--host-resolver-rules=';
+/** Chromium's arguments for both fakes at once: one list of host mappings (a second flag would replace the first). */
+function bothFakes(models: FakeModels, riot: FakeRiot): string[] {
+  const rules = [...models.args, ...riot.args].filter((a) => a.startsWith(RULES)).map((a) => a.slice(RULES.length));
+  const rest = new Set([...models.args, ...riot.args].filter((a) => !a.startsWith(RULES)));
+  return [`${RULES}${rules.join(', ')}`, ...rest];
+}
+
+/** The store build, with the models downloaded from the fake host. It is the build that downloads them, and it has no local
+ * runner to fall back on (the dev build would draw another test's fake runner's boxes). Riot's gallery is a fake, empty. */
+async function loadStore(host: FakeModels, riot: FakeRiot): Promise<Loaded> {
+  return load({ store: true, package: { remote: MODELS_URL }, args: bothFakes(host, riot) });
+}
+
 test('the models are downloaded the first time, with no permission, then read from the browser\'s cache', async () => {
   test.setTimeout(240_000);
   let host: FakeModels | null = null;
+  let riot: FakeRiot | null = null;
   let loaded: Loaded | null = null;
   try {
     host = await fakeModels(standInModels());
-    loaded = await load({ package: { remote: MODELS_URL }, args: host.args });
+    riot = await fakeRiot([]);
+    loaded = await loadStore(host, riot);
     const { context } = loaded;
     const page = await twitch(context, 30);
     await page.goto('https://www.twitch.tv/videos/12345');
@@ -38,18 +55,21 @@ test('the models are downloaded the first time, with no permission, then read fr
   } finally {
     await unload(loaded);
     await host?.close();
+    await riot?.close();
   }
 });
 
 test('a downloaded model that is not the file the package names is refused, kept nowhere, and the reason is said', async () => {
   test.setTimeout(120_000);
   let host: FakeModels | null = null;
+  let riot: FakeRiot | null = null;
   let loaded: Loaded | null = null;
   try {
     host = await fakeModels(standInModels());
     const detector = host.files.get('standin-detector.onnx')!;
     host.files.set('standin-detector.onnx', detector.map((b) => b ^ 1)); // the same size, other bytes
-    loaded = await load({ package: { remote: MODELS_URL }, args: host.args });
+    riot = await fakeRiot([]);
+    loaded = await loadStore(host, riot);
     const { context } = loaded;
     const said: string[] = [];
     context.on('console', (m) => {
@@ -63,5 +83,6 @@ test('a downloaded model that is not the file the package names is refused, kept
   } finally {
     await unload(loaded);
     await host?.close();
+    await riot?.close();
   }
 });
