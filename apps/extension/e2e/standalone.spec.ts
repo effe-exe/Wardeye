@@ -215,6 +215,35 @@ test("a bigger player whose picture cannot be read (another site's video, like T
   }
 });
 
+test('a page whose only player cannot be read keeps the badge on it, saying so', async () => {
+  test.setTimeout(120_000);
+  let loaded: Loaded | null = null;
+  try {
+    loaded = await load();
+    const { context } = loaded;
+    const page = await context.newPage();
+    await page.goto('about:blank');
+    const webm = await makeVideo(page, 16, ['#c0a040', '#40a0c0']);
+    await context.route('https://ads.wardeye.test/**', (route) => route.fulfill({ status: 200, contentType: 'video/webm', body: webm }));
+    await context.route('https://www.twitch.tv/**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'text/html',
+        body: '<!doctype html><html><body style="margin:0;background:#000"><video src="https://ads.wardeye.test/ad.webm" muted autoplay loop playsinline style="width:960px;height:540px"></video></body></html>',
+      }),
+    );
+    const said: string[] = [];
+    page.on('console', (m) => void (m.text().includes('cannot be read') && said.push(m.text())));
+    await page.goto('https://www.twitch.tv/videos/12345');
+    await expect(page.locator('.rifteye-badge-main')).toContainText('this player cannot be read', { timeout: 60_000 });
+    await page.waitForTimeout(2000);
+    await expect(page.locator('.rifteye-badge-main')).toBeVisible(); // it stays
+    expect(said[0]).toMatch(/^Wardeye: this player cannot be read \(SecurityError: /); // and the console says why
+  } finally {
+    await unload(loaded);
+  }
+});
+
 test('a worker put to sleep and woken again goes on with the same engine document', async () => {
   test.setTimeout(180_000);
   let loaded: Loaded | null = null;

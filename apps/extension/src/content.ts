@@ -11,7 +11,6 @@
 // How it looks is overlay.css (the brand book's section 8); this file makes the markup and never sets a colour.
 
 import { NAME, badge, badgeDetail, badgeParts, becameNamed, belowAnchor, boxClass, captureSize, contentRect, corners, drawn, frameInterval, hoverCard, label, labelAnchor, ticksClass, type State, type Track, type Under } from './geometry';
-import { b64Of } from './base64';
 import { MARK_SHAPES, MARK_VIEWBOX } from './mark';
 import type { BoardEvent } from './parts';
 import { PlayLog, sidesOf, type Snapshot } from './plays';
@@ -224,19 +223,29 @@ let announced: boolean | null = null; // what the toolbar button was last told
 
 /** The main player: the largest video the site's adapter offers that has a picture; none on a page with no video to read. */
 function findVideo(): HTMLVideoElement | null {
+  stuck = null;
   if (videoKey() === null) return null;
   let best: HTMLVideoElement | null = null;
   let area = 0;
+  let stuckArea = 0;
   for (const v of site.videos(page)) {
     const r = v.getBoundingClientRect();
-    if (unreadable.get(v) === v.currentSrc) continue;
-    if (v.readyState >= 2 && r.width >= 320 && r.width * r.height > area) {
+    if (v.readyState < 2 || r.width < 320) continue;
+    if (unreadable.get(v) === v.currentSrc) {
+      if (r.width * r.height > stuckArea) {
+        stuck = v;
+        stuckArea = r.width * r.height;
+      }
+    } else if (r.width * r.height > area) {
       best = v;
       area = r.width * r.height;
     }
   }
+  if (best) stuck = null;
   return best;
 }
+/** The player the overlay stays on when every player on the page cannot be read: its badge says so, and nothing is grabbed. */
+let stuck: HTMLVideoElement | null = null;
 
 async function capture(v: HTMLVideoElement): Promise<string | null> {
   const [w, h] = captureSize(v.videoWidth, v.videoHeight);
@@ -244,7 +253,18 @@ async function capture(v: HTMLVideoElement): Promise<string | null> {
   grab.height = h;
   grab.getContext('2d')?.drawImage(v, 0, 0, w, h);
   const blob = await new Promise<Blob | null>((resolve) => grab.toBlob(resolve, 'image/jpeg', 0.85));
-  return blob ? b64Of(await blob.arrayBuffer()) : null;
+  return blob ? base64Of(blob) : null;
+}
+
+/** A blob's bytes, base64. Read by the browser (a data: URL), not copied byte by byte: in Firefox, a content script's view of the
+ * page's bytes may not be copied that way. */
+function base64Of(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).slice(String(reader.result).indexOf(',') + 1));
+    reader.onerror = () => reject(reader.error ?? new Error('the frame could not be read'));
+    reader.readAsDataURL(blob);
+  });
 }
 
 function tick(): void {
@@ -271,9 +291,10 @@ function tick(): void {
       if (!jpeg || !port) inFlight = false;
       else port.postMessage({ kind: 'frame', t, video: key, jpeg, ...(filledLists().length ? { lists: filledLists() } : {}) });
     })
-    .catch(() => {
+    .catch((e: unknown) => {
       // a player whose picture cannot be read (an ad from another site, a protected stream): nothing to send. It is passed over
       // while it plays this, and the next frame is grabbed on a clean canvas, from the next player if there is one
+      console.warn(`${NAME}: this player cannot be read (${e instanceof Error ? `${e.name}: ${e.message}` : String(e)})`);
       inFlight = false;
       unreadable.set(v, v.currentSrc);
       grab = document.createElement('canvas');
@@ -285,12 +306,13 @@ function tick(): void {
 function place(): void {
   const host = document.fullscreenElement ?? document.body;
   if (root.parentElement !== host) host.append(root);
-  if (!video || !active() || site.interrupted(page)) {
+  const on = video ?? stuck;
+  if (!on || !active() || site.interrupted(page)) {
     if (root.style.display !== 'none') root.style.display = 'none';
     return;
   }
-  const r = video.getBoundingClientRect();
-  const c = contentRect({ left: r.left, top: r.top, width: r.width, height: r.height }, video.videoWidth, video.videoHeight);
+  const r = on.getBoundingClientRect();
+  const c = contentRect({ left: r.left, top: r.top, width: r.width, height: r.height }, on.videoWidth, on.videoHeight);
   // this runs on every display frame: write to the page only when the picture moved or changed size
   const spot = `${c.left},${c.top},${c.width},${c.height}`;
   if (spot !== placedSpot || root.style.display === 'none') {
