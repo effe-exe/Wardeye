@@ -103,9 +103,16 @@ export async function loadParts(ctx: LoadContext): Promise<Parts> {
         return boxes;
       });
       const rec = new recognizer.Recognizer(layout, gallery.rows, timedEncoder, pyramidFor(layout), { title: layout.title, fps, finder, temperature: EMBEDDER_T });
+      let saidAt: number | null = null;
       return {
         async step(t: number, frame: RgbImage): Promise<BoardResult> {
           const [state, events] = await rec.step(t, frame);
+          // every 30 s of the video, what the board knows of the broadcast's graphics: a scoreboard read as cards for good
+          // (its clock changes, so the cuts never show it as staying) shows here as marks unnamed for a long while
+          if (saidAt === null || t < saidAt || t - saidAt >= GRAPHICS_EVERY_S) {
+            saidAt = t;
+            console.info(graphicsLine(rec, t, frame.width, frame.height));
+          }
           return { state: state as unknown as BoardState, events };
         },
         setLists(lists: unknown) {
@@ -150,4 +157,24 @@ function brightness(f: RgbImage): { mean: number; spread: number } {
   }
   const mean = n ? sum / n : 0;
   return { mean, spread: n ? Math.sqrt(Math.max(0, sq / n - mean * mean)) : 0 };
+}
+
+/** How often the board says what it knows of the broadcast's graphics, in seconds of the video. */
+const GRAPHICS_EVERY_S = 30;
+
+/** The cuts the scene has seen, the share of the picture it takes for the broadcast's graphics (and only suspects), and the
+ * marks unnamed for GRAPHICS_EVERY_S or more, where they are (as shares of the frame). */
+function graphicsLine(rec: recognizer.Recognizer, t: number, w: number, h: number): string {
+  const share = (m: Uint8Array | null): string => (m ? `${Math.round((100 * m.reduce((n, v) => n + v, 0)) / m.length)}%` : 'none yet');
+  const old = [...rec.tracks.values()].filter((tr) => tr.named === null && t - tr.first >= GRAPHICS_EVERY_S);
+  const where = old
+    .slice(0, 8)
+    .map((tr) => `(${(tr.box.centre[0] / w).toFixed(2)}, ${(tr.box.centre[1] / h).toFixed(2)})`)
+    .join(' ');
+  const { scene } = rec;
+  return (
+    `Wardeye: at ${t.toFixed(0)} s, ${scene.cuts} cuts seen on the table camera (${scene.cutsAll} in all); ` +
+    `learnt as the broadcast's graphics: ${share(scene.overlay)} of the picture, suspect: ${share(scene.suspect)}; ` +
+    `marks unnamed for ${GRAPHICS_EVERY_S} s or more: ${old.length}${where ? ` at ${where}` : ''}`
+  );
 }
