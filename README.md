@@ -30,7 +30,7 @@ Wardeye comes from the Chrome Web Store: **[Add Wardeye to Chrome](https://chrom
 
 You need desktop Chrome or Edge, version 137 or newer. A recent graphics chip (WebGPU) makes it fast; without one it runs on the processor, much more slowly. The second line of its badge says which.
 
-**From source?** A build from this repository has the whole extension but not the trained models, which ship only inside the extension's package: the store version and the zip of each release ([D-022](docs/decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)). On its own it cannot read a table; see [For developers](#for-developers).
+**From source?** A build from this repository has the whole extension but not the trained models, which reach you only through the extension's package (the store version and the zip of each release, which from version 0.4 downloads them the first time it reads a video) ([D-022](docs/decisions.md#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)). On its own it cannot read a table; see [For developers](#for-developers).
 
 ## Use it
 

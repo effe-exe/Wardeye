@@ -144,3 +144,21 @@ The same listing as 0.2.2, with a new package:
 7. Go to YouTube's home page and search results. Wardeye shows nothing there, even over the previews that play.
 8. Reload a YouTube video: Wardeye comes back by itself. Then take YouTube's access back (`chrome://extensions` → Wardeye → Details → Site access) and reload: Wardeye is gone.
 9. Twitch still works as before.
+
+### Downloaded models (0.4.0, not released yet)
+
+From 0.4.0 the store zip holds no model ([D-038](decisions.md#d-038-the-models-are-downloaded-the-first-time-not-shipped-in-the-zip)): 15.6 MB instead of 192 MB. Before the first such release:
+
+1. **Choose the host** (D-038 lists the two options). It must answer with an `Access-Control-Allow-Origin` header and serve each file whole; Hugging Face does, and so does GitHub Pages for files under 100 MB.
+2. **Pack with the host's address**, naming a fixed version (a commit), so that a file never changes under its address:
+
+   ```bash
+   RIFTEYE_DATA=~/rifteye-data npm run pack:store -w @rifteye/extension -- --out wardeye-0.4.0.zip \
+     --precisions detector:fp32,embedder:fp32+fp16 --models-url https://huggingface.co/OWNER/REPO/resolve/COMMIT/
+   ```
+
+   The pack prints the files to upload, with their sizes and sha256.
+3. **Upload those files, unchanged**, then check that each address serves them: `curl -sI -H 'Origin: chrome-extension://x' URL` shows `200` (or a redirect) and an `access-control-allow-origin` header, and `curl -sL URL | sha256sum` gives the hash the pack printed.
+4. **Test on a fresh profile:** load the zip unpacked, open a Riftbound video, and watch the badge say "downloading ..., the first time only" and then read the table. Reload: no download the second time.
+5. **Listing:** add the `unlimitedStorage` justification ("keeps the recognition models, downloaded once, without the browser clearing them") and say in the description that the first use downloads about 200 MB once. The privacy policy already says so.
+

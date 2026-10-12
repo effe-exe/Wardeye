@@ -150,7 +150,7 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 - **Decision:**
   - The project is free for everyone. It offers no commercial licences, no paid tiers and no paid services.
   - The code stays AGPL-3.0-only, and contributors still sign the CLA, which keeps the licensing in one hand. [D-002](#d-002-permissive-dependencies-only)'s permissive-only rule stays for the same reason.
-  - The trained weights, and the data made from card art and broadcasts, are not published and are not open source. They ship only inside the extension.
+  - The trained weights, and the data made from card art and broadcasts, are not published and are not open source. They ship only inside the extension. (From [D-038](#d-038-the-models-are-downloaded-the-first-time-not-shipped-in-the-zip), the extension downloads them the first time instead; the terms are the same.)
   - Beyond its users, the project shows Gradeon's work on card recognition. The README credits the Maintainer and Gradeon; presenting the tool as Gradeon's waits for [D-021](#d-021-apply-to-riot-for-a-riftbound-app-key).
 - **Why:** the Maintainer's decision. Free and non-commercial also fits Riot's rules: the Legal Jibber Jabber's non-commercial licence, and the developer policies' "Charge money for your app or provide exclusive access" on the list of things not to do.
 
@@ -306,3 +306,28 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
   - **The adapter.** Sites change their pages; the adapter keeps that breakage in one file with its own tests (R8 in [09](research/09-risks-and-open-questions.md)).
   - **Checked so far:** the YouTube player's classes (`ad-showing`, `ad-interrupting`, the clock's `ytp-live`) were read from YouTube's own player stylesheet and script in October 2026. Everything else is tested on a stand-in YouTube page in the browser tests. Before 0.3.0 is submitted, the Maintainer checks it on real YouTube ([releasing.md](releasing.md#the-030-update)).
 - **Not done:** embedded YouTube players on other sites, the mobile site, and YouTube Shorts.
+
+### D-038: The models are downloaded the first time, not shipped in the zip
+
+- **Date:** 2026-10-12. **Status:** accepted; the Maintainer's decision ("go with dynamic model loading"). Amends how [D-022](#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)'s weights reach the viewer; their terms do not change. Where they are hosted is still open (below).
+- **Decision:**
+  - **The zip does not hold the models.** `standalone.json` lists each one under `downloads`: an https address, its sha256 and its size (`pack.mjs --models-url`).
+  - **The first time the engine needs a model, it downloads it, checks its size and hash, and keeps it** in the browser's Cache Storage under its hash (`apps/extension/src/downloads.ts`). From then on it is read from there, with no network.
+    - A file that is not exactly what the package names is refused and not kept.
+    - Kept files the package no longer names are deleted, so an update does not leave old models behind.
+    - The gallery stays in the zip, and its check that the embedder is the one it was made with ([§8 of the architecture](ARCHITECTURE.md#8-model-and-index-versioning)) still applies.
+  - **Only what this browser runs is downloaded.** A GPU with `shader-f16` gets the detector in float32 and the embedder in float16, about 190 MB; WASM gets both in float32, about 233 MB.
+  - **The host needs no permission.** It must allow the download from any origin (CORS). Hugging Face and GitHub Pages do; GitHub release assets do not, and would need a host permission that switches the extension off for everyone until they accept it.
+  - **The download sends no cookie and no referrer.** The host sees the viewer's IP address and that a Wardeye extension asked; nothing else leaves the computer.
+  - **`unlimitedStorage`,** so that the browser does not clear the models to make room. It shows no warning.
+  - **The engine may take as long as it needs to start while it reports progress;** 180 s with no word is a hang. Before, 180 s in all was the limit.
+- **Why:**
+  - Firefox's add-on store takes at most 200 MB, and the store zip is 192 MB (318 MB unpacked). Without the models it is 15.6 MB (40.3 MB unpacked; measured on the 0.3.0 build).
+  - A smaller zip for every install and update.
+  - New models without a new store review, and models for other kinds of streams (virtual tabletops) that only their viewers download.
+  - The weights are no more exposed than before: the zip with them is already public on each GitHub release ([D-035](#d-035-each-releases-zip-is-on-github-too)). They stay closed: all rights reserved, usable only to run Wardeye.
+- **Open: the host.**
+  - **Hugging Face:** CORS, files of any size, a CDN; a third-party account, and the files sit in a public model repository.
+  - **GitHub Pages:** CORS, under the project's own name; files under 100 MB each (the detector is 145 MB, so in two parts, which the extension does not read yet), a soft limit of 100 GB of traffic a month (about 500 first installs), and the files stay in a git history.
+  - Either way, the address names a fixed version (a commit), so that a file never changes under it; the sha256 is checked regardless.
+- **Not done:** the extension cannot yet join a file sent in parts.
