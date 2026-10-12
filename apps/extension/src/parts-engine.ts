@@ -68,7 +68,25 @@ export async function loadParts(ctx: LoadContext): Promise<Parts> {
 
   return {
     decode,
-    findLayout: (frames) => autolayout.autoLayout(frames, timer.wrap('detect', async (frame, box, cardPx) => det.detect(frame, box, cardPx))),
+    findLayout: async (frames) => {
+      // what each look saw, said once a look in the console: a table that is never found can be told apart from frames that
+      // reach the engine blank (a browser that hides a canvas's pixels) or a detector that computes nothing
+      const passes: number[] = [];
+      const detect = timer.wrap('detect', async (...args: Parameters<autolayout.Detect>) => {
+        const boxes = await det.detect(...args);
+        passes.push(boxes.length);
+        return boxes;
+      });
+      const found = await autolayout.autoLayout(frames, detect);
+      const f = frames[frames.length - 1]!;
+      const { mean, spread } = brightness(f);
+      console.info(
+        `Wardeye: looked for the table in ${frames.length} frames of ${f.width} x ${f.height} (brightness ${mean.toFixed(0)}, spread ${spread.toFixed(0)}): ` +
+          (passes.length ? `the detector found ${passes.join(', ')} cards; ` : 'no table window in the picture, the detector did not run; ') +
+          (found ? `the table is ${found.name}` : 'no table found'),
+      );
+      return found;
+    },
     presets: () => Object.values(layouts.LAYOUTS),
     board(layout: Layout): Board {
       const find = detector.makeFinder(det, layout, { detScore: detector.DET_SCORE });
@@ -110,4 +128,19 @@ export async function loadParts(ctx: LoadContext): Promise<Parts> {
       await encModel.session.release();
     },
   };
+}
+
+/** A frame's mean grey level and its standard deviation (0 to 255), from one pixel in 64: a blank frame has no spread. */
+function brightness(f: RgbImage): { mean: number; spread: number } {
+  let n = 0;
+  let sum = 0;
+  let sq = 0;
+  for (let i = 0; i + 2 < f.data.length; i += 3 * 64) {
+    const g = (f.data[i]! + f.data[i + 1]! + f.data[i + 2]!) / 3;
+    sum += g;
+    sq += g * g;
+    n++;
+  }
+  const mean = n ? sum / n : 0;
+  return { mean, spread: n ? Math.sqrt(Math.max(0, sq / n - mean * mean)) : 0 };
 }
