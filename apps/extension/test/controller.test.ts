@@ -104,14 +104,15 @@ describe('the engine document', () => {
     const { c, workers } = setup({ setup: (w) => { if (w.attempt.runtime === 'webgpu') w.initError = new Error('GridSample is not supported'); } });
     await c.frame(req());
     await settle();
-    expect(workers.map((w) => `${w.attempt.runtime} ${w.attempt.detector}/${w.attempt.embedder}`)).toEqual(['webgpu fp32/fp16', 'wasm fp32/fp32']);
+    expect(workers.map((w) => `${w.attempt.runtime} ${w.attempt.detector}/${w.attempt.embedder}`)).toEqual(['webgpu fp32/fp16', 'webgpu fp32/fp32', 'wasm fp32/fp32']);
     expect(workers[0]!.terminated).toBe(true);
+    expect(workers[1]!.terminated).toBe(true);
     expect(c.running).toEqual({ runtime: 'wasm', detector: 'fp32', embedder: 'fp32' });
 
     const bad = setup({ setup: (w) => (w.initError = new Error(`no ${w.attempt.runtime}`)) });
     await bad.c.frame(req());
     await settle();
-    expect(await bad.c.frame(req())).toEqual({ kind: 'unavailable', reason: 'webgpu: detector fp32, embedder fp16: no webgpu; wasm: detector fp32, embedder fp32: no wasm' });
+    expect(await bad.c.frame(req())).toEqual({ kind: 'unavailable', reason: 'webgpu: detector fp32, embedder fp16: no webgpu; webgpu: detector fp32, embedder fp32: no webgpu; wasm: detector fp32, embedder fp32: no wasm' });
   });
 
   it('says with the board why it runs on WASM: what the plan left out, or the ways that would not start', async () => {
@@ -123,7 +124,7 @@ describe('the engine document', () => {
       return r.kind === 'state' ? (r.state?.engine as { note?: string } | undefined)?.note : r.kind;
     };
     const failed = setup({ setup: (w) => { w.engine = true; if (w.attempt.runtime === 'webgpu') w.initError = new Error('GridSample is not supported'); } });
-    expect(await noteOf(failed.c)).toBe('webgpu: detector fp32, embedder fp16: GridSample is not supported');
+    expect(await noteOf(failed.c)).toBe('webgpu: detector fp32, embedder fp16: GridSample is not supported; webgpu: detector fp32, embedder fp32: GridSample is not supported');
     const left = setup({ caps: { jspi: false, gpu: 'nvidia ampere' }, setup: (w) => (w.engine = true) });
     expect(await noteOf(left.c)).toBe('this browser has no WebAssembly JSPI (the native WebGPU runtime needs it)');
     const listed: CatalogRow[] = [{ printing_id: 'A-1', card_id: 'a', name: 'Card A', type: 'Unit' }];

@@ -33,6 +33,15 @@ describe('how the engine runs', () => {
     expect(p.reason).toContain('no float32 detector');
   });
 
+  it('tries the embedder in float32 on WebGPU before WASM, when float16 fails there and the package has both', () => {
+    // Firefox's WebGPU has shader-f16 and rejects one of the float16 embedder's shaders ("ShaderModule with 'Clip' label is invalid")
+    expect(plan(pkg(everything()), gpu()).attempts).toEqual([
+      { runtime: 'webgpu', detector: 'fp32', embedder: 'fp16' },
+      { runtime: 'webgpu', detector: 'fp32', embedder: 'fp32' },
+      { runtime: 'wasm', detector: 'fp32', embedder: 'fp32' },
+    ]);
+  });
+
   it('runs the embedder in float32 on a GPU without shader-f16, when the package has that file', () => {
     expect(plan(pkg(everything()), gpu({ shaderF16: false })).attempts).toEqual([
       { runtime: 'webgpu', detector: 'fp32', embedder: 'fp32' },
