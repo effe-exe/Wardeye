@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { loadedFonts, rgb, styleOf } from './brand';
 import { documentIds, load, offscreenDocuments, twitch, unload, type Loaded } from './harness';
-import { routeTwitch } from './twitch';
+import { makeVideo, routeTwitch } from './twitch';
 
 test('the engine in the extension reads the player: an offscreen document, WebGPU, and its board drawn', async () => {
   test.setTimeout(180_000);
@@ -165,6 +165,51 @@ test("the plays panel lists the tab's plays and each player's side, and a play c
     await expect(page.locator('.rifteye-labels')).toBeHidden();
     await panel.locator('#tab-match').click();
     await expect(panel.locator('#match')).toBeVisible();
+
+    // the panel closes from the badge's plays button, clicked again, and from its own close button
+    const playsButton = page.locator('button.rifteye-plays');
+    await expect(playsButton).toHaveAttribute('aria-label', 'Close the plays panel');
+    const closed = panel.waitForEvent('close');
+    await playsButton.click();
+    await closed;
+    await expect(playsButton).toHaveAttribute('aria-label', 'Open the plays panel');
+    const again = await context.newPage();
+    await again.goto(`chrome-extension://${extId}/panel.html?tab=${tabId}`);
+    await expect(playsButton).toHaveAttribute('aria-label', 'Close the plays panel');
+    await expect(again.locator('#close')).toHaveAttribute('aria-label', 'Close the plays panel');
+    const shut = again.waitForEvent('close');
+    await again.locator('#close').click();
+    await shut;
+    await expect(playsButton).toHaveAttribute('aria-label', 'Open the plays panel');
+  } finally {
+    await unload(loaded);
+  }
+});
+
+test("a bigger player whose picture cannot be read (another site's video, like Twitch's ads) is passed over, and the replay is read", async () => {
+  test.setTimeout(180_000);
+  let loaded: Loaded | null = null;
+  try {
+    loaded = await load();
+    const { context } = loaded;
+    const page = await context.newPage();
+    await page.goto('about:blank');
+    const webm = await makeVideo(page, 16, ['#c0a040', '#40a0c0']);
+    // the "ad" comes from another site, with no CORS header: drawing it taints a canvas for good
+    await context.route('https://ads.wardeye.test/**', (route) => route.fulfill({ status: 200, contentType: 'video/webm', body: webm }));
+    await context.route('https://www.twitch.tv/**', (route) => {
+      if (route.request().url().endsWith('/test.webm')) return route.fulfill({ status: 200, contentType: 'video/webm', body: webm });
+      return route.fulfill({
+        status: 200,
+        contentType: 'text/html',
+        body: `<!doctype html><html><body style="margin:0;background:#000">
+          <video id="ad" src="https://ads.wardeye.test/ad.webm" muted autoplay loop playsinline style="width:1280px;height:720px"></video>
+          <video id="v" src="/test.webm" muted autoplay playsinline style="width:960px;height:540px"></video></body></html>`,
+      });
+    });
+    await page.goto('https://www.twitch.tv/videos/12345');
+    await expect(page.locator('polygon.rifteye-box')).toHaveCount(2, { timeout: 90_000 });
+    await expect(page.locator('.rifteye-label', { hasText: /\S/ })).toHaveText(['Test Unit']);
   } finally {
     await unload(loaded);
   }

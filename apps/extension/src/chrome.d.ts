@@ -83,7 +83,7 @@ declare namespace chrome.scripting {
 
 /** Firefox's sidebar (the plays panel there); Chrome has none, and the namespace is not there. */
 declare namespace chrome {
-  const sidebarAction: { open(): Promise<void> } | undefined;
+  const sidebarAction: { open(): Promise<void>; close(): Promise<void> } | undefined;
 }
 
 /** A small window for the plays panel, where the browser's sidebar will not open (Firefox). */

@@ -58,6 +58,14 @@ function mark(): SVGSVGElement {
 }
 document.getElementById('mark')!.append(mark());
 
+/** Closes the panel. Chrome's side panel and the panel's own window close as a window does; Firefox's sidebar has a call of
+ * its own, which Firefox allows only in answer to a click (the close button's, not the badge's: that one opens a window). */
+function closePanel(): void {
+  if (FIXED === null && chrome.sidebarAction) void chrome.sidebarAction.close().catch(() => window.close());
+  else window.close();
+}
+document.getElementById('close')!.addEventListener('click', closePanel);
+
 // --- pictures ---------------------------------------------------------------------------------------------------------
 
 let art: chrome.runtime.Port | null = null;
@@ -287,6 +295,7 @@ async function follow(force = false): Promise<void> {
   p.onMessage.addListener((m: unknown) => {
     retries = 0;
     if (isSnapshot(m)) render(m);
+    else if ((m as { kind?: unknown } | null)?.kind === 'close') closePanel(); // the badge's plays button, clicked again
   });
   p.onDisconnect.addListener(() => {
     if (line !== p) return;

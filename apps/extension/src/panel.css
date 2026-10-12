@@ -18,7 +18,15 @@ body {
    muted, then the tabs. */
 .wd-top { position: sticky; top: 0; z-index: 1; margin: 0 -14px 16px; padding: 14px 14px 0; background: var(--wd-bg); }
 .wd-head { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; }
-.wd-head-text { min-width: 0; }
+.wd-head-text { min-width: 0; flex: 1; }
+/* Close: at the top right, quiet until pointed at. */
+.wd-close {
+  flex: none; display: grid; place-items: center; width: 28px; height: 28px; margin: -3px -4px 0 0; padding: 0;
+  border: var(--wd-hairline) solid transparent; border-radius: var(--wd-radius-sm); background: transparent; color: var(--wd-muted); cursor: pointer;
+}
+.wd-close svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; }
+.wd-close:hover { color: var(--wd-text); background: var(--wd-surface-2); border-color: var(--wd-border); }
+.wd-close:focus-visible { outline: 2px solid var(--wd-primary); outline-offset: 1px; }
 .wd-mark-slot { flex: none; padding-top: 2px; }
 .wd-mark { display: block; width: 12px; height: 22px; }
 .wd-mark-ward { fill: var(--wd-primary); }

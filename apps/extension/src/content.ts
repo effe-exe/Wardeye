@@ -29,7 +29,11 @@ let online = true;
 let shown = true; // on or off in this tab (Alt+R, the badge's button, the toolbar button)
 let state: State | null = null;
 let video: HTMLVideoElement | null = null;
-const grab = document.createElement('canvas');
+let grab = document.createElement('canvas');
+// Players whose picture the browser will not give (another site's video, such as the ad Twitch plays before a replay when no one
+// is logged in), with what each was playing then: passed over while they play it. A canvas that drew one can never be read
+// again, so the frames are grabbed on a new one after.
+const unreadable = new WeakMap<HTMLVideoElement, string>();
 const art = new Map<string, Promise<ImageBitmap | null>>();
 const waiting = new Map<string, (jpeg: string | null) => void>();
 // Keyed by track id, so a card that stays on the table keeps its marks, its name, and the hover under the pointer, across updates.
@@ -165,7 +169,7 @@ offButton.type = 'button';
 offButton.title = 'Turn Wardeye off (Alt+R)';
 offButton.setAttribute('aria-label', 'Turn Wardeye off (Alt+R)');
 offButton.append(powerSvg());
-const playsButton = el('button', 'rifteye-plays'); // opens the plays panel beside the page
+const playsButton = el('button', 'rifteye-plays'); // opens the plays panel beside the page, or closes it when it is open
 playsButton.type = 'button';
 playsButton.title = 'Plays and players';
 playsButton.setAttribute('aria-label', 'Open the plays panel');
@@ -225,6 +229,7 @@ function findVideo(): HTMLVideoElement | null {
   let area = 0;
   for (const v of site.videos(page)) {
     const r = v.getBoundingClientRect();
+    if (unreadable.get(v) === v.currentSrc) continue;
     if (v.readyState >= 2 && r.width >= 320 && r.width * r.height > area) {
       best = v;
       area = r.width * r.height;
@@ -260,13 +265,18 @@ function tick(): void {
   lastSent = now;
   const t = video.currentTime;
   const key = videoKey() ?? '';
-  capture(video)
+  const v = video;
+  capture(v)
     .then((jpeg) => {
       if (!jpeg || !port) inFlight = false;
       else port.postMessage({ kind: 'frame', t, video: key, jpeg, ...(filledLists().length ? { lists: filledLists() } : {}) });
     })
     .catch(() => {
-      inFlight = false; // a player whose picture cannot be read (a protected stream): nothing to send
+      // a player whose picture cannot be read (an ad from another site, a protected stream): nothing to send. It is passed over
+      // while it plays this, and the next frame is grabbed on a clean canvas, from the next player if there is one
+      inFlight = false;
+      unreadable.set(v, v.currentSrc);
+      grab = document.createElement('canvas');
       setBadge(`${NAME}: this player cannot be read`);
     });
 }
@@ -559,6 +569,7 @@ function sendBoard(now = false): void {
       p.postMessage(s);
     } catch {
       panels.delete(p); // the panel was closed
+      panelsChanged();
     }
   }
 }
@@ -572,7 +583,11 @@ function seek(t: number): void {
 chrome.runtime.onConnect.addListener((p) => {
   if (p.name !== 'plays') return;
   panels.add(p);
-  p.onDisconnect.addListener(() => panels.delete(p));
+  panelsChanged();
+  p.onDisconnect.addListener(() => {
+    panels.delete(p);
+    panelsChanged();
+  });
   p.onMessage.addListener((msg: { kind?: unknown; t?: unknown; texts?: unknown }) => {
     if (msg?.kind === 'seek' && typeof msg.t === 'number') seek(msg.t);
     else if (msg?.kind === 'lists' && Array.isArray(msg.texts)) {
@@ -607,8 +622,25 @@ offButton.addEventListener('click', (e) => {
 playsButton.addEventListener('click', (e) => {
   e.preventDefault();
   e.stopPropagation();
-  chrome.runtime.sendMessage({ kind: 'open-panel' }).catch(() => {}); // the worker opens the browser's side panel on it
+  if (panels.size === 0) {
+    chrome.runtime.sendMessage({ kind: 'open-panel' }).catch(() => {}); // the worker opens the browser's side panel on it
+    return;
+  }
+  // a panel is open on this tab: it is asked to close itself (the side panel, Firefox's sidebar, or its own window)
+  for (const p of panels) {
+    try {
+      p.postMessage({ kind: 'close' });
+    } catch {
+      panels.delete(p);
+    }
+  }
+  panelsChanged();
 });
+
+/** The plays button says what a click on it will do. */
+function panelsChanged(): void {
+  playsButton.setAttribute('aria-label', panels.size ? 'Close the plays panel' : 'Open the plays panel');
+}
 chrome.runtime.onMessage.addListener((msg: { kind?: unknown }, _sender, sendResponse) => {
   if (msg?.kind === 'toggle') toggle();
   else if (msg?.kind !== 'hello') return; // 'hello': the worker asks whether Wardeye is already in this tab
