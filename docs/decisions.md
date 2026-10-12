@@ -331,3 +331,26 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
   - **GitHub Pages:** CORS, under the project's own name; files under 100 MB each (the detector is 145 MB, so in two parts, which the extension does not read yet), a soft limit of 100 GB of traffic a month (about 500 first installs), and the files stay in a git history.
   - Either way, the address names a fixed version (a commit), so that a file never changes under it; the sha256 is checked regardless.
 - **Not done:** the extension cannot yet join a file sent in parts.
+
+### D-039: Firefox, from the same code
+
+- **Date:** 2026-10-12. **Status:** accepted; the Maintainer's decision ("we need it available for firefox"). Built, not yet run in Firefox: this environment has none, and the Maintainer tests it ([releasing.md](releasing.md#firefox)). Needs [D-038](#d-038-the-models-are-downloaded-the-first-time-not-shipped-in-the-zip).
+- **Decision:** One code base; `build.mjs --firefox` and `pack.mjs --firefox` make the Firefox add-on. What differs:
+  - **The engine runs in the background page.** Firefox has no offscreen documents, and its background page is a page. The engine's page is `engine-document.ts`, and two things reach it:
+    - in Chrome, `offscreen.ts`, by runtime messages, as before;
+    - in Firefox, `background-firefox.ts`, which holds it together with the worker's code (`engine-link.ts`).
+  - **The manifest:**
+    - a background script (`background.scripts`), not a service worker;
+    - Firefox's sidebar for the plays panel. Where it will not open from a click on the badge, the panel opens in a small window of its own;
+    - the add-on's id, `wardeye@effe-exe.github.io`, which never changes once published;
+    - Firefox 141 or newer, the first with WebGPU;
+    - `data_collection_permissions: none`, which Mozilla's store asks of every new add-on;
+    - no offscreen, side panel or cross-origin isolation keys.
+  - **The code calls Firefox's own `browser` namespace,** whose calls all return promises: the build rewrites `chrome` to `globalThis.browser`.
+  - **WebGPU through onnxruntime-web's Asyncify runtime,** the same native WebGPU backend as Chrome's but built without JSPI, which Firefox has only lately or not at all.
+  - **The models are downloaded** (D-038): Mozilla's store takes at most 200 MB. A zip with the models in it is for a test only.
+- **What to expect:**
+  - **WebGPU is on in Firefox for Windows (141 and newer) and Apple-silicon Macs (147 and newer).** On Linux and Intel Macs it may be off.
+  - **Without WebGPU, the engine runs on the processor with one thread.** Firefox gives extension pages no cross-origin isolation (Mozilla bug 1673477), so no WASM threads. Not measured; estimated at several times slower than Chrome's four threads, which already take 7.5 s a frame on a 4-core CPU without a GPU. The badge says "on the processor".
+  - **Not checked in a real Firefox:** WebGPU in a background page's worker, the Asyncify runtime's speed, the typefaces' addresses in the overlay, the sidebar and the window fallback, and the YouTube prompt.
+- **Why one code base:** a second extension would drift from the first. The differences are in the build (the manifest, the namespace, the runtime) and in one file each for the engine's host.

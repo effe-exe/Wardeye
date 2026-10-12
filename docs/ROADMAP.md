@@ -69,7 +69,7 @@ flowchart LR
 - VOD library with precomputed, human-reviewed timelines, searchable by card, legend and player
 - The extension shows precomputed timelines on processed VODs (exact sync through the media clock)
 - Caster-audio mentions and production-graphics recognition in the fusion
-- Firefox port
+- Firefox port: built from the same code ([D-039](decisions.md#d-039-firefox-from-the-same-code)), to be tested in Firefox and submitted to addons.mozilla.org
 
 ## M5: Broadcaster kit and Twitch Extension (later)
 

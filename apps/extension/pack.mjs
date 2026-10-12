@@ -29,7 +29,8 @@
 // --stage       where the staging folder of symlinks goes (default: a folder of its own under the temp folder)
 // --firefox     the Firefox zip (decision D-039), for addons.mozilla.org: --store's zip, from the Firefox build (npm run build:firefox
 //               -w @rifteye/extension: --dist defaults to dist-firefox/), with onnxruntime-web's Asyncify WebGPU runtime instead of
-//               the JSPI one, and never the models, which Firefox's store would refuse at that size: --models-url is required.
+//               the JSPI one. Firefox's store takes at most 200 MB, so the zip for it is made with --models-url; without, the
+//               models go in, and the zip is for a test only (about:debugging, Load Temporary Add-on).
 // --models-url  the models are not put in the zip (decision D-038): the extension downloads each the first time it needs it,
 //               from this https address followed by the file's name, and checks it against the size and sha256 written in
 //               standalone.json. Upload the files it lists there, unchanged, before the zip is published.
@@ -147,7 +148,8 @@ function parseArgs(argv) {
     // one zip, made the way the store takes it: nothing of the private build's parts, and its runtime is the browser's to choose
     for (const flag of ['--part-bytes', '--size-only', '--runtime', '--layout', '--no-verify']) if (given.has(flag)) fail(`${flag} does not apply to --store (one zip, always checked, its runtime is auto)`);
     if (!o.out) fail(USAGE);
-    if (o.firefox && !o.modelsUrl) fail('--firefox needs --models-url: Firefox\'s store takes at most 200 MB, and the models are more (D-039)');
+    // with the models in it, the zip is too big for Firefox's store (200 MB at most), but loads as a temporary add-on, for a test
+    if (o.firefox && !o.modelsUrl) console.warn('pack: the models go in the zip: for a test in about:debugging only. addons.mozilla.org takes at most 200 MB: pack it with --models-url (D-039)');
   } else if (!o.sizeOnly && !o.out) fail(USAGE);
   o.dist ??= here(o.firefox ? './dist-firefox' : o.store ? './dist-store' : './dist');
   if (!o.models) fail('--models: name the folder with the ONNX files, or set RIFTEYE_DATA to the private data folder');

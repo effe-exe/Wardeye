@@ -63,7 +63,7 @@ The plays and the lists stay in the tab and go when it closes. The two settings 
 
 What works today, on Twitch, and on YouTube from version 0.3: the face-up cards on the table are outlined and named as they are played, with a hover card for each; cards stacked under others are remembered. The recognition runs in the browser, on WebGPU or, more slowly, on the processor.
 
-Not yet: embedded YouTube players on other sites, and Firefox ([roadmap](docs/ROADMAP.md)).
+Not yet: embedded YouTube players on other sites. Firefox is built and in testing ([D-039](docs/decisions.md#d-039-firefox-from-the-same-code)).
 
 Known issues in 0.2.3: the rune count can be a rune or two off where runes are stacked tight, in a column or a fan, and the exhausted count is often short there. A card held still in a hand over the table can be read for a moment. A legend can be misread if you turn Wardeye on after its die is down. On a co-stream, what the streamer lays over the table (a webcam, a scoreboard) is known once the stream has cut away from the table a few times: before then a scoreboard's portraits can be read as cards, and Wardeye drops them, and withdraws their plays from the panel, once it knows. A part of a scoreboard that changes, such as its score track, can still be read as a card now and then.
 

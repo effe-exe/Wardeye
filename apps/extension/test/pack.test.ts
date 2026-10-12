@@ -325,10 +325,11 @@ describe.skipIf(!haveZip)('pack.mjs --store: the Chrome Web Store zip', () => {
     writeFileSync(join(ort, 'ort-wasm-simd-threaded.asyncify.wasm'), 'ort asyncify wasm');
     const zip = join(out, 'wardeye-firefox.zip');
     const firefoxArgs = (...more: string[]) => ['--firefox', '--dist', firefoxDist, '--ort', ort, '--models', models, '--assets', assets, '--stage', stage, ...more];
-    // without --models-url it is refused: the models would make it too big for Firefox's store
-    const refused = run(firefoxArgs('--out', zip));
-    expect(refused.status).not.toBe(0);
-    expect(refused.stderr).toContain('--firefox needs --models-url');
+    // without --models-url the models go in, for a test in about:debugging, and it says the zip is too big for Firefox's store
+    const local = run(firefoxArgs('--out', zip));
+    expect(local.status, local.stderr).toBe(0);
+    expect(local.stderr).toContain('for a test in about:debugging only');
+    expect([...readZip(readFileSync(zip)).keys()]).toContain('models/detector-v0.onnx');
     const r = run(firefoxArgs('--out', zip, '--models-url', 'https://huggingface.co/owner/wardeye-models/resolve/0123abc/'));
     expect(r.status, r.stderr).toBe(0);
     const names = [...readZip(readFileSync(zip)).keys()];

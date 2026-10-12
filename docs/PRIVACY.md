@@ -1,6 +1,6 @@
 # Wardeye privacy policy
 
-**Last updated: 12 October 2026.** Wardeye is a free, open-source browser extension, a community project by Federico Vietti. This policy covers the extension as published on the Chrome Web Store. Its code is public, so everything below can be checked in [apps/extension](../apps/extension/).
+**Last updated: 12 October 2026.** Wardeye is a free, open-source browser extension, a community project by Federico Vietti. This policy covers the extension as published on the Chrome Web Store and, once it is there, on Firefox Add-ons. Its code is public, so everything below can be checked in [apps/extension](../apps/extension/).
 
 ## In short
 

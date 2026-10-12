@@ -171,3 +171,37 @@ From 0.4.0 the store zip holds no model ([D-038](decisions.md#d-038-the-models-a
 4. **Test on a fresh profile:** load the zip unpacked, open a Riftbound video, and watch the badge say "downloading ..., the first time only" and then read the table. Reload: no download the second time.
 5. **Listing:** add the `unlimitedStorage` justification ("keeps the recognition models, downloaded once, without the browser clearing them") and say in the description that the first use downloads about 200 MB once. The privacy policy already says so.
 
+## Firefox
+
+The Firefox add-on is built from the same code ([D-039](decisions.md#d-039-firefox-from-the-same-code)). Its zip goes to [addons.mozilla.org](https://addons.mozilla.org/developers/) (AMO), which takes at most 200 MB, so the models are downloaded ([D-038](decisions.md#d-038-the-models-are-downloaded-the-first-time-not-shipped-in-the-zip)).
+
+**Build and pack:**
+
+```bash
+npm run build:firefox -w @rifteye/extension            # apps/extension/dist-firefox
+# for a test on your own Firefox, the models in the zip (too big for AMO):
+RIFTEYE_DATA=~/rifteye-data npm run pack:firefox -w @rifteye/extension -- --out wardeye-firefox-test.zip --precisions detector:fp32,embedder:fp32+fp16
+# for AMO, the models downloaded from Hugging Face:
+RIFTEYE_DATA=~/rifteye-data npm run pack:firefox -w @rifteye/extension -- --out wardeye-firefox-0.4.0.zip \
+  --precisions detector:fp32,embedder:fp32+fp16 --models-url https://huggingface.co/OWNER/wardeye-models/resolve/COMMIT/
+```
+
+**Test it in Firefox** (141 or newer; this list is the first real run, so note what fails):
+
+1. Unzip the test zip. In Firefox open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on**, and pick the `manifest.json` in the folder. (Or, with Node: `npx web-ext run --source-dir FOLDER`.) A temporary add-on goes when Firefox closes.
+2. Lint it as AMO will: `npx web-ext lint --source-dir FOLDER`. Note every error and warning.
+3. Open a Riftbound replay on twitch.tv. If no badge appears, open the extensions menu (the puzzle piece) and allow Wardeye on twitch.tv.
+4. Point at the badge: its second line says how the engine runs (WebGPU, or on the processor) and where a frame's time goes. Note the whole line.
+5. The cards are boxed on the video, in the right place, in Wardeye's typefaces. Point at one: the hover card shows its picture.
+6. The badge's list button opens the plays panel: in Firefox's sidebar, or in a small window. Click a play: the replay jumps to it.
+7. The toolbar button turns Wardeye off and on; Alt+R does too.
+8. On YouTube (a video whose title says Riftbound): click the toolbar button, allow YouTube, and it starts.
+9. Open `about:debugging`, then **Inspect** next to Wardeye: the console shows any error the background page had.
+
+**Submit to AMO** (once the test passes and the models are on Hugging Face):
+
+- **Listing:** the same name, summary and description as the Chrome Web Store's; category Entertainment. The privacy policy: [PRIVACY.md](PRIVACY.md).
+- **Data collection:** none (the manifest says so).
+- **Source code:** AMO asks for the sources of bundled code. Answer with the repository's URL and its commit, and the build command (`npm ci && npm run build:firefox -w @rifteye/extension`). onnxruntime-web's files in `ort/` are the npm package's own (version in `package-lock.json`).
+- **Notes to the reviewer:** the models are data downloaded from Hugging Face the first time and checked against the sha256 in `standalone.json`; no code is downloaded.
+
