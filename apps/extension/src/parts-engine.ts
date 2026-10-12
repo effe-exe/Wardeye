@@ -43,9 +43,13 @@ export async function loadParts(ctx: LoadContext): Promise<Parts> {
   }
   // one run of each, so that the first frame does not wait for the GPU's shaders to compile
   progress('warming up the detector');
+  const warm = performance.now();
   await det.detectTiles([image.rgbImage(detector.TILE, detector.TILE)]);
+  const warmDet = performance.now() - warm;
   progress('warming up the embedder');
   await encoder.embed([image.rgbImage(64, 90)]);
+  // what a first run costs here (shaders compiled, weights moved): a browser whose GPU path is slow says so in the console
+  console.info(`Wardeye: warmed up on ${attempt.runtime}: the detector in ${warmDet.toFixed(0)} ms, the embedder in ${(performance.now() - warm - warmDet).toFixed(0)} ms`);
 
   const pyramids = new Map<string, retrieval.Pyramid>();
   const pyramidFor = (layout: Layout): retrieval.Pyramid => {
@@ -72,9 +76,12 @@ export async function loadParts(ctx: LoadContext): Promise<Parts> {
       // what each look saw, said once a look in the console: a table that is never found can be told apart from frames that
       // reach the engine blank (a browser that hides a canvas's pixels) or a detector that computes nothing
       const passes: number[] = [];
+      let detectMs = 0;
       const detect = timer.wrap('detect', async (...args: Parameters<autolayout.Detect>) => {
+        const at = performance.now();
         const boxes = await det.detect(...args);
         passes.push(boxes.length);
+        detectMs += performance.now() - at;
         return boxes;
       });
       const found = await autolayout.autoLayout(frames, detect);
@@ -82,7 +89,7 @@ export async function loadParts(ctx: LoadContext): Promise<Parts> {
       const { mean, spread } = brightness(f);
       console.info(
         `Wardeye: looked for the table in ${frames.length} frames of ${f.width} x ${f.height} (brightness ${mean.toFixed(0)}, spread ${spread.toFixed(0)}): ` +
-          (passes.length ? `the detector found ${passes.join(', ')} cards; ` : 'no table window in the picture, the detector did not run; ') +
+          (passes.length ? `the detector found ${passes.join(', ')} cards in ${(detectMs / 1000).toFixed(1)} s; ` : 'no table window in the picture, the detector did not run; ') +
           (found ? `the table is ${found.name}` : 'no table found'),
       );
       return found;
