@@ -360,3 +360,14 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
   - **The embedder's one Clip** (`F.normalize`'s `clamp_min`): Firefox's shader compiler (naga) rejects onnxruntime's Clip shader. It runs as a Max, the same values bit for bit, rewritten as the model is opened on WebGPU after its sha256 is taken (`packages/engine/src/onnx-rewrite.ts`); the next export writes it so (`ml`: `clip_to_max`). The WebGPU engine also tries the float32 embedder before WASM, and a refused shader's compiler message goes with the reason on the badge.
   - **Time:** the first look for the table runs the detector 30 times, longer than a frame's 30 s on Firefox's WebGPU; it gets WASM's 5 minutes there. And Firefox stops a background (event) page after 30 s with no event, the engine with it: the tab pings the worker every 10 s while a frame is read.
   - **WASM is no way on in Firefox:** an extension page there has a single thread, and the detector cannot keep up. Firefox needs WebGPU (141 or newer; 147 on Apple-silicon Macs).
+
+### D-040: A new match in the same video is asked about, never assumed
+
+- **Date:** 2026-10-12. **Status:** accepted; the Maintainer's request ("we need to ask if new match started"). For 0.4.2.
+- **Context:** a VOD of a whole event, or a live stream, plays one game after another. Wardeye kept the first game's legends pinned and its plays on the list through the next ones.
+- **Decision:**
+  - **The plays panel asks** "The table was cleared. Did a new match start?" when a table that held a game (6 or more cards, legends aside) has held one card or none for 20 s of the video. A card only out of sight stays on the board, so a cleared table means the cards were taken off it. Pauses and slow computers change nothing (the video's clock); a seek starts the timing again (`apps/extension/src/match.ts`).
+  - **Start a new match:** the tab gives the match a number of its own, and the engine reads it as another video: a new board, legends and table learnt afresh, the plays list empty. The decklists stay (the same players, often). **Same match:** nothing changes, and it is asked again only after another game on the table.
+  - **A "New match" button** by the plays' heading does it at any time.
+- **Why ask:** a wrong guess would lose a game's plays, and a long pause between turns can look like a cleared table.
+- **Not done:** the question is in the panel only; with the panel closed, nothing asks.

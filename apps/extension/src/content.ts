@@ -11,6 +11,7 @@
 // How it looks is overlay.css (the brand book's section 8); this file makes the markup and never sets a colour.
 
 import { NAME, badge, badgeDetail, badgeParts, becameNamed, belowAnchor, boxClass, captureSize, contentRect, corners, drawn, frameInterval, hoverCard, label, labelAnchor, ticksClass, type State, type Track, type Under } from './geometry';
+import { MatchWatch, onTable } from './match';
 import { MARK_SHAPES, MARK_VIEWBOX } from './mark';
 import type { BoardEvent } from './parts';
 import { PlayLog, sidesOf, type Snapshot } from './plays';
@@ -47,7 +48,32 @@ interface Drawn {
 const drawnBoxes = new Map<string, Drawn>();
 let hovered: string | null = null;
 let hoverAt: PointerEvent | null = null;
-const log = new PlayLog(); // this video's plays, for the plays panel
+const log = new PlayLog(); // this match's plays, for the plays panel
+// A video can hold one match after another (a whole event, a live stream): each video counts its matches, and a new one is
+// read afresh, its own board and plays, as another video is (match.ts). The decklists stay: the same players, often.
+const matches = new Map<string, number>();
+let watch = new MatchWatch(); // the table of the match being read: cleared, the panel asks whether a new match started
+let watchKey = '';
+let staleReply = false; // the frame in flight when a new match began: its answer is of the old one
+
+/** What names the match being read: the video's key, and the match's number after the first. */
+function matchKey(): string {
+  const k = videoKey() ?? '';
+  const n = matches.get(k) ?? 0;
+  return n ? `${k}#${n}` : k;
+}
+
+/** The viewer says a new match started: its board, its plays and the table's watch start over. */
+function newMatch(): void {
+  const k = videoKey() ?? '';
+  matches.set(k, (matches.get(k) ?? 0) + 1);
+  staleReply = inFlight;
+  state = null;
+  draw();
+  watch = new MatchWatch();
+  watchKey = matchKey();
+  sendBoard(true);
+}
 let power: Power = DEFAULT_POWER; // how hard Wardeye works (the panel's settings), from the extension's storage
 let view: View = DEFAULT_VIEW; // what stays on the video (the panel's settings)
 chrome.storage.local.get(['power', 'view']).then((v) => {
@@ -201,11 +227,24 @@ function connect(): void {
   p.onMessage.addListener((msg: { kind: string; online?: boolean; state?: State | null; events?: BoardEvent[]; printing_id?: string; jpeg?: string | null }) => {
     if (msg.kind === 'state') {
       inFlight = false;
+      if (staleReply) {
+        staleReply = false; // the old match's last frame: the new one starts with the next
+        return;
+      }
       online = Boolean(msg.online);
       state = online ? (msg.state ?? state) : null;
       draw();
-      const fresh = Array.isArray(msg.events) ? log.add(videoKey() ?? '', msg.events) : [];
-      sendBoard(fresh.length > 0);
+      const fresh = Array.isArray(msg.events) ? log.add(matchKey(), msg.events) : [];
+      let asked = false;
+      if (online && state) {
+        if (watchKey !== matchKey()) {
+          watch = new MatchWatch();
+          watchKey = matchKey();
+        }
+        const was = watch.asking;
+        asked = watch.see(state.t, onTable(state)) !== was;
+      }
+      sendBoard(fresh.length > 0 || asked);
     } else if (msg.kind === 'art' && msg.printing_id) {
       waiting.get(msg.printing_id)?.(msg.jpeg ?? null);
       waiting.delete(msg.printing_id);
@@ -284,7 +323,7 @@ function tick(): void {
   inFlight = true;
   lastSent = now;
   const t = video.currentTime;
-  const key = videoKey() ?? '';
+  const key = matchKey(); // the engine reads a new match as it reads another video: afresh
   const v = video;
   capture(v)
     .then((jpeg) => {
@@ -561,11 +600,11 @@ function filledLists(): string[] {
 
 /** What the plays panel shows of this tab. */
 function snapshot(): Snapshot {
-  log.add(videoKey() ?? '', []); // another video: its plays start over
+  log.add(matchKey(), []); // another video, or a new match: its plays start over
   const read = (state as { lists?: unknown } | null)?.lists;
   return {
     kind: 'board',
-    video: videoKey() ?? '',
+    video: matchKey(),
     title: site.title(document.title),
     on: active(),
     live: isLive(), // a live stream: its plays cannot be jumped to
@@ -573,6 +612,7 @@ function snapshot(): Snapshot {
     message: state?.message ?? '',
     sides: sidesOf(state),
     plays: [...log.plays],
+    asking: watch.asking,
     // each box, with what the engine made of its list (the engine reads the filled boxes, in order)
     lists: listsNow().map((text, i) => {
       const k = listsNow().slice(0, i).filter((x) => x !== '').length;
@@ -612,6 +652,11 @@ chrome.runtime.onConnect.addListener((p) => {
   });
   p.onMessage.addListener((msg: { kind?: unknown; t?: unknown; texts?: unknown }) => {
     if (msg?.kind === 'seek' && typeof msg.t === 'number') seek(msg.t);
+    else if (msg?.kind === 'new-match') newMatch();
+    else if (msg?.kind === 'same-match') {
+      watch.answered();
+      sendBoard(true);
+    }
     else if (msg?.kind === 'lists' && Array.isArray(msg.texts)) {
       // the decklists pasted in the panel, for this video: they go with the next frame, and the panel hears what was made of them
       lists = msg.texts.slice(0, LIST_SLOTS).map((x) => (typeof x === 'string' ? x.trim().slice(0, 20_000) : ''));

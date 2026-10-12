@@ -166,6 +166,18 @@ test("the plays panel lists the tab's plays and each player's side, and a play c
     await panel.locator('#tab-match').click();
     await expect(panel.locator('#match')).toBeVisible();
 
+    // a new match in the same video: the plays start over, and the engine reads the table afresh (the stand-in card is
+    // played again, in the new match); the question asked when the table is cleared is match.ts's, tested on its own
+    await expect(panel.locator('#ask')).toBeHidden();
+    await panel.locator('#new-match').click();
+    await expect(plays).toHaveCount(0, { timeout: 5_000 });
+    await page.evaluate(() => {
+      const v = document.querySelector('video')!; // the stand-in replay is short, and has ended by now: it is played again
+      v.currentTime = 0;
+      void v.play();
+    });
+    await expect(plays).toHaveCount(1, { timeout: 90_000 });
+
     // the panel closes from the badge's plays button, clicked again, and from its own close button
     const playsButton = page.locator('button.rifteye-plays');
     await expect(playsButton).toHaveAttribute('aria-label', 'Close the plays panel');

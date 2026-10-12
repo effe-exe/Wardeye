@@ -49,6 +49,8 @@ export interface Snapshot {
   message: string;
   sides: Side[];
   plays: BoardEvent[];
+  /** The table was cleared: the panel asks whether a new match started (match.ts). */
+  asking?: boolean;
   /** The decklists pasted for this video, and what the engine made of each (null until a frame has been read with it). */
   lists: { text: string; read: ListSummary | null }[];
 }

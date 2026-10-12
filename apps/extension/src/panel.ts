@@ -26,6 +26,7 @@ const playersEl = document.getElementById('players')!;
 const playsEl = document.getElementById('plays')!;
 const noteEl = document.getElementById('plays-note')!;
 const listsEl = document.getElementById('lists')!;
+const askEl = document.getElementById('ask')!;
 const SLOTS = 2; // a box for each player, as the content script keeps them
 
 let tabId: number | null = null;
@@ -251,6 +252,7 @@ function drawSlots(s: Snapshot | null): void {
 
 function render(s: Snapshot | null): void {
   if (!s) {
+    askEl.hidden = true;
     if (shownLists !== 'none') drawSlots(null);
     shownLists = 'none';
     statusEl.textContent = 'Open a Riftbound video on Twitch or YouTube: its plays are listed here as Wardeye reads the table. On YouTube, click Wardeye\'s toolbar button once to allow it there.';
@@ -260,6 +262,7 @@ function render(s: Snapshot | null): void {
     shownPlays = '';
     return;
   }
+  askEl.hidden = !s.asking;
   statusEl.textContent = !s.on ? 'Off in this tab: nothing is read. Turn it on from the badge, the toolbar button or Alt+R.' : s.message || 'Reading the table';
   playersEl.replaceChildren(...s.sides.map(sideSection));
   const lists = s.lists ?? [];
@@ -305,6 +308,21 @@ async function follow(force = false): Promise<void> {
   });
   line = p;
 }
+
+// --- a new match in the same video: the answers, and the button ---------------------------------------------------
+
+/** Tells the tab: a new match started (its plays and board start over), or the cleared table was the same match. */
+function answer(kind: 'new-match' | 'same-match'): void {
+  try {
+    line?.postMessage({ kind });
+  } catch {
+    // the tab is gone: there is nothing to start over
+  }
+  askEl.hidden = true;
+}
+document.getElementById('ask-new')!.addEventListener('click', () => answer('new-match'));
+document.getElementById('ask-same')!.addEventListener('click', () => answer('same-match'));
+document.getElementById('new-match')!.addEventListener('click', () => answer('new-match'));
 
 // --- the tabs: the match, the decklists, and the settings ------------------------------------------------------------
 
