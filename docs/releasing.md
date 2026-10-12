@@ -147,6 +147,8 @@ The same listing as 0.2.2, with a new package:
 
 ### Downloaded models (0.4.0)
 
+**Submitted** to the Chrome Web Store on 2026-10-12: `wardeye-0.4.0.zip`, sha256 `155f6af6a0fc86f60621ab6e8bf6b8aaee0d6d549b4c9b7282349cf5da1c4c42`, built from commit `11a2f7a`. It has YouTube, the downloaded models, the panel's close button, and the fix for a player that cannot be read (Twitch's ads). Firefox is not submitted yet: its WebGPU rejects one of ONNX Runtime's shaders, see [Firefox](#firefox).
+
 From 0.4.0 the store zip holds no model ([D-038](decisions.md#d-038-the-models-are-downloaded-the-first-time-not-shipped-in-the-zip)): 15.6 MB instead of 192 MB. The models are on Hugging Face, at [ilDoc/wardeye-models](https://huggingface.co/ilDoc/wardeye-models), and 0.4.0 downloads them from commit `8b1c31efef5662038f941035199374aac26d8d4f`:
 
 | File | Bytes | sha256 |
