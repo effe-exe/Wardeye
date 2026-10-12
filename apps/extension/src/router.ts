@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
-// One engine, several Twitch tabs. Frames wait their turn and run one at a time; a tab's frame that has not begun
+// One engine, several video tabs. Frames wait their turn and run one at a time; a tab's frame that has not begun
 // when its next one arrives is dropped (only the newest is worth reading), so the tab that sends frames is the one
 // that is answered, and a tab never queues behind itself.
 

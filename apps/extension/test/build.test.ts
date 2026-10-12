@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { YOUTUBE_ORIGINS } from '../src/access';
 import { FEED_URL, IMAGE_ORIGIN } from '../src/feed';
 import { MARK_SHAPES } from '../src/mark';
 
@@ -75,6 +76,12 @@ describe('the build of the extension', () => {
     expect(JSON.stringify(manifest)).not.toMatch(/rifteye/i);
   });
 
+  it('runs the overlay once in a page, however often it is injected (the toolbar button injects it into YouTube tabs)', () => {
+    const js = built('content.js');
+    expect(js.startsWith('if (!globalThis.__wardeye) { globalThis.__wardeye = true;\n')).toBe(true);
+    expect(js.trimEnd().endsWith('\n}')).toBe(true);
+  });
+
   it('declares its four icons, and ships them: PNGs of the sizes they are named for', () => {
     expect(Object.keys(manifest.icons).sort((a, b) => Number(a) - Number(b))).toEqual(['16', '32', '48', '128']);
     for (const [size, path] of Object.entries(manifest.icons)) {
@@ -84,10 +91,10 @@ describe('the build of the extension', () => {
     }
   });
 
-  it('copies the three typefaces, and each one licence, into dist/fonts, and makes those typefaces web accessible to twitch.tv and nothing else', () => {
+  it('copies the three typefaces, and each one licence, into dist/fonts, and makes those typefaces web accessible to the two sites and nothing else', () => {
     for (const { file } of brand.FONTS) expect(readFileSync(join(dist, file)).equals(readFileSync(join(BRAND, file))), file).toBe(true);
     expect(readdirSync(join(dist, 'fonts')).filter((n) => n.startsWith('OFL-')).sort()).toEqual(['OFL-Inter.txt', 'OFL-JetBrainsMono.txt', 'OFL-SpaceGrotesk.txt']);
-    expect(manifest.web_accessible_resources).toEqual([{ resources: brand.FONTS.map((f) => f.file), matches: ['https://www.twitch.tv/*'] }]);
+    expect(manifest.web_accessible_resources).toEqual([{ resources: brand.FONTS.map((f) => f.file), matches: ['https://www.twitch.tv/*', ...YOUTUBE_ORIGINS] }]);
     for (const r of manifest.web_accessible_resources.flatMap((w) => w.resources)) expect(existsSync(join(dist, r)), r).toBe(true);
   });
 
@@ -165,7 +172,7 @@ describe('the build of the extension', () => {
 
   it('builds the plays panel and opens it in the side panel: its page loads its own script and stylesheet, and nothing else', () => {
     expect(manifest.side_panel).toEqual({ default_path: 'panel.html' });
-    expect(manifest.permissions).toEqual(['offscreen', 'sidePanel', 'storage']);
+    expect(manifest.permissions).toContain('sidePanel');
     const html = built('panel.html');
     expect([...html.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1])).toEqual(['panel.css', 'panel.js']);
     expect(html).not.toMatch(/https?:\/\//);
@@ -253,10 +260,14 @@ describe('the store build of the extension (node build.mjs --store)', () => {
     expect(JSON.stringify(manifest)).not.toContain('127.0.0.1');
     expect(manifest.host_permissions).toEqual(['https://content.publishing.riotgames.com/*', 'https://cmsassets.rgpub.io/*']); // exactly these two
     expect({ ...manifest, host_permissions: srcManifest.host_permissions }).toEqual(srcManifest); // every other key as it is in src/manifest.json
-    expect(manifest.version).toBe('0.2.3');
-    expect(manifest.permissions).toEqual(['offscreen', 'sidePanel', 'storage']); // the engine's document, and the plays panel beside the page
+    expect(manifest.version).toBe('0.3.0');
+    // the engine's document, the plays panel beside the page, the settings, and YouTube once the viewer allows it (access.ts):
+    // the script registered for its pages, and the toolbar button's tab, whose address says it is YouTube. None of the five shows
+    // a warning, so an update that adds them leaves Wardeye on for everyone (D-037)
+    expect(manifest.permissions).toEqual(['offscreen', 'sidePanel', 'storage', 'scripting', 'activeTab']);
+    expect(manifest.optional_host_permissions).toEqual(YOUTUBE_ORIGINS); // asked for with a click, never at install
     expect((manifest.action as { default_title: string }).default_title).toBe('Wardeye is on. Click to turn it off (Alt+R)'); // the toolbar button, which turns it off
-    expect(manifest.content_scripts.flatMap((c) => c.matches)).toEqual(['https://www.twitch.tv/*']); // it runs on twitch.tv and nowhere else
+    expect(manifest.content_scripts.flatMap((c) => c.matches)).toEqual(['https://www.twitch.tv/*']); // on twitch.tv from the start; on YouTube once allowed
   });
 
   it("asks for the hosts the code reads from: the card list's and the pictures'", () => {

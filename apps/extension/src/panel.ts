@@ -245,7 +245,7 @@ function render(s: Snapshot | null): void {
   if (!s) {
     if (shownLists !== 'none') drawSlots(null);
     shownLists = 'none';
-    statusEl.textContent = 'Open a Riftbound video on Twitch: its plays are listed here as Wardeye reads the table.';
+    statusEl.textContent = 'Open a Riftbound video on Twitch or YouTube: its plays are listed here as Wardeye reads the table. On YouTube, click Wardeye\'s toolbar button once to allow it there.';
     playersEl.replaceChildren();
     playsEl.replaceChildren();
     noteEl.hidden = true;
@@ -291,7 +291,7 @@ async function follow(force = false): Promise<void> {
   p.onDisconnect.addListener(() => {
     if (line !== p) return;
     line = null;
-    render(null); // not a Twitch page, or its page is loading: asked again in a moment
+    render(null); // not a page Wardeye reads, or its page is loading: asked again in a moment
     if (++retries <= RETRIES) retry = setTimeout(() => void follow(true), RETRY_MS);
   });
   line = p;

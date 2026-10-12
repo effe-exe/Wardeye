@@ -34,6 +34,9 @@ mkdirSync(dist, { recursive: true });
 // folds the constant and drops the branch that is not taken (the companion client, in the store build); it renames nothing and
 // squeezes no whitespace.
 const define = { __STORE__: String(store) };
+// content.js runs once in a page. The toolbar button can inject it into a YouTube tab (src/access.ts), and a second copy in a
+// page that already has one would draw a second overlay: the bundle runs only where no copy has run before.
+const once = { banner: { js: 'if (!globalThis.__wardeye) { globalThis.__wardeye = true;' }, footer: { js: '}' } };
 for (const [entry, file, format, reads] of [['content.ts', 'content.js', 'iife', false], ['worker.ts', 'worker.js', 'esm', true], ['offscreen.ts', 'offscreen.js', 'esm', true], ['panel.ts', 'panel.js', 'esm', false]]) {
   await build({
     entryPoints: [here(`./src/${entry}`)],
@@ -43,6 +46,7 @@ for (const [entry, file, format, reads] of [['content.ts', 'content.js', 'iife',
     outfile: join(dist, file),
     legalComments: 'inline',
     ...(reads ? { define, minifySyntax: true } : {}),
+    ...(entry === 'content.ts' ? once : {}),
   });
 }
 // the engine's workers, one for each onnxruntime-web build; "extern wasm" leaves the build's .mjs and .wasm to be

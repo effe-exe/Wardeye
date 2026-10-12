@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Federico Vietti and Wardeye contributors
 //
-// Wardeye on the player itself. While the video plays, this grabs its current frame a few times a
-// second and hands it to the extension's worker, which asks the live runner on this machine; the
+// Wardeye on the player itself, on Twitch and on YouTube (sites.ts knows each site's pages and player). While the video
+// plays, this grabs its current frame a few times a second and hands it to the extension's worker, which asks the engine; the
 // board it answers with is drawn over the picture: each card's corner marks, its name once Wardeye is sure (as much as the
 // viewer's view shows), and its outline and a hover card when you point at it. Paused, or turned off with Alt+R, nothing is
 // read or sent and the board stays.
@@ -16,6 +16,7 @@ import { MARK_SHAPES, MARK_VIEWBOX } from './mark';
 import type { BoardEvent } from './parts';
 import { PlayLog, sidesOf, type Snapshot } from './plays';
 import { DEFAULT_POWER, asPower, paced, type Power } from './power';
+import { TWITCH, siteOf, type PageLike } from './sites';
 import { DEFAULT_VIEW, asView, type View } from './view';
 
 const SVG = 'http://www.w3.org/2000/svg';
@@ -25,7 +26,7 @@ let port: chrome.runtime.Port | null = null;
 let inFlight = false;
 let lastSent = 0;
 let online = true;
-let shown = true;
+let shown = true; // on or off in this tab (Alt+R, the badge's button, the toolbar button)
 let state: State | null = null;
 let video: HTMLVideoElement | null = null;
 const grab = document.createElement('canvas');
@@ -61,6 +62,41 @@ const panels = new Set<chrome.runtime.Port>(); // the plays panels open on this 
 let boardSent = 0;
 const BOARD_EVERY_MS = 1000; // the panel's board, at most once a second; a new play at once
 const SEEK_BEFORE_S = 2; // a play clicked in the panel: the video goes back to just before it
+// The site this page is on. The manifest runs this script on Twitch; on YouTube it is registered once the viewer allows it
+// (access.ts). Either way it runs only on a site sites.ts knows.
+const site = siteOf(new URL(location.href)) ?? TWITCH;
+// the page, as the adapters look at it: the elements their selectors find there are the player's <video> elements
+const page = document as unknown as PageLike<HTMLVideoElement>;
+
+/** What names the video on this page (each video has its own board, plays and decklists), or null on a page with none
+ * to read. Read afresh each time: YouTube moves from video to video without loading a new page. */
+function videoKey(): string | null {
+  return site.key(new URL(location.href));
+}
+
+// Where Wardeye does not start by itself on every video (YouTube: sites.ts startsOn), the videos the viewer turned it on for.
+const turnedOn = new Set<string>();
+
+/** Wardeye reads this tab's video and draws on it: it is on, the page has a video to read, and that video is one it starts on
+ * by itself or one the viewer turned it on for. */
+function active(): boolean {
+  const key = videoKey();
+  return shown && key !== null && (site.startsOn(document.title) || turnedOn.has(key));
+}
+
+/** The toolbar button, Alt+R and the badge's off button. On a video Wardeye did not start on by itself, they turn it on for that
+ * video, and off again; elsewhere they turn it off or on in the tab. */
+function toggle(): void {
+  const key = videoKey();
+  if (active()) return key !== null && turnedOn.delete(key) ? setOn(shown) : setOn(false);
+  if (key !== null && !site.startsOn(document.title)) turnedOn.add(key);
+  setOn(true);
+}
+
+/** A live stream: a play cannot be jumped back to. */
+function isLive(): boolean {
+  return site.live(new URL(location.href), document, video);
+}
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = ''): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -165,7 +201,7 @@ function connect(): void {
       online = Boolean(msg.online);
       state = online ? (msg.state ?? state) : null;
       draw();
-      const fresh = Array.isArray(msg.events) ? log.add(location.pathname, msg.events) : [];
+      const fresh = Array.isArray(msg.events) ? log.add(videoKey() ?? '', msg.events) : [];
       sendBoard(fresh.length > 0);
     } else if (msg.kind === 'art' && msg.printing_id) {
       waiting.get(msg.printing_id)?.(msg.jpeg ?? null);
@@ -175,16 +211,19 @@ function connect(): void {
   p.onDisconnect.addListener(() => {
     port = null;
     inFlight = false;
-    setTimeout(connect, 1000); // the worker was put to sleep: wake it again
+    connectAt = performance.now() + 1000; // the worker was put to sleep: the next frame to read wakes it again
   });
   port = p;
 }
+let connectAt = 0;
+let announced: boolean | null = null; // what the toolbar button was last told
 
-/** The main player: the largest video on the page that has a picture. */
+/** The main player: the largest video the site's adapter offers that has a picture; none on a page with no video to read. */
 function findVideo(): HTMLVideoElement | null {
+  if (videoKey() === null) return null;
   let best: HTMLVideoElement | null = null;
   let area = 0;
-  for (const v of Array.from(document.querySelectorAll('video'))) {
+  for (const v of site.videos(page)) {
     const r = v.getBoundingClientRect();
     if (v.readyState >= 2 && r.width >= 320 && r.width * r.height > area) {
       best = v;
@@ -206,16 +245,25 @@ async function capture(v: HTMLVideoElement): Promise<string | null> {
 function tick(): void {
   video = findVideo();
   place();
-  if (!video || !shown || video.paused || video.ended || inFlight || !port) return; // off (Alt+R) or paused: nothing is read
+  const on = active();
+  if (on !== announced) {
+    announced = on;
+    chrome.runtime.sendMessage({ kind: 'switched', on }).catch(() => {}); // the toolbar button says OFF while nothing is read
+  }
+  // the engine is reached only for a video to read: a page with none, or a video Wardeye is off for, costs nothing
+  if (on && video && !port && performance.now() >= connectAt) connect();
+  if (!video || !on || video.paused || video.ended || inFlight || !port) return; // off (Alt+R) or paused: nothing is read
+  if (site.interrupted(page)) return; // an ad plays in the player: it is not the table
   const now = performance.now();
   if (now - lastSent < paced(frameInterval(state, EVERY_MS), power)) return; // the viewer's performance setting
   inFlight = true;
   lastSent = now;
   const t = video.currentTime;
+  const key = videoKey() ?? '';
   capture(video)
     .then((jpeg) => {
       if (!jpeg || !port) inFlight = false;
-      else port.postMessage({ kind: 'frame', t, video: location.pathname, jpeg, ...(filledLists().length ? { lists: filledLists() } : {}) });
+      else port.postMessage({ kind: 'frame', t, video: key, jpeg, ...(filledLists().length ? { lists: filledLists() } : {}) });
     })
     .catch(() => {
       inFlight = false; // a player whose picture cannot be read (a protected stream): nothing to send
@@ -227,7 +275,7 @@ function tick(): void {
 function place(): void {
   const host = document.fullscreenElement ?? document.body;
   if (root.parentElement !== host) host.append(root);
-  if (!video || !shown) {
+  if (!video || !active() || site.interrupted(page)) {
     if (root.style.display !== 'none') root.style.display = 'none';
     return;
   }
@@ -470,7 +518,7 @@ function moveCard(e: PointerEvent): void {
 
 /** The boxes' lists for this video: another video starts without them, as its plays do. */
 function listsNow(): string[] {
-  if (listsVideo !== location.pathname) lists = [];
+  if (listsVideo !== (videoKey() ?? '')) lists = [];
   return lists;
 }
 
@@ -481,14 +529,14 @@ function filledLists(): string[] {
 
 /** What the plays panel shows of this tab. */
 function snapshot(): Snapshot {
-  log.add(location.pathname, []); // another video: its plays start over
+  log.add(videoKey() ?? '', []); // another video: its plays start over
   const read = (state as { lists?: unknown } | null)?.lists;
   return {
     kind: 'board',
-    video: location.pathname,
-    title: document.title,
-    on: shown,
-    live: !/^\/videos\/\d+/.test(location.pathname), // a live channel: its plays cannot be jumped to
+    video: videoKey() ?? '',
+    title: site.title(document.title),
+    on: active(),
+    live: isLive(), // a live stream: its plays cannot be jumped to
     status: state?.status ?? '',
     message: state?.message ?? '',
     sides: sidesOf(state),
@@ -517,7 +565,7 @@ function sendBoard(now = false): void {
 
 /** A play clicked in the panel: the video goes to just before it (a replay; a live stream cannot go back). */
 function seek(t: number): void {
-  if (!video || !Number.isFinite(t) || !/^\/videos\/\d+/.test(location.pathname)) return;
+  if (!video || !Number.isFinite(t) || isLive()) return;
   video.currentTime = Math.max(0, t - SEEK_BEFORE_S);
 }
 
@@ -530,7 +578,7 @@ chrome.runtime.onConnect.addListener((p) => {
     else if (msg?.kind === 'lists' && Array.isArray(msg.texts)) {
       // the decklists pasted in the panel, for this video: they go with the next frame, and the panel hears what was made of them
       lists = msg.texts.slice(0, LIST_SLOTS).map((x) => (typeof x === 'string' ? x.trim().slice(0, 20_000) : ''));
-      listsVideo = location.pathname;
+      listsVideo = videoKey() ?? '';
       sendBoard(true);
     }
   });
@@ -543,17 +591,18 @@ chrome.runtime.onConnect.addListener((p) => {
 function setOn(on: boolean): void {
   shown = on;
   place();
-  chrome.runtime.sendMessage({ kind: 'switched', on }).catch(() => {}); // the worker may be asleep: it is told again next time
+  announced = active();
+  chrome.runtime.sendMessage({ kind: 'switched', on: announced }).catch(() => {}); // the worker may be asleep: it is told again next time
   sendBoard(true);
 }
 
 document.addEventListener('keydown', (e) => {
-  if (e.altKey && (e.key === 'r' || e.key === 'R' || e.code === 'KeyR')) setOn(!shown);
+  if (e.altKey && (e.key === 'r' || e.key === 'R' || e.code === 'KeyR')) toggle();
 });
 offButton.addEventListener('click', (e) => {
   e.preventDefault();
   e.stopPropagation(); // the player underneath must not take it as a click on the video
-  setOn(false);
+  if (active()) toggle(); // off for this video, or in the tab
 });
 playsButton.addEventListener('click', (e) => {
   e.preventDefault();
@@ -561,13 +610,13 @@ playsButton.addEventListener('click', (e) => {
   chrome.runtime.sendMessage({ kind: 'open-panel' }).catch(() => {}); // the worker opens the browser's side panel on it
 });
 chrome.runtime.onMessage.addListener((msg: { kind?: unknown }, _sender, sendResponse) => {
-  if (msg?.kind !== 'toggle') return;
-  setOn(!shown);
-  sendResponse({ on: shown });
+  if (msg?.kind === 'toggle') toggle();
+  else if (msg?.kind !== 'hello') return; // 'hello': the worker asks whether Wardeye is already in this tab
+  sendResponse({ on: active() });
 });
 setOn(true); // a page that loads again starts on, and the toolbar button says so
 
-connect();
+if (site.early) connect(); // Twitch: the engine gets ready while the page loads; YouTube: once there is a video to read (tick)
 setInterval(tick, 100);
 const follow = (): void => {
   place();

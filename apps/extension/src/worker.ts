@@ -10,6 +10,7 @@
 // holds Riot's card list. Nothing is sent anywhere else. The worker keeps nothing the engine needs: a tab's board lives
 // in the engine document, so the worker can be put to sleep and woken at any time.
 
+import * as access from './access';
 import * as companion from './companion';
 import { RETRY_AFTER_MS } from './mode';
 import { Standalone, cannotReadState, type Env } from './standalone';
@@ -26,7 +27,7 @@ async function ensureDocument(): Promise<void> {
   const here = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
   if (here.length > 0) return;
   creating = chrome.offscreen
-    .createDocument({ url: OFFSCREEN, reasons: ['WORKERS'], justification: "Reads the Twitch player's frames with ONNX Runtime Web, in a worker, on this computer." })
+    .createDocument({ url: OFFSCREEN, reasons: ['WORKERS'], justification: "Reads the video player's frames with ONNX Runtime Web, in a worker, on this computer." })
     .finally(() => {
       creating = null;
     });
@@ -54,10 +55,17 @@ const standalone = new Standalone(env, RETRY_AFTER_MS, __STORE__);
 const ON_TITLE = 'Wardeye is on. Click to turn it off (Alt+R)';
 const OFF_TITLE = 'Wardeye is off. Click to turn it on (Alt+R)';
 void chrome.action.setBadgeBackgroundColor({ color: '#71717A' }).catch(() => {});
-chrome.action.onClicked.addListener((tab) => {
-  if (tab.id === undefined) return;
-  chrome.tabs.sendMessage(tab.id, { kind: 'toggle' }).catch(() => {}); // not a twitch.tv page: there is nothing to turn off
-});
+// On YouTube the first click asks for access to it, and starts Wardeye in the tab (access.ts).
+const browser = access.chromeBrowser();
+chrome.action.onClicked.addListener((tab) => void access.clicked(browser, tab).catch((e: unknown) => console.warn(`Wardeye: ${e instanceof Error ? e.message : String(e)}`)));
+// The overlay's script on YouTube follows the permission: when the worker starts, after an install or an update, and when the
+// viewer gives or takes back access in the browser's own settings.
+const syncAccess = (): void => void access.sync(browser).catch((e: unknown) => console.warn(`Wardeye: YouTube access: ${e instanceof Error ? e.message : String(e)}`));
+syncAccess();
+chrome.runtime.onInstalled.addListener(syncAccess);
+chrome.runtime.onStartup.addListener(syncAccess);
+chrome.permissions.onAdded.addListener(syncAccess);
+chrome.permissions.onRemoved.addListener(syncAccess);
 chrome.runtime.onMessage.addListener((msg: { kind?: unknown; on?: unknown }, sender) => {
   const tabId = sender.tab?.id;
   if (tabId === undefined) return;

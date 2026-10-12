@@ -111,7 +111,7 @@ export class Standalone {
     return null;
   }
 
-  /** A Twitch tab connected: the engine's document is made ready (its models load with the first frame). */
+  /** A video's tab connected: the engine's document is made ready (its models load with the first frame). */
   async warm(): Promise<void> {
     if (!(await this.usable())) return;
     const reply = await this.ask({ target: 'engine', kind: 'hello' });
