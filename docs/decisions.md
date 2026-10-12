@@ -309,7 +309,7 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
 
 ### D-038: The models are downloaded the first time, not shipped in the zip
 
-- **Date:** 2026-10-12. **Status:** accepted; the Maintainer's decision ("go with dynamic model loading"). Amends how [D-022](#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)'s weights reach the viewer; their terms do not change. Where they are hosted is still open (below).
+- **Date:** 2026-10-12. **Status:** accepted; the Maintainer's decision ("go with dynamic model loading"). Amends how [D-022](#d-022-free-for-everyone-closed-weights-a-showcase-for-gradeon)'s weights reach the viewer; their terms do not change. The host is Hugging Face (the Maintainer's choice, "go with hugging face").
 - **Decision:**
   - **The zip does not hold the models.** `standalone.json` lists each one under `downloads`: an https address, its sha256 and its size (`pack.mjs --models-url`).
   - **The first time the engine needs a model, it downloads it, checks its size and hash, and keeps it** in the browser's Cache Storage under its hash (`apps/extension/src/downloads.ts`). From then on it is read from there, with no network.
@@ -326,7 +326,7 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
   - A smaller zip for every install and update.
   - New models without a new store review, and models for other kinds of streams (virtual tabletops) that only their viewers download.
   - The weights are no more exposed than before: the zip with them is already public on each GitHub release ([D-035](#d-035-each-releases-zip-is-on-github-too)). They stay closed: all rights reserved, usable only to run Wardeye.
-- **Open: the host.**
+- **The host: Hugging Face,** a public model repository whose card says the files' terms ([docs/model-card.md](model-card.md)). The options weighed:
   - **Hugging Face:** CORS, files of any size, a CDN; a third-party account, and the files sit in a public model repository.
   - **GitHub Pages:** CORS, under the project's own name; files under 100 MB each (the detector is 145 MB, so in two parts, which the extension does not read yet), a soft limit of 100 GB of traffic a month (about 500 first installs), and the files stay in a git history.
   - Either way, the address names a fixed version (a commit), so that a file never changes under it; the sha256 is checked regardless.

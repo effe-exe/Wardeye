@@ -149,7 +149,16 @@ The same listing as 0.2.2, with a new package:
 
 From 0.4.0 the store zip holds no model ([D-038](decisions.md#d-038-the-models-are-downloaded-the-first-time-not-shipped-in-the-zip)): 15.6 MB instead of 192 MB. Before the first such release:
 
-1. **Choose the host** (D-038 lists the two options). It must answer with an `Access-Control-Allow-Origin` header and serve each file whole; Hugging Face does, and so does GitHub Pages for files under 100 MB.
+1. **The host is a Hugging Face model repository** (D-038), for example `effe-exe/wardeye-models`. Once:
+   - Create it, public, at [huggingface.co/new](https://huggingface.co/new).
+   - Upload its card: the top of [model-card.md](model-card.md) as `README.md`, the part after the line as `LICENSE.md`.
+   - Upload the three model files, exactly as the pack lists them, from `~/rifteye-data/models/onnx/` or from the `models/` folder of the 0.3.0 zip (the same bytes). In the browser: **Files** → **Add file** → **Upload files**. Or from a terminal, after `pip install -U huggingface_hub` and `hf auth login` (a token with write access):
+
+     ```bash
+     hf upload OWNER/wardeye-models models/ . --commit-message "detector-v0 and embedder-v1"
+     ```
+
+   - Take the commit's full hash from the repository's **History** (or `git ls-remote https://huggingface.co/OWNER/wardeye-models refs/heads/main`). The address names that commit, so a file can never change under it.
 2. **Pack with the host's address**, naming a fixed version (a commit), so that a file never changes under its address:
 
    ```bash
