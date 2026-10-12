@@ -114,3 +114,33 @@ The same listing as 0.2.2, with a new package:
   - A little less work on the page while Wardeye is off or the video is paused.
 - **Unchanged:** the description, the single purpose, the permissions and their justifications, no remote code, no data collected.
 - **On GitHub too:** the same zip goes on the release `v0.2.3` ([D-035](decisions.md#d-035-each-releases-zip-is-on-github-too)), with notes saying what changed and that the models inside are not under the AGPL.
+
+### The 0.3.0 update
+
+0.3.0 adds YouTube ([D-037](decisions.md#d-037-youtube-is-asked-for-with-a-click-and-read-only-on-riftbound-videos)). The listing changes in four places.
+
+- **Summary** (the manifest's description, 129 characters): Place the ward. See the table. Wardeye names the cards on the table of Riftbound streams on Twitch and YouTube, on your computer.
+- **Description:** the first line becomes "Wardeye is the ward you place on a Riftbound stream, on Twitch or YouTube." Add this bullet after "Works in theatre mode and fullscreen":
+
+  > - On YouTube, click Wardeye's toolbar button once to allow it there. It then starts by itself on videos whose title names Riftbound; turn it on for any other video with the toolbar button or Alt+R.
+
+- **Single purpose:** Identify the cards visible on the table in Riftbound videos on Twitch and YouTube, and show their names and images on the player.
+- **Permission justifications** for what is new; none shows a warning, so the update leaves Wardeye on for everyone:
+  - `scripting`: runs the overlay on YouTube pages once the user has allowed YouTube, including in a YouTube tab that was already open.
+  - `activeTab`: when the user clicks the toolbar button, tells the extension that the tab is a YouTube page, so that it can ask for YouTube.
+  - `www.youtube.com` (optional host permission): reads the frames of the YouTube video being watched and draws the overlay on the player. It is asked for only when the user clicks the toolbar button on YouTube, and can be taken back in the browser's settings.
+- **Privacy policy:** the new version ([PRIVACY.md](PRIVACY.md), 12 October 2026) says where it runs on YouTube and what it reads there. It is the same URL; nothing to change in the dashboard.
+- **Unchanged:** the name, the category, no remote code, no data collected.
+- **Riot:** the registration says Twitch only. Before 0.3.0 is published, add to the product's description in the Developer Portal: "From version 0.3, also on YouTube, once the user allows it, and only on Riftbound videos unless the user turns it on" ([riot-application.md](riot-application.md)).
+
+**Before submitting, check it on real YouTube** (about 10 minutes; the browser tests use a stand-in page):
+
+1. Load the 0.3.0 zip unpacked, then open a Riftbound video, e.g. [Riftbound National Chengdu, Day 2 Top Cut](https://www.youtube.com/watch?v=xtVH9iBSni4). Nothing should show yet.
+2. Click Wardeye's toolbar button. The browser asks whether Wardeye may read YouTube: allow it. The badge appears on the player, without a reload.
+3. Let it find the table. The cards are boxed on the video, not beside or under it, in the normal view, theatre mode and fullscreen.
+4. If an ad plays, the overlay goes away during it and comes back after.
+5. Open another video from the side list. The plays panel starts over for it.
+6. Open a video whose title does not say Riftbound: nothing shows. The toolbar button turns Wardeye on for it, and off again.
+7. Go to YouTube's home page and search results. Wardeye shows nothing there, even over the previews that play.
+8. Reload a YouTube video: Wardeye comes back by itself. Then take YouTube's access back (`chrome://extensions` → Wardeye → Details → Site access) and reload: Wardeye is gone.
+9. Twitch still works as before.

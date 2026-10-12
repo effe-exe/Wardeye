@@ -7,7 +7,7 @@
 
 <h3 align="center">Place the ward. See the table.</h3>
 
-<p align="center">A free browser extension for Riftbound streams on Twitch.<br><sub>Alpha · AGPL-3.0 · a community project by Federico Vietti · <a href="https://effe-exe.github.io">effe-exe.github.io</a></sub></p>
+<p align="center">A free browser extension for Riftbound streams on Twitch and YouTube.<br><sub>Alpha · AGPL-3.0 · a community project by Federico Vietti · <a href="https://effe-exe.github.io">effe-exe.github.io</a></sub></p>
 
 Wardeye is the ward you place on a Riftbound stream. Point at any card on the table to see its name and official image, as the video plays, live or on replay. It works from the video alone, in your browser: no video leaves your computer.
 
@@ -34,7 +34,8 @@ You need desktop Chrome or Edge, version 137 or newer. A recent graphics chip (W
 
 ## Use it
 
-1. Open a Riftbound stream or replay on twitch.tv. Theatre mode and fullscreen work too.
+1. Open a Riftbound stream or replay on twitch.tv or youtube.com. Theatre mode and fullscreen work too.
+   - **On YouTube**, click Wardeye's toolbar button once on a YouTube video: your browser asks whether Wardeye may read YouTube, and it starts there (from version 0.3). After that it starts by itself on any video whose title names Riftbound. On another video, turn it on with the toolbar button or Alt+R.
 2. The Wardeye badge on the player says what it is doing: finding the table, then how many cards it has named.
 3. Point at a card on the table. The hover card shows its name, its official image, how sure Wardeye is, and what lies under it, such as gear on a unit.
 
@@ -60,9 +61,9 @@ The plays and the lists stay in the tab and go when it closes. The two settings 
 
 ## Status: alpha
 
-What works today, on Twitch: the face-up cards on the table are outlined and named as they are played, with a hover card for each; cards stacked under others are remembered. The recognition runs in the browser, on WebGPU or, more slowly, on the processor.
+What works today, on Twitch, and on YouTube from version 0.3: the face-up cards on the table are outlined and named as they are played, with a hover card for each; cards stacked under others are remembered. The recognition runs in the browser, on WebGPU or, more slowly, on the processor.
 
-Not yet: YouTube ([roadmap](docs/ROADMAP.md)).
+Not yet: embedded YouTube players on other sites, and Firefox ([roadmap](docs/ROADMAP.md)).
 
 Known issues in 0.2.3: the rune count can be a rune or two off where runes are stacked tight, in a column or a fan, and the exhausted count is often short there. A card held still in a hand over the table can be read for a moment. A legend can be misread if you turn Wardeye on after its die is down. On a co-stream, what the streamer lays over the table (a webcam, a scoreboard) is known once the stream has cut away from the table a few times: before then a scoreboard's portraits can be read as cards, and Wardeye drops them, and withdraws their plays from the panel, once it knows. A part of a scoreboard that changes, such as its score track, can still be read as a card now and then.
 

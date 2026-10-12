@@ -287,3 +287,22 @@ Short records of settled decisions. The date is when a decision was taken, **Sta
   - On the replay the engine is checked against (Los Angeles' first 2 minutes at two frames a second), a Charm and the Grim Apothecary are gone, and nothing else changes.
   - A first version also asked the two centres to lie within a quarter of a card. It rested on the Vex, labelled by eye as a second copy, and let two of these false plays through. Five of the plays labelled by eye on Los Angeles were such cards announced again.
   - **Five frames a second is not always better than two.** On Barcelona's first 200 s, two frames a second announce 13 of the 15 plays labelled by eye and five 7 of them; on Los Angeles five find more. On Barcelona, where the hands stay low over the table, three ways a higher rate loses plays were found: a hand over the cards nearby keeps resetting the hand rule's half-second clock; an unsure card spends its 12 reads in under 2.5 s; and boxes settle faster, so a card's first reads come at another size. Pacing the hand rule and the re-reads every half second, and easing the boxes per second instead of per frame, found none of the missed plays, and were not adopted.
+
+### D-037: YouTube is asked for with a click, and read only on Riftbound videos
+
+- **Date:** 2026-10-12. **Status:** accepted; the Maintainer's decision ("enable on YouTube"). Ships in 0.3.0.
+- **Decision:**
+  - **One adapter per site** (`apps/extension/src/sites.ts`). It knows the site's pages, what names a video, which `<video>` is the player, ads and live streams. Nothing else in the extension knows a site's addresses or page structure.
+  - **On YouTube:**
+    - Wardeye reads only a video's own page (`/watch?v=…`, `/live/…`) and only the main player (`#movie_player`). It never reads the home page, search, Shorts, a channel's page or the previews of other videos.
+    - A video is its `?v=` id, so a playlist or a start time in the address is the same video.
+    - Nothing is read, and the overlay is hidden, while an ad plays.
+  - **YouTube is an optional permission** (`apps/extension/src/access.ts`). The first click on Wardeye's toolbar button on a YouTube page asks for it, registers the overlay's script for youtube.com and starts Wardeye in that tab. Taking the permission back, in the browser's extension settings, unregisters the script. The manifest's new permissions, `scripting` and `activeTab`, show no warning.
+  - **Wardeye starts by itself on YouTube only on a video whose title names Riftbound.** Any other video is read once the viewer turns Wardeye on for it, with the toolbar button or Alt+R. The engine, and Riot's card list, are reached only once there is a video to read.
+  - **Twitch reads as before:** every page, started as soon as it opens.
+- **Why:**
+  - **The permission.** An update that adds a site to the manifest switches the extension off for every user until they accept the new permission. And nobody who never watches Riftbound on YouTube should have to give Wardeye access to it.
+  - **The title rule.** YouTube is mostly other videos, and running the models on them would cost the viewer's computer for nothing.
+  - **The adapter.** Sites change their pages; the adapter keeps that breakage in one file with its own tests (R8 in [09](research/09-risks-and-open-questions.md)).
+  - **Checked so far:** the YouTube player's classes (`ad-showing`, `ad-interrupting`, the clock's `ytp-live`) were read from YouTube's own player stylesheet and script in October 2026. Everything else is tested on a stand-in YouTube page in the browser tests. Before 0.3.0 is submitted, the Maintainer checks it on real YouTube ([releasing.md](releasing.md#the-030-update)).
+- **Not done:** embedded YouTube players on other sites, the mobile site, and YouTube Shorts.

@@ -96,6 +96,12 @@ Riot invites questions about grey areas. The description asks the first three in
 3. **The models.** The recognition models were trained on the official card art and on frames of public broadcasts. How does Riot want the art sourced (through the API, we assume), and may the broadcast frames be used for training?
 4. **The maker.** Wardeye is Federico Vietti's community project. He also runs Gradeon, a company; the demo page is hosted on gradeon.ai, and the README credits Gradeon as the maker's other work. Wardeye is not a Gradeon product, has no ads, sales or upsell, and is free for everyone. Is that acceptable?
 
+## Updates to send
+
+Riot asks for registrations to be kept current. What to add to the product's description in the Developer Portal, before each release that changes what Wardeye does:
+
+- **0.3.0 (YouTube):** "From version 0.3, Wardeye also works on YouTube, once the user allows it with a click. There it starts by itself only on videos whose title names Riftbound, and on any other video only when the user turns it on. Nothing else changes: public information only, everything on the user's computer, free" ([D-037](decisions.md#d-037-youtube-is-asked-for-with-a-click-and-read-only-on-riftbound-videos)).
+
 ## What changes once a key is approved
 
 - [D-015](decisions.md#d-015-no-riot-api-no-riot-assets-distributed) is superseded: card data and art come from the Riot API, and nothing else.
